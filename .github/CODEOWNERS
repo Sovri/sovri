@@ -1,0 +1,39 @@
+# Sovri CODEOWNERS
+#
+# Order matters: the LAST matching pattern in this file wins for a given path.
+# Listed owners are automatically requested for review on every pull request
+# that touches the corresponding files. Approval is not required (per the
+# Solo OSS protection profile) but the request creates a clean audit trail.
+#
+# Reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repository
+*                                       @mpiton
+
+# Apache 2.0 packages (public domain logic, security-sensitive)
+/packages/core/                         @mpiton
+/packages/review-engine/                @mpiton
+/packages/llm-providers/                @mpiton
+/packages/config/                       @mpiton
+/packages/observability/                @mpiton
+
+# Apps
+/apps/community-bot/                    @mpiton
+/apps/cloud-api/                        @mpiton
+
+# CI, hooks, container, and security-sensitive root configuration
+/.github/                               @mpiton
+/lefthook.yml                           @mpiton
+/.npmrc                                 @mpiton
+/turbo.json                             @mpiton
+/pnpm-workspace.yaml                    @mpiton
+/package.json                           @mpiton
+/Dockerfile                             @mpiton
+/scripts/                               @mpiton
+
+# Architecture Decision Records
+/docs/adr/                              @mpiton
+
+# Release engineering
+/CHANGELOG.md                           @mpiton
+/RELEASING.md                           @mpiton
