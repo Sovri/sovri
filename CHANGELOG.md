@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 Each pull request that touches `.ts` / `.tsx` source code **must** add an entry to the
 `[Unreleased]` section under the appropriate category. CI enforces this via the
-`changelog-check` gate (see `docs/ARCHI.md` §15.3).
+`changelog-check` gate.
 
 Categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 
@@ -21,33 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
-- `CLAUDE.md` — repository-wide agent instructions covering stack, ALWAYS/NEVER rules,
-  architecture summary, commands, TDD workflow, conventional commits, supply-chain
-  guardrails, and pointers to ARCHI §15/§16.
-- `docs/ARCHI.md` §15 — full CI/CD pipeline specification (`backend-checks`, `knip`,
-  `supply-chain`, `secrets-scan`, `forbidden-tools`, `forbidden-imports`,
-  `build-docker`, `changelog-check`, `release.yml`, `codeql.yml`,
-  `dependency-review.yml`, branch protection rules).
-- `docs/ARCHI.md` §16 — Git hooks specification with `lefthook.yml` and helper
-  scripts (`install-hooks.sh`, `no-secrets.sh`, `no-manual-deps.sh`,
-  `no-forbidden-tools.sh`, `check-boundary.sh`).
-- `docs/adr/011-oxlint-oxfmt.md` — ADR locking oxlint + oxfmt as the sole linter
-  and formatter for TypeScript/JavaScript.
-- `docs/adr/012-lefthook-ci-gates.md` — ADR locking lefthook as the local hook
-  manager and the set of non-negotiable CI gates.
-- `.claude/rules/` — modular Claude Code rules for the project (always-on context
-  + path-scoped guidance for `packages/`, `apps/community-bot/`, `apps/cloud-api/`,
-  tests, ADRs).
-
-### Changed
-
-- `docs/ARCHI.md` §2 — toolchain table extended with lint (oxlint), formatter
-  (oxfmt), hook manager (lefthook), unused-code detector (knip), audit
-  (`pnpm audit`), and SBOM (syft). Explicit rejection of ESLint, Prettier, Biome,
-  husky, simple-git-hooks.
-- `docs/ARCHI.md` §13 — ADR index extended with ADR-011 and ADR-012.
-- `docs/ARCHI.md` §15 (was §15 Glossaire) — renumbered to §17 to make room for
-  CI/CD (§15) and Git hooks (§16) sections.
+- `docs/adr/001..012` — initial set of Architecture Decision Records covering
+  the locked toolchain: Node.js LTS 24 + strict TypeScript, pnpm + Turborepo
+  monorepo, ESM-only modules, Probot, Zod runtime validation, Pino logger,
+  Vitest + MSW testing, tsup bundling, multi-stage Docker on GHCR,
+  Apache 2.0 licensing of the Community edition, oxlint + oxfmt for lint and
+  format, and lefthook + non-negotiable CI gates.
 
 ---
 

@@ -32,7 +32,7 @@ TypeScript configuration:
 ## Consequences
 
 - No raw performance guarantee (acceptable, latency is LLM-bound).
-- Large npm attack surface: compensated by supply chain measures (see ARCHI section 9).
+- Large npm attack surface: compensated by the supply-chain measures listed in ADR-010 and enforced by the CI gates in ADR-012 (`pnpm audit`, license whitelist, SBOM, `ignore-scripts`, signed images).
 - Rust remains an option for auxiliary workers post-v1.0 (AST parsing, embeddings).
 - Strict TypeScript adds initial cost but prevents entire classes of runtime bugs.
 

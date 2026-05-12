@@ -2,7 +2,7 @@
 
 Thanks for considering a contribution. Sovri is a sovereign AI code-review platform for regulated EU enterprises. Every contribution — bug report, feature proposal, or pull request — is welcome.
 
-Before opening a substantial change, please skim `PRD.md` (product scope) and `ARCHI.md` (technical contracts) so the proposal stays inside the project's locked decisions.
+Before opening a substantial change, please open an issue or a discussion so the scope can be validated. Sovri ships a deliberately narrow feature set and several common additions are out of scope by design (see below).
 
 ## How to Contribute
 
@@ -14,7 +14,7 @@ Before opening a substantial change, please skim `PRD.md` (product scope) and `A
 
 ### Suggesting Features
 
-1. Check the [non-objectives section of the PRD](https://github.com/mpiton/sovri/blob/main/PRD.md) — many "obvious" features are intentionally out of scope (SAST engine, DORA metrics, IDE plugin, multi-repo context, etc.).
+1. Several common additions are intentionally out of scope for v1: SAST/secrets/IaC engine of our own (Sovri consumes SARIF, does not produce it), DORA metrics dashboard, IDE plugins, Slack/Teams agent, multi-repo context, code/test/docstring generation, auto-merge. Check existing issues with the `wontfix` label before proposing one of these.
 2. Open an issue with the **Feature Request** template and explain the user problem before the proposed solution.
 
 ### Pull Requests

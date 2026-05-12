@@ -8,7 +8,7 @@
 Sovri's target market is EU regulated enterprises (banks, healthcare, defense, public sector). For a CISO/DPO review of a third-party code reviewer, the engineering process itself is part of the product:
 
 - Every change to `packages/*` and `apps/community-bot/` is auditable from `main` history.
-- No human can land code that violates a documented architectural rule (e.g. ADR-010 boundary, ADR-003 ESM only, supply-chain hygiene from ARCHI §9).
+- No human can land code that violates a documented architectural rule (e.g. ADR-010 Community/Cloud boundary, ADR-003 ESM only, supply-chain hygiene captured in ADR-010 and the CI gates section below).
 - Local development feedback must be fast enough that contributors do not bypass it.
 
 Two independent layers are needed:
@@ -32,7 +32,7 @@ For CI, the choice is GitHub Actions by construction (Sovri Community is hosted 
 - Installed via `./scripts/install-hooks.sh` (delegates to `pnpm exec lefthook install`).
 - All hooks run in **parallel** by default; failure of any one fails the commit/push.
 - `--no-verify` (and equivalents `--no-verify-signatures`, `core.hooksPath=/dev/null`) is **forbidden by policy** (documented in `CLAUDE.md`, `CONTRIBUTING.md`). There is no technical block — the contract is social and reinforced by CI replicating every hook.
-- Full hook list and rationale: ARCHI §16.
+- Full hook list and rationale: see `lefthook.yml` at the repo root.
 
 ### CI gates (GitHub Actions)
 
@@ -49,7 +49,7 @@ Branch protection on `main` makes the following statuses required and non-overri
 - `CodeQL` (GitHub Advanced Security, security-extended queries, weekly schedule)
 - `Dependency Review` (license deny-list at PR time)
 
-Full pipeline definition: ARCHI §15.
+Full pipeline definition: see `.github/workflows/ci.yml`.
 
 ### Reciprocity
 

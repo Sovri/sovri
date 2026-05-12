@@ -44,4 +44,4 @@ Reporters are credited in the published advisory unless they request to remain a
 
 ## Supply Chain
 
-Sovri pins exact versions for LLM SDKs and security-critical dependencies (no `^` / `~`), runs `pnpm audit` on every PR, blocks dependency `postinstall` scripts via `ignore-scripts=true`, and publishes a CycloneDX SBOM with every release. See `ARCHI.md §9` for the full supply-chain hardening posture.
+Sovri pins exact versions for LLM SDKs and security-critical dependencies (no `^` / `~`), runs `pnpm audit` on every PR, blocks dependency `postinstall` scripts via `ignore-scripts=true`, and publishes a CycloneDX SBOM with every release.

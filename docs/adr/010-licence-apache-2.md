@@ -39,7 +39,7 @@ Copyright notice in the header of each published source file:
 
 ## Consequences
 
-- Apache 2.0 provides **no protection against hostile forks**. Mitigation: fast cadence on Community, capitalization on brand and client relationships for Cloud (see PRD sections on fork risk mitigation).
+- Apache 2.0 provides **no protection against hostile forks**. Mitigation: fast cadence on Community, capitalization on brand and client relationships for Cloud.
 - Cloud code remains 100% ours, with no sharing constraints, even if it uses/imports our own Community.
 - Check the licenses of **third-party dependencies** (npm packages, libraries). An AGPL dependency would force opening; MIT/Apache/BSD impose nothing. Rarely a problem in the Node.js ecosystem, but to check when choosing a lib.
 - Mandatory license header in each published `.ts` source file.

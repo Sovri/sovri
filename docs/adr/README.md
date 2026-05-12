@@ -13,7 +13,6 @@ An ADR is not user documentation. It is a log of technical choices intended for 
 - Sequential numbering on 3 digits (`001`, `002`, …)
 - File name: `NNN-title-in-kebab-case.md`
 - Once an ADR is `Accepted`, its content is no longer edited; a new ADR is created that supersedes it if the decision changes
-- Any ADR referenced from `docs/ARCHI.md` must exist in this directory
 
 ## Index
 
