@@ -1,0 +1,40 @@
+# Architecture Decision Records (ADR)
+
+This directory contains the Architecture Decision Records of Sovri, following the format proposed by Michael Nygard.
+
+## What is an ADR?
+
+An ADR documents a **structural** architecture decision, its context, and its consequences. It is not modified after acceptance — if the decision changes, a new ADR is created that supersedes the old one.
+
+An ADR is not user documentation. It is a log of technical choices intended for current and future developers of the project.
+
+## Convention
+
+- Sequential numbering on 3 digits (`001`, `002`, …)
+- File name: `NNN-title-in-kebab-case.md`
+- Once an ADR is `Accepted`, its content is no longer edited; a new ADR is created that supersedes it if the decision changes
+- Any ADR referenced from `docs/ARCHI.md` must exist in this directory
+
+## Index
+
+| # | Title | Status | Date |
+|---|---|---|---|
+| [001](./001-runtime-typescript.md) | Node.js LTS + strict TypeScript | Accepted | 2026-05-12 |
+| [002](./002-monorepo-pnpm-turborepo.md) | Monorepo with pnpm + Turborepo | Accepted | 2026-05-12 |
+| [003](./003-esm-only.md) | ESM only, no CommonJS | Accepted | 2026-05-12 |
+| [004](./004-probot-framework.md) | Probot as GitHub App framework | Accepted | 2026-05-12 |
+| [005](./005-zod-runtime-validation.md) | Zod 4 for runtime validation | Accepted | 2026-05-12 |
+| [006](./006-pino-then-otel.md) | Pino from v0.1, OpenTelemetry from v0.5 | Accepted | 2026-05-12 |
+| [007](./007-vitest-msw-testing.md) | Vitest + MSW for testing | Accepted | 2026-05-12 |
+| [008](./008-tsup-bundler.md) | tsup as package bundler | Accepted | 2026-05-12 |
+| [009](./009-docker-multistage-ghcr.md) | Multi-stage Docker + GitHub Container Registry | Accepted | 2026-05-12 |
+| [010](./010-licence-apache-2.md) | Apache 2.0 license on Community code | Accepted | 2026-05-12 |
+| [011](./011-oxlint-oxfmt.md) | oxlint + oxfmt for TypeScript/JavaScript lint and format | Accepted | 2026-05-12 |
+| [012](./012-lefthook-ci-gates.md) | Lefthook + non-negotiable CI gates | Accepted | 2026-05-12 |
+
+## Possible statuses
+
+- **Proposed** — under discussion, not yet acted upon
+- **Accepted** — decision made, to be applied
+- **Deprecated** — no longer applied, but kept for traceability
+- **Superseded by ADR-NNN** — replaced by another ADR (mandatory reference)
