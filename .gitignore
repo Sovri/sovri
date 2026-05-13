@@ -66,6 +66,10 @@ tmp/
 *.seed
 *.pid.lock
 
+# Worktrees (local-only, isolated branches)
+.worktrees/
+.claude/worktrees/
+
 # Other package managers — refuse silently
 package-lock.json
 yarn.lock
