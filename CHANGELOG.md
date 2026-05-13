@@ -21,6 +21,67 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Pre-commit guard `scripts/check-boundary.sh` (#10) rejecting staged
+  TypeScript files under `packages/` or `apps/community-bot/` that import
+  from the proprietary `apps/cloud-api/` surface, enforcing the
+  Community ↔ Cloud boundary per `docs/adr/010-licence-apache-2.md`. Two
+  forbidden module specifiers are recognised: the reserved
+  `@sovri/cloud...` workspace scope (any subpackage, single or double
+  quote) and any relative climb `../...cloud-api...` that traverses into
+  a `cloud-api` directory. The relative alternative requires a literal
+  `../` prefix, so a local sibling import `./cloud-api-mock` inside
+  `packages/` that merely embeds the substring is never flagged. Four
+  import shapes are detected across both specifiers: single-line
+  `import|export ... from "..."` (including `import type`, `export *`,
+  `export type { X } from`), bare `from "..."` continuation line in
+  multi-line destructured imports, side-effect `import "..."` (no
+  `from`, ESM register pattern), and dynamic `import("...")` /
+  `require("...")` calls. All four anchors require the construct to
+  start at a real statement boundary (leading whitespace, then `import`
+  or `export` or `from`, or a non-identifier character before
+  `import(` / `require(`), so string literals, JSDoc and `//`
+  comments that mention the forbidden specifier are not mistaken for
+  imports. A `coreImport(x)` / `myRequire(x)` identifier call is
+  likewise not flagged because the dynamic alternative demands a
+  non-identifier boundary before the keyword (`(^|[^A-Za-z0-9_$])`
+  rather than `\b`, which is not portable POSIX ERE). Files outside the
+  public surface (the `apps/cloud-api/` directory itself, other
+  `apps/<name>/` workspaces, `scripts/`, root) are not scanned — the
+  guard polices the import direction, not file names. Deletions are
+  excluded via `--diff-filter=d`, so removing a legacy cloud importer
+  passes. Staged contents are read from the index via `git show :<file>`
+  rather than the working tree, so a partially staged file is evaluated
+  as it will land in the commit; `git show` failure (e.g. race with
+  `git restore --staged`) skips the file, an empty staged blob is
+  scanned and passes naturally. Known limitation: a dynamic import that
+  splits `import(` and the quoted specifier across two physical lines
+  slips through — the forthcoming pre-push `forbidden-imports` Turbo
+  target (`ARCHI.md` §15.3) is the heavy AST-aware enforcement; this
+  pre-commit gate is a fast defense-in-depth layer that catches the
+  common breaches in <50 ms. The error output names the violated ADR,
+  enumerates each offending file plus the offending line with line
+  number, and reminds contributors of the only permitted direction
+  (`apps/cloud-api/` may import from `packages/*`, never the reverse).
+  Companion `scripts/check-boundary.test.sh` runner exercises 33
+  acceptance scenarios (14 PASS + 19 BLOCK) in isolated temporary git
+  repositories with `commit.gpgsign=false`, covering each `@sovri/cloud`
+  variant (bare scope, `-internals`, `-api`, single-quote, `.tsx`,
+  multiple Apache 2.0 packages, `export * from` re-export,
+  `import type`, `export type`), the multi-line `from` continuation,
+  side-effect `import "..."`, dynamic `import("...")` and `require(...)`
+  calls, each relative-climb depth (`../`, `../../`, `../../../`), the
+  deletion case, the sibling `./cloud-api-mock` false-positive guard,
+  the `@sovri/core` control case, a `.md` file that mentions the
+  forbidden scope without being scanned, `apps/cloud-api/` itself, other
+  `apps/<name>/` workspaces, the `scripts/` directory, a fixture string
+  literal that embeds the forbidden specifier, a JSDoc/`//` comment that
+  mentions it, a `coreImport`/`myRequire` similarly named identifier
+  call, and an empty placeholder `.ts` file. The "multiple breaches in
+  one commit" scenario additionally asserts that every offending path
+  and the `ADR-010` marker all appear in stdout, and a dedicated case
+  asserts the `grep -n` line-number prefix (`3:import { X } from ...`)
+  is preserved as a regression guard against dropping `-n`. Portable
+  bash, no GNU-only flags, no Node.js dependency.
 - Pre-commit guard `scripts/no-forbidden-tools.sh` (#9) rejecting staged files
   that introduce competing package managers or lint/format toolchains. Two
   regex families: foreign package-manager lockfiles (`package-lock.json`,
