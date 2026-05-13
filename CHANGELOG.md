@@ -5,9 +5,9 @@ All notable changes to Sovri are documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
-Each pull request that touches `.ts` / `.tsx` source code **must** add an entry to the
-`[Unreleased]` section under the appropriate category. CI enforces this via the
-`changelog-check` gate.
+Each pull request that touches `.ts` / `.tsx` source code **must** add an entry
+to the `[Unreleased]` section under the appropriate category. The planned
+`changelog-check` CI gate will enforce this once CI wiring lands.
 
 Categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 
@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Community health files (#5): root `CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`, and `CHANGELOG.md` covering contribution workflow,
+  conduct expectations and release history, with README and `.github`
+  contribution links pointing at the canonical root guide.
 - Public-facing documentation (#4): root `README.md` covering the project
   tagline, EU sovereignty positioning, Apache 2.0 + proprietary Cloud
   distribution boundary, current pre-alpha status, build-from-source steps,
@@ -71,7 +75,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-011 CI gate while tolerating an empty TypeScript repo on v0.1),
   `lint:fix`, `format`, `format:check` and `knip` (`--reporter compact`).
   `oxlint@1.64.0`, `oxfmt@0.49.0` and `knip@6.13.1` pinned as root
-  devDependencies. `.worktrees/` + `.claude/worktrees/` ignored from VCS.
+  devDependencies. Local worktree directories ignored from VCS.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
 
 ---
 
