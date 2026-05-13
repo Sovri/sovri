@@ -590,6 +590,104 @@ run_case "FAIL-17 trailing OR denied as parse error"       fx_trailing_or_malfor
 run_case "FAIL-18 unbalanced ( denied as parse error"      fx_unbalanced_paren           "" 1 "BLOCKED" \
   "parse error"
 
+# Spawn-mode regression tests (no --input flag — exercise the
+# `spawnSync("pnpm", ...)` path). Each shadow-pnpms via PATH so we never
+# touch the host's real pnpm install.
+#
+# run_spawn_case <label> <fake_pnpm_script> <expect_exit> <expect_substring> [extra...]
+#   `fake_pnpm_script` is the verbatim bash body written to a fake
+#   `pnpm` executable on a tmp-dir PATH prefix. The script is invoked
+#   exactly as `pnpm licenses list --json` would be — argv preserved.
+run_spawn_case() {
+  local label="$1"
+  local fake_pnpm_body="$2"
+  local expect_exit="$3"
+  local expect_substring="$4"
+  shift 4
+  local extra_substrings=("$@")
+  local tmp stdout stderr stdout_file stderr_file stdout_bytes ec extra
+
+  tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'check-licenses-spawn')
+  if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ ${label}: mktemp failed"
+    return
+  fi
+
+  printf '%s\n' "$fake_pnpm_body" > "$tmp/pnpm"
+  chmod +x "$tmp/pnpm"
+
+  stdout_file="$tmp/.stdout"
+  stderr_file="$tmp/.stderr"
+  PATH="$tmp:$PATH" node "$SCRIPT" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+  stdout_bytes=$(wc -c <"$stdout_file" | tr -d '[:space:]')
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+
+  rm -rf "$tmp"
+
+  if [ "$ec" -ne "$expect_exit" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ ${label}: expected exit ${expect_exit}, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if [ "${stdout_bytes:-0}" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ ${label}: stdout must be empty (got ${stdout_bytes} byte(s)):
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    return
+  fi
+
+  if [ -n "$expect_substring" ] && ! printf '%s\n' "$stderr" | grep -Fq -- "$expect_substring"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ ${label}: stderr missing substring '${expect_substring}'
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  for extra in "${extra_substrings[@]}"; do
+    if ! printf '%s\n' "$stderr" | grep -Fq -- "$extra"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ ${label}: stderr missing extra substring '${extra}'
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+      return
+    fi
+  done
+
+  PASS=$((PASS + 1))
+}
+
+# Codex review feedback: a `pnpm` killed by a signal yields
+# `status === null` and `signal !== null` from `spawnSync`. The numeric
+# `status !== 0` check would not fire, so without explicit signal
+# handling the script would fall through to the "no packages to audit"
+# vacuous pass and silently bypass the license gate. Shadow a fake
+# `pnpm` that self-terminates with SIGTERM after writing no JSON and
+# assert the gate refuses to claim success.
+run_spawn_case "SPAWN-1 pnpm killed by signal denied with ERROR" \
+  '#!/usr/bin/env bash
+kill -TERM $$' \
+  2 "terminated by signal"
+
+# A pnpm that exits non-zero with a stderr message must surface that
+# message and exit 2 — sanity test for the existing numeric-status
+# branch alongside the new signal branch above.
+run_spawn_case "SPAWN-2 pnpm non-zero exit denied with ERROR" \
+  '#!/usr/bin/env bash
+echo "boom" >&2
+exit 17' \
+  2 "exited with code 17" "boom"
+
 TOTAL=$((PASS + FAIL))
 echo ""
 echo "check-licenses.mjs tests: $PASS/$TOTAL passed"

@@ -142,10 +142,24 @@ if (inputPath !== null) {
   if (result.error) {
     fatal(`ERROR: Failed to spawn "pnpm licenses list --json": ${result.error.message}`, 2);
   }
+  // A signalled child has `status === null` and `signal !== null`. The
+  // numeric-status guard below would not fire, so without this branch a
+  // SIGTERMed pnpm with empty stdout falls through to the
+  // "no packages to audit" vacuous pass and silently bypasses the
+  // license gate. Reject any non-clean termination outright.
+  if (result.signal !== null && result.signal !== undefined) {
+    fatal(`ERROR: "pnpm licenses list --json" terminated by signal ${result.signal}.`, 2);
+  }
   if (typeof result.status === "number" && result.status !== 0) {
     const errOut = (result.stderr ?? "").trim();
     fatal(
       `ERROR: "pnpm licenses list --json" exited with code ${result.status}${errOut ? `:\n${errOut}` : "."}`,
+      2,
+    );
+  }
+  if (typeof result.status !== "number") {
+    fatal(
+      `ERROR: "pnpm licenses list --json" produced no exit status (status=${String(result.status)}, signal=${String(result.signal)}).`,
       2,
     );
   }

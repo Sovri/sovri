@@ -96,7 +96,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   packages classifies each unique license string exactly once. No runtime dependencies — `node:fs` + `node:child_process`
   (for `spawnSync` on the no-argument form) + `node:process` only,
   ESM via `.mjs`, runs on the Node 24 pinned in `.nvmrc`. Companion
-  `scripts/check-licenses.test.sh` runner exercises 36 acceptance
+  `scripts/check-licenses.test.sh` runner exercises 38 acceptance
   scenarios in isolated `mktemp -d` directories with synthetic
   pnpm-licenses JSON fixtures: eleven PASS cases (single MIT
   bucket; multiple allowed buckets aggregated; every allowlist
@@ -107,7 +107,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   WITH-exception ignored on the allowed atom; nested parentheses
   `(MIT AND (Apache-2.0 OR BSD-3-Clause))`; empty JSON object;
   `No licenses in packages found` plain-text sentinel; empty file
-  treated as no packages), twelve FAIL cases (`GPL-3.0-only`,
+  treated as no packages), eighteen FAIL cases (`GPL-3.0-only`,
   `AGPL-3.0-or-later`, `LGPL-2.1-only`, legacy `LGPL-2.1+` suffix,
   `MIT AND GPL-2.0-only` AND-with-one-denied-branch,
   `GPL-2.0-only OR AGPL-3.0-only` OR-with-no-allowed-branch,
@@ -129,8 +129,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   and seven ERROR cases (invalid JSON, `null` root, array root,
   bucket value that is not an array, missing `--input` target,
   `--input` with no path argument, and an unknown `--bogus`
-  flag rejected). Tests are independent of pnpm and `node_modules/`
-  so the script can be validated in any bash + node environment.
+  flag rejected), and two SPAWN-mode regression cases that shadow a
+  fake `pnpm` on the PATH to exercise the `spawnSync` branch the
+  `--input` cases cannot reach — one where the fake pnpm self-signals
+  with SIGTERM (asserting the gate refuses to claim a vacuous pass
+  when `status === null` and `signal !== null`, the PR #75 Codex
+  review feedback) and one where the fake pnpm exits non-zero with a
+  stderr message (asserting the existing numeric-status branch
+  surfaces both the exit code and the stderr body). Tests are
+  independent of the host's real pnpm install (the shadow PATH points
+  at the per-case tmp dir) and of `node_modules/` so the script can be
+  validated in any bash + node environment.
 - CI coverage gate `scripts/check-coverage.mjs` (#11) — Node ESM script
   intended to be invoked by the `backend-checks` CI job
   (`docs/adr/012-lefthook-ci-gates.md`) after
