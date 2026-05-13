@@ -77,7 +77,7 @@ $(printf '%s\n' "$out" | sed 's/^/      /')"
     return
   fi
 
-  if [ -n "$expect_substring" ] && ! printf '%s\n' "$out" | grep -q -- "$expect_substring"; then
+  if [ -n "$expect_substring" ] && ! printf '%s\n' "$out" | grep -Fq -- "$expect_substring"; then
     FAIL=$((FAIL + 1))
     FAILURES="${FAILURES}
   ✗ ${label}: stdout missing substring '${expect_substring}'
@@ -86,7 +86,7 @@ $(printf '%s\n' "$out" | sed 's/^/      /')"
   fi
 
   for extra in "${extra_substrings[@]}"; do
-    if ! printf '%s\n' "$out" | grep -q -- "$extra"; then
+    if ! printf '%s\n' "$out" | grep -Fq -- "$extra"; then
       FAIL=$((FAIL + 1))
       FAILURES="${FAILURES}
   ✗ ${label}: stdout missing extra substring '${extra}'
