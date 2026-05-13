@@ -34,6 +34,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `strict-peer-dependencies=true`, `.gitignore` covering build artifacts,
   caches, env files, credentials and foreign lockfiles, and `.gitattributes`
   enforcing LF line endings on text files.
+- Workspace pipelines (#2): `pnpm-workspace.yaml` declaring `packages/*` and
+  `apps/*`, `turbo.json` with cached `build`/`test`/`lint`/`typecheck` tasks
+  (`^build` dependency for build/test/typecheck), `tsconfig.base.json` shared
+  by every package (`strict`, `noUncheckedIndexedAccess`,
+  `verbatimModuleSyntax`, `exactOptionalPropertyTypes`, `target: ES2023`,
+  `module: NodeNext`), root scripts `build` / `test` / `lint` / `typecheck`
+  delegating to Turborepo, and `turbo@2.9.12` + `typescript@5.9.3` pinned as
+  root devDependencies.
 
 ---
 
