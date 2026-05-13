@@ -46,7 +46,7 @@ Track progress through the [issues](https://github.com/mpiton/sovri/issues) and 
 
 The runtime is a thin Probot adapter that delegates every review to pure TypeScript packages.
 
-```
+```text
 GitHub webhook
       │
       ▼

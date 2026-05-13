@@ -44,7 +44,7 @@ Use one of these private channels:
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at https://github.com/mpiton/sovri/security/advisories/new
 2. **Email** — `matpiton@protonmail.com`. PGP encryption is supported; the public key and its fingerprint will be published in this file before the v0.1 release. Until then, request the key by email and verify the fingerprint out-of-band before sending sensitive material.
 
-   ```
+   ```text
    PGP fingerprint: TBD — published before v0.1
    ```
 
