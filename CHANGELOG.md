@@ -23,12 +23,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - Repository plumbing (#6): `.github/dependabot.yml` enabling weekly
   Dependabot updates for the npm (pnpm-workspace), Docker and GitHub Actions
-  ecosystems, with a 7-day cooldown on every semver level
-  (`default-days`, `semver-major-days`, `semver-minor-days`,
-  `semver-patch-days` all set to 7) to satisfy the project's supply-chain
-  delay rule; pull request template enriched with a `## Why` section
-  between Summary and Changes and an explicit `CHANGELOG.md updated under
-  [Unreleased]` checkbox in the contributor checklist.
+  ecosystems, with `cooldown.default-days: 7` on each ecosystem (the
+  per-semver overrides inherit this default, so every version-update PR
+  waits at least 7 days before opening) to satisfy the project's
+  supply-chain delay rule; pull request template enriched with a
+  `## Why` section between Summary and Changes and an explicit
+  `CHANGELOG.md updated under [Unreleased]` checkbox in the contributor
+  checklist.
 - Community health files (#5): root `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, and `CHANGELOG.md` covering contribution workflow,
   conduct expectations and release history, with README and `.github`
