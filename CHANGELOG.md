@@ -21,6 +21,102 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Pre-commit guard `scripts/check-boundary.sh` (#10) rejecting staged
+  TypeScript files under `packages/` or `apps/community-bot/` that import
+  from the proprietary `apps/cloud-api/` surface, enforcing the
+  Community ↔ Cloud boundary per `docs/adr/010-licence-apache-2.md`. Two
+  forbidden module specifiers are recognised: the reserved
+  `@sovri/cloud...` workspace scope (any subpackage, single or double
+  quote) and any relative climb `../...cloud-api...` that traverses into
+  a `cloud-api` directory. The relative alternative requires a literal
+  `../` prefix, so a local sibling import `./cloud-api-mock` inside
+  `packages/` that merely embeds the substring is never flagged. Four
+  import shapes are detected across both specifiers: single-line
+  `import|export ... from "..."` (including `import type`, `export *`,
+  `export type { X } from`), bare `from "..."` continuation line in
+  multi-line destructured imports, side-effect `import "..."` (no
+  `from`, ESM register pattern), and dynamic `import("...")` /
+  `require("...")` calls. The first three shapes are anchored to
+  start-of-line. The dynamic / CJS shape requires a statement-context
+  boundary before the keyword — start of line, or an explicit
+  punctuation whitelist `( , ; = ? : { } ! & | > [` optionally
+  preceded by `await` / `return` / `yield` / `throw` / `new`. Bare
+  whitespace, comment markers (`//`, `/*`, `*/`, `*`), and string
+  delimiters (`"`, `'`, backtick) are deliberately NOT recognised as
+  boundaries — that was the false-positive surface reported by the
+  PR #73 review bots (CodeRabbit, Codex, cubic-dev-ai) where
+  `// import("...")` and `/** import("...") */` previously tripped
+  the gate. A second defense layer strips comments before grep
+  (whole-line `//`, JSDoc body continuation `*`, inline `/* ... */`,
+  trailing `//` preceded by whitespace) so commented-out example code
+  embedding `import(...)` text never reaches the pattern matcher.
+  `http://...` inside a string is preserved (the `//` is preceded by
+  `:`, not whitespace). `coreImport(x)` / `myRequire(x)` identifier
+  calls are not flagged either. Files outside the
+  public surface (the `apps/cloud-api/` directory itself, other
+  `apps/<name>/` workspaces, `scripts/`, root) are not scanned — the
+  guard polices the import direction, not file names. Deletions are
+  excluded via `--diff-filter=d`, so removing a legacy cloud importer
+  passes. Staged contents are read from the index via `git show :<file>`
+  rather than the working tree, so a partially staged file is evaluated
+  as it will land in the commit; `git show` failure (e.g. race with
+  `git restore --staged`) skips the file, an empty staged blob is
+  scanned and passes naturally. Known limitations: (a) a dynamic import
+  that splits `import(` and the quoted specifier across two physical
+  lines slips through; (b) a multi-line `/* ... */` block whose body
+  has no leading `*` continuation is not stripped (JSDoc convention
+  always uses `*`); (c) an `import(...)` text inside a template literal
+  preceded by a whitelisted punctuation char could match in
+  pathological cases. The forthcoming pre-push `forbidden-imports`
+  Turbo target (`ARCHI.md` §15.3) is the AST-aware enforcement; this
+  pre-commit gate is a fast defense-in-depth layer that catches the
+  common breaches in <50 ms. The error output names the violated ADR,
+  enumerates each offending file plus the offending line with line
+  number, and reminds contributors of the only permitted direction
+  (`apps/cloud-api/` may import from `packages/*`, never the reverse).
+  The relative-climb alternative requires `cloud-api` to be a full
+  path segment: a `(.*/)?` anchor demands every character preceding
+  `cloud-api` on this side of the `../` to be either nothing or end
+  with `/`, and a trailing `[/'"]` requires a path or quote boundary
+  after the segment. This rejects both `../cloud-api-mock` (trailing
+  suffix) and `../mock-cloud-api/x` (leading prefix) as parent-sibling
+  imports while still catching `../../apps/cloud-api/y` and
+  `../cloud-api/y` (PR #73 review, Codex). `+`, `-` and `)` are added
+  to the dynamic punctuation whitelist so `"prefix" + import("...")`,
+  `-import("...")` and `if (ok) import("...")` expression contexts
+  are caught (PR #73 review, cubic-dev-ai and Codex). The dynamic
+  alternative quote class also accepts a backtick so
+  `import(`@sovri/cloud-api`)` template-literal specifiers do not
+  bypass the gate (PR #73 review, Codex).
+  Companion `scripts/check-boundary.test.sh` runner exercises 41
+  acceptance scenarios (17 PASS + 24 BLOCK) in isolated temporary git
+  repositories with `commit.gpgsign=false`, covering each `@sovri/cloud`
+  variant (bare scope, `-internals`, `-api`, single-quote, `.tsx`,
+  multiple Apache 2.0 packages, `export * from` re-export,
+  `import type`, `export type`), the multi-line `from` continuation,
+  side-effect `import "..."`, dynamic `import("...")` and `require(...)`
+  calls, each relative-climb depth (`../`, `../../`, `../../../`), the
+  deletion case, the sibling `./cloud-api-mock` false-positive guard,
+  the `@sovri/core` control case, a `.md` file that mentions the
+  forbidden scope without being scanned, `apps/cloud-api/` itself, other
+  `apps/<name>/` workspaces, the `scripts/` directory, a fixture string
+  literal that embeds the forbidden specifier, a JSDoc/`//` comment that
+  mentions it, a `coreImport`/`myRequire` similarly named identifier
+  call, an empty placeholder `.ts` file, and a dedicated regression
+  fixture for the PR #73 review feedback that combines whole-line and
+  trailing `//` comments, inline `/* ... */`, JSDoc body continuation,
+  and an escaped string literal — all referencing `import(...)` /
+  `require(...)` as text and all expected to PASS. A second
+  regression fixture covers the codex / cubic-dev-ai feedback
+  (`../cloud-api-mock` parent-sibling import must pass, `"foo" +
+  import("@sovri/cloud-api")` and `-import("@sovri/cloud-api")` must
+  block). The empty-placeholder fixture now uses shell redirection
+  to produce a genuinely zero-byte file (CodeRabbit). The "multiple breaches in
+  one commit" scenario additionally asserts that every offending path
+  and the `ADR-010` marker all appear in stdout, and a dedicated case
+  asserts the `grep -n` line-number prefix (`3:import { X } from ...`)
+  is preserved as a regression guard against dropping `-n`. Portable
+  bash, no GNU-only flags, no Node.js dependency.
 - Pre-commit guard `scripts/no-forbidden-tools.sh` (#9) rejecting staged files
   that introduce competing package managers or lint/format toolchains. Two
   regex families: foreign package-manager lockfiles (`package-lock.json`,
