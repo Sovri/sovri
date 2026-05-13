@@ -63,8 +63,10 @@ STAGED=$(git diff --cached --diff-filter=d --name-only \
 # Dynamic-alternative punctuation whitelist: `+`, `-`, `)` are included
 # alongside the original delimiters so expression contexts like
 # `"prefix" + import("...")`, `-import("...")` and
-# `if (ok) import("...")` are caught.
-PATTERN="^[[:space:]]*(import|export)[[:space:]].*from[[:space:]]+['\"](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"])|^[[:space:]]*(import|from)[[:space:]]+['\"](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"])|(^[[:space:]]*((await|return|yield|throw|new)[[:space:]]+)?|[()\\,;=?:{}!&|>+\\[\\-][[:space:]]*((await|return|yield|throw|new)[[:space:]]+)?|[[:space:]](await|return|yield|throw|new)[[:space:]]+)(import|require)[[:space:]]*\\([[:space:]]*['\"](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"])"
+# `if (ok) import("...")` are caught. The quote class on the dynamic
+# alternative also accepts a backtick so `import(`@sovri/cloud-api`)`
+# template-literal specifiers do not bypass the gate.
+PATTERN="^[[:space:]]*(import|export)[[:space:]].*from[[:space:]]+['\"](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"])|^[[:space:]]*(import|from)[[:space:]]+['\"](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"])|(^[[:space:]]*((await|return|yield|throw|new)[[:space:]]+)?|[()\\,;=?:{}!&|>+\\[\\-][[:space:]]*((await|return|yield|throw|new)[[:space:]]+)?|[[:space:]](await|return|yield|throw|new)[[:space:]]+)(import|require)[[:space:]]*\\([[:space:]]*['\"\`](@sovri/cloud|\\.\\./(.*/)?cloud-api[/'\"\`])"
 
 # Strip comments before scanning so commented-out example code that
 # happens to embed `import(...)` / `require(...)` / `from "..."` text

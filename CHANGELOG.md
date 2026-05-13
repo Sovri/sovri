@@ -84,9 +84,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `../cloud-api/y` (PR #73 review, Codex). `+`, `-` and `)` are added
   to the dynamic punctuation whitelist so `"prefix" + import("...")`,
   `-import("...")` and `if (ok) import("...")` expression contexts
-  are caught (PR #73 review, cubic-dev-ai and Codex).
-  Companion `scripts/check-boundary.test.sh` runner exercises 39
-  acceptance scenarios (17 PASS + 22 BLOCK) in isolated temporary git
+  are caught (PR #73 review, cubic-dev-ai and Codex). The dynamic
+  alternative quote class also accepts a backtick so
+  `import(`@sovri/cloud-api`)` template-literal specifiers do not
+  bypass the gate (PR #73 review, Codex).
+  Companion `scripts/check-boundary.test.sh` runner exercises 41
+  acceptance scenarios (17 PASS + 24 BLOCK) in isolated temporary git
   repositories with `commit.gpgsign=false`, covering each `@sovri/cloud`
   variant (bare scope, `-internals`, `-api`, single-quote, `.tsx`,
   multiple Apache 2.0 packages, `export * from` re-export,

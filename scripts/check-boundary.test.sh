@@ -358,6 +358,18 @@ setup_conditional_dynamic_import() {
 if (ok) import("@sovri/cloud-api");'
 }
 
+setup_backtick_dynamic_named() {
+  # PR #73 review (Codex P1): a template-literal specifier on a real
+  # dynamic import must block. The quote class on the dynamic
+  # alternative must accept backtick alongside `'` and `"`.
+  stage_file packages/core/src/breach.ts 'const x = import(`@sovri/cloud-api`);'
+}
+
+setup_backtick_dynamic_relative() {
+  # Same case with a relative climb specifier inside the backticks.
+  stage_file packages/core/src/breach.ts 'const x = import(`../../apps/cloud-api/y`);'
+}
+
 # Cases.
 
 run_case "PASS-1  empty staged set"                       setup_empty                            0 ""
@@ -396,6 +408,8 @@ run_case "BLOCK-12 multiple breaches in one commit"       setup_multiple_breache
 run_case "BLOCK-20 concat: \"x\" + import(cloud)"         setup_concat_dynamic_import            1 "BLOCKED: Cloud import"
 run_case "BLOCK-21 unary -: -import(cloud)"               setup_unary_minus_dynamic_import       1 "BLOCKED: Cloud import"
 run_case "BLOCK-22 if (ok) import(cloud)"                 setup_conditional_dynamic_import       1 "BLOCKED: Cloud import"
+run_case "BLOCK-23 import(\`@sovri/cloud-api\`)"          setup_backtick_dynamic_named           1 "BLOCKED: Cloud import"
+run_case "BLOCK-24 import(\`../../apps/cloud-api/...\`)"  setup_backtick_dynamic_relative        1 "BLOCKED: Cloud import"
 
 run_case "BLOCK-13 reports line number prefix"            setup_at_sovri_cloud_in_core_at_line_3 1 "BLOCKED: Cloud import" \
   "3:import { X } from \"@sovri/cloud-api\";"
