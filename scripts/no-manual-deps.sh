@@ -50,7 +50,10 @@ if echo "$STAGED" | grep -qE '(^|/)package\.json$'; then
     yes|"")
       # Empty output is treated as fail-closed: a future stray write to the
       # node helper's stdout must not silently disable the guard.
-      if ! echo "$STAGED" | grep -qE '(^|/)pnpm-lock\.yaml$'; then
+      # pnpm workspaces use a single root lockfile (ADR-002); nested
+      # `pnpm-lock.yaml` files are not valid lockfile updates and must not
+      # satisfy this check.
+      if ! printf '%s\n' "$STAGED" | grep -qx 'pnpm-lock\.yaml'; then
         echo "BLOCKED: package.json dependency block changed without an updated pnpm-lock.yaml."
         echo ""
         echo "Correct procedure:"

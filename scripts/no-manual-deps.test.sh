@@ -49,6 +49,10 @@ run_case() {
     git init -q
     git config user.email test@example.com
     git config user.name test
+    # Tests must run on hosts with `commit.gpgsign=true` globally without a
+    # configured signing key — disable signing locally on each temp repo.
+    git config commit.gpgsign false
+    git config tag.gpgsign false
     "$setup_fn"
   ) >"$setup_log" 2>&1
   setup_ec=$?
@@ -372,6 +376,21 @@ setup_pkg_deleted_no_lockfile() {
   git rm -q package.json
 }
 
+setup_nested_lockfile_only() {
+  # pnpm workspaces use a single root lockfile (ADR-002). A nested
+  # `apps/x/pnpm-lock.yaml` staged alongside a root package.json dep change
+  # must not satisfy the guard.
+  commit_initial_pkg package.json '{ "name": "demo", "version": "0.0.0" }'
+  write_pkg package.json '{
+  "name": "demo",
+  "version": "0.0.0",
+  "dependencies": { "left-pad": "1.3.0" }
+}'
+  mkdir -p apps/x
+  echo 'lockfileVersion: 9.0' > apps/x/pnpm-lock.yaml
+  git add package.json apps/x/pnpm-lock.yaml
+}
+
 setup_malformed_pkg_json() {
   # Initial commit has clean (empty-deps) package.json. Staged version is
   # syntactically broken JSON: JSON.parse must throw inside the guard so the
@@ -412,6 +431,7 @@ run_case "BLOCK-10 yarn.lock staged"              setup_yarn_lock_alongside     
 run_case "BLOCK-11 bun.lockb staged"              setup_bun_lock_alongside          1 "BLOCKED: package-lock.json, yarn.lock, or bun.lockb"
 run_case "BLOCK-12 package.json deleted no lock"  setup_pkg_deleted_no_lockfile     1 "BLOCKED: package.json dependency block changed"
 run_case "BLOCK-13 malformed package.json"        setup_malformed_pkg_json          1 "BLOCKED: package.json dependency block changed"
+run_case "BLOCK-14 nested lockfile bypass"        setup_nested_lockfile_only        1 "BLOCKED: package.json dependency block changed"
 
 TOTAL=$((PASS + FAIL))
 echo ""
