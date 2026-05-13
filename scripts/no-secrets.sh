@@ -7,7 +7,7 @@ set -euo pipefail
 # root or a path component boundary so that `docs/secrets/overview.md` (no
 # leading dot) is not flagged, while `.aws/credentials` and `apps/foo/.env`
 # still are.
-SECRET_PATTERNS='\.(env|env\..+|pem|key|p12|pfx|secret|creds|aws|netrc)$|(^|/)\.(env|secrets|aws)/|^\.npmrc$|^\.pypirc$'
+SECRET_PATTERNS='\.(env|env\..+|pem|key|p12|pfx|secret|creds|aws|netrc)$|(^|/)\.(env|secrets|aws)/|(^|/)\.(npmrc|pypirc)$'
 
 STAGED=$(git diff --cached --diff-filter=d --name-only)
 [ -z "$STAGED" ] && exit 0

@@ -169,6 +169,16 @@ setup_aws_ext() { make_block_file profile.aws; }
 setup_netrc() { make_block_file .netrc; }
 setup_npmrc() { make_block_file .npmrc; }
 setup_pypirc() { make_block_file .pypirc; }
+setup_nested_npmrc() {
+  mkdir -p apps/x
+  echo '//registry.npmjs.org/:_authToken=fake' > apps/x/.npmrc
+  git add apps/x/.npmrc
+}
+setup_nested_pypirc() {
+  mkdir -p apps/x
+  echo '[pypi]' > apps/x/.pypirc
+  git add apps/x/.pypirc
+}
 setup_aws_dir() {
   mkdir -p .aws
   echo 'aws_secret_access_key=fake' > .aws/credentials
@@ -212,17 +222,19 @@ run_case "BLOCK-9  *.aws extension"       setup_aws_ext         1 "BLOCKED: file
 run_case "BLOCK-10 .netrc"                setup_netrc           1 "BLOCKED: files"
 run_case "BLOCK-11 .npmrc"                setup_npmrc           1 "BLOCKED: files"
 run_case "BLOCK-12 .pypirc"               setup_pypirc          1 "BLOCKED: files"
-run_case "BLOCK-13 .aws/credentials"      setup_aws_dir         1 "BLOCKED: files"
+run_case "BLOCK-13 nested .npmrc"         setup_nested_npmrc    1 "BLOCKED: files"
+run_case "BLOCK-14 nested .pypirc"        setup_nested_pypirc   1 "BLOCKED: files"
+run_case "BLOCK-15 .aws/credentials"      setup_aws_dir         1 "BLOCKED: files"
 
-run_case "BLOCK-14 AKIA key"              setup_akia            1 "BLOCKED: API key"
-run_case "BLOCK-15 sk-ant minimal"        setup_sk_ant          1 "BLOCKED: API key"
-run_case "BLOCK-16 sk-ant-api03 realistic" setup_sk_ant_api03   1 "BLOCKED: API key"
-run_case "BLOCK-17 sk- generic"           setup_sk_generic      1 "BLOCKED: API key"
-run_case "BLOCK-18 sk-proj- with _-"      setup_sk_proj         1 "BLOCKED: API key"
-run_case "BLOCK-19 ghp_ token"            setup_ghp             1 "BLOCKED: API key"
-run_case "BLOCK-20 github_pat_"           setup_github_pat      1 "BLOCKED: API key"
-run_case "BLOCK-21 glpat-"                setup_glpat           1 "BLOCKED: API key"
-run_case "BLOCK-22 AIza key"              setup_aiza            1 "BLOCKED: API key"
+run_case "BLOCK-16 AKIA key"              setup_akia            1 "BLOCKED: API key"
+run_case "BLOCK-17 sk-ant minimal"        setup_sk_ant          1 "BLOCKED: API key"
+run_case "BLOCK-18 sk-ant-api03 realistic" setup_sk_ant_api03   1 "BLOCKED: API key"
+run_case "BLOCK-19 sk- generic"           setup_sk_generic      1 "BLOCKED: API key"
+run_case "BLOCK-20 sk-proj- with _-"      setup_sk_proj         1 "BLOCKED: API key"
+run_case "BLOCK-21 ghp_ token"            setup_ghp             1 "BLOCKED: API key"
+run_case "BLOCK-22 github_pat_"           setup_github_pat      1 "BLOCKED: API key"
+run_case "BLOCK-23 glpat-"                setup_glpat           1 "BLOCKED: API key"
+run_case "BLOCK-24 AIza key"              setup_aiza            1 "BLOCKED: API key"
 
 TOTAL=$((PASS + FAIL))
 echo ""

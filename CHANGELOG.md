@@ -35,7 +35,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   in line with the local-hook / CI reciprocity rule from
   `docs/adr/012-lefthook-ci-gates.md`. Portable bash, no GNU-only flags,
   no Node.js dependency. Companion `scripts/no-secrets.test.sh` runner
-  exercises 32 acceptance scenarios in isolated temporary git
+  exercises 34 acceptance scenarios in isolated temporary git
   repositories.
 - Repository plumbing (#6): `.github/dependabot.yml` enabling weekly
   Dependabot updates for the npm (pnpm-workspace), Docker and GitHub Actions
