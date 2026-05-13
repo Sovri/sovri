@@ -51,7 +51,7 @@ run_case() {
   local expect_substring="$5"
   shift 5
   local extra_substrings=("$@")
-  local tmp summary stdout stderr stderr_file ec extra
+  local tmp summary stdout stderr stdout_file stderr_file stdout_bytes ec extra
 
   tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'check-coverage')
   if [ -z "$tmp" ] || [ ! -d "$tmp" ]; then
@@ -69,13 +69,20 @@ run_case() {
     return
   }
 
-  # Capture stdout and stderr into distinct buffers. `stderr_file` lives
-  # inside the per-case tmp dir so concurrent test runs cannot stomp on
-  # each other's streams. An empty $summary is passed through verbatim
-  # so missing-file tests can probe the script's usage-error path.
+  # Redirect stdout and stderr to distinct files inside the per-case tmp
+  # dir so concurrent test runs cannot stomp on each other's streams. We
+  # measure stdout in bytes via `wc -c` rather than in a `$(...)` capture
+  # because command substitution strips trailing newlines, which would
+  # let a regression that prints only `\n` to stdout slip past the
+  # emptiness assertion below. An empty $summary is passed through
+  # verbatim so missing-file tests can probe the script's usage-error
+  # path.
+  stdout_file="$tmp/.stdout"
   stderr_file="$tmp/.stderr"
   # shellcheck disable=SC2086
-  stdout=$(cd "$tmp" && node "$SCRIPT" "$summary" $extra_args 2>"$stderr_file") && ec=0 || ec=$?
+  (cd "$tmp" && node "$SCRIPT" "$summary" $extra_args >"$stdout_file" 2>"$stderr_file") && ec=0 || ec=$?
+  stdout_bytes=$(wc -c <"$stdout_file" | tr -d '[:space:]')
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
   stderr=$(cat "$stderr_file" 2>/dev/null || true)
 
   rm -rf "$tmp"
@@ -91,10 +98,10 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
     return
   fi
 
-  if [ -n "$stdout" ]; then
+  if [ "${stdout_bytes:-0}" -ne 0 ]; then
     FAIL=$((FAIL + 1))
     FAILURES="${FAILURES}
-  ✗ ${label}: stdout must be empty, got:
+  ✗ ${label}: stdout must be empty (got ${stdout_bytes} byte(s)):
 $(printf '%s\n' "$stdout" | sed 's/^/        /')"
     return
   fi
