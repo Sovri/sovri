@@ -104,18 +104,21 @@ Configuration will be provided through a `.sovri.yml` file in each repository an
 
 ## Documentation
 
-| Resource                                             | What you will find                                                     |
-| ---------------------------------------------------- | ---------------------------------------------------------------------- |
-| [`CHANGELOG.md`](CHANGELOG.md)                       | Keep-a-Changelog 1.1 history, Unreleased section updated on every PR.  |
-| [`docs/adr/`](docs/adr/)                             | Architecture Decision Records (toolchain, licensing, security policy). |
-| [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) | How to file issues, propose features, send pull requests.              |
-| [`.github/SECURITY.md`](.github/SECURITY.md)         | Vulnerability reporting policy, scope, response SLA.                   |
+| Resource                                     | What you will find                                                     |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| [`CHANGELOG.md`](CHANGELOG.md)               | Keep-a-Changelog 1.1 history, Unreleased section updated on every PR.  |
+| [`docs/adr/`](docs/adr/)                     | Architecture Decision Records (toolchain, licensing, security policy). |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)         | How to file issues, propose features, send pull requests.              |
+| [`.github/SECURITY.md`](.github/SECURITY.md) | Vulnerability reporting policy, scope, response SLA.                   |
 
 ---
 
 ## Contributing
 
-Contributions are welcome under the Apache 2.0 license of this repository. Read [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) before opening a substantial change — Sovri deliberately ships a narrow feature set and several common additions are out of scope.
+Contributions are welcome under the Apache 2.0 license of this repository. Read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a substantial change --
+Sovri deliberately ships a narrow feature set and several common additions are
+out of scope.
 
 Security-sensitive reports go through the private channels in [`.github/SECURITY.md`](.github/SECURITY.md), never through public issues.
 
