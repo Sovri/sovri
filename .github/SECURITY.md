@@ -7,7 +7,25 @@ Sovri handles two security-sensitive surfaces:
 1. **GitHub App credentials and webhooks** — the bot holds write-scoped tokens to client repositories.
 2. **LLM prompt injection via user diffs** — content from pull requests enters LLM prompts.
 
-Reports about either are explicitly in scope. Reports about general best-practice hardening that do not have a concrete exploit path are welcome via regular issues.
+Reports about either are explicitly in scope. The following are also in scope:
+
+- Authentication or authorization bypass on the bot or any future Cloud surface.
+- Leakage of GitHub App credentials, LLM API keys, or webhook payloads through logs or error messages.
+- Supply-chain compromise (malicious dependency, tampered release artifact, broken signing chain).
+- Sandbox escape allowing code from a user diff or LLM response to execute on the bot host.
+- Bypass of the Apache 2.0 / proprietary Cloud boundary (e.g. unintended import of `apps/cloud-api/` from a Community surface).
+
+### Out of Scope
+
+The following are not eligible for coordinated disclosure and should be filed as regular issues, or in some cases reported elsewhere:
+
+- Best-practice hardening suggestions without a concrete exploit path (file a regular issue).
+- Vulnerabilities in third-party dependencies that already have a patched version available — open a PR to bump the dependency instead.
+- Denial-of-service attacks that require unrealistic request volumes already mitigated by GitHub-side rate limiting.
+- Issues that require a previously compromised maintainer machine, a hostile GitHub organization owner, or a malicious LLM provider — these are outside the threat model.
+- Social engineering or phishing of maintainers (report directly to GitHub Trust & Safety).
+- Vulnerabilities in the proprietary Cloud edition (`apps/cloud-api/`) — that codebase is not published in this repository and has its own private disclosure channel that will be documented once Cloud reaches general availability.
+- Findings that depend on unsupported configurations (e.g. disabling `ignore-scripts`, running the bot with elevated privileges, exposing the webhook endpoint without HMAC validation).
 
 ## Supported Versions
 
@@ -24,7 +42,11 @@ Until the v1.0 release, only the `main` branch is supported. Post-v1.0 the lates
 Use one of these private channels:
 
 1. **GitHub Security Advisories** — preferred. Open a draft advisory at https://github.com/mpiton/sovri/security/advisories/new
-2. **Email** — `matpiton@protonmail.com` (PGP key available on request)
+2. **Email** — `matpiton@protonmail.com`. PGP encryption is supported; the public key and its fingerprint will be published in this file before the v0.1 release. Until then, request the key by email and verify the fingerprint out-of-band before sending sensitive material.
+
+   ```
+   PGP fingerprint: TBD — published before v0.1
+   ```
 
 ### What to Include
 
