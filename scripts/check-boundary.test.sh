@@ -195,6 +195,20 @@ setup_empty_ts_file() {
   stage_file packages/core/src/placeholder.ts ''
 }
 
+setup_dynamic_tokens_in_comment_and_string() {
+  # Regression guard for the PR #73 review feedback (CodeRabbit, Codex,
+  # cubic-dev-ai): `import("...")` and `require("...")` shown as text
+  # inside comments or string literals must NOT be flagged. Covers
+  # whole-line `//`, trailing `//`, inline `/* ... */`, JSDoc body
+  # continuation (` *`), and escaped string literal contexts.
+  stage_file packages/core/src/notes.ts '// historical: import("@sovri/cloud-api") used to be here
+/** require("@sovri/cloud-api") shown in jsdoc */
+ * import("@sovri/cloud-api") body continuation
+const code = 1; // import("@sovri/cloud-api") trailing
+export const STR = "import(\"@sovri/cloud-api\")";
+export const ok = 1;'
+}
+
 # Block scenarios — @sovri/cloud scope.
 
 setup_at_sovri_cloud_in_core_at_line_3() {
@@ -319,6 +333,7 @@ run_case "PASS-11 string literal mentions cloud-api"      setup_string_literal_m
 run_case "PASS-12 comment mentions @sovri/cloud-api"      setup_comment_mentions_cloud_api       0 ""
 run_case "PASS-13 coreImport()/myRequire() identifiers"   setup_similar_identifier_call          0 ""
 run_case "PASS-14 empty .ts file ok"                      setup_empty_ts_file                    0 ""
+run_case "PASS-15 dynamic tokens in comment/string"       setup_dynamic_tokens_in_comment_and_string 0 ""
 
 run_case "BLOCK-1  packages/core @sovri/cloud"            setup_at_sovri_cloud_in_core           1 "BLOCKED: Cloud import"
 run_case "BLOCK-2  @sovri/cloud-internals"                setup_at_sovri_cloud_internals         1 "BLOCKED: Cloud import"
