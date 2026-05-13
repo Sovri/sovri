@@ -21,6 +21,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Public-facing documentation (#4): root `README.md` covering the project
+  tagline, EU sovereignty positioning, Apache 2.0 + proprietary Cloud
+  distribution boundary, current pre-alpha status, build-from-source steps,
+  planned bot delivery channels (GHCR image + standalone Node process), and
+  links to the ADRs, contributing guide, security policy, changelog and
+  pricing. Explicit disclaimer that no certification (ISO 27001, SOC 2, HDS,
+  SecNumCloud) is claimed today. `.github/SECURITY.md` enriched with an
+  explicit in-scope list (auth bypass, credential leakage, supply-chain
+  compromise, sandbox escape, Apache 2.0 / Cloud boundary breach), an
+  explicit Out-of-Scope list (hardening suggestions without exploit path,
+  patched third-party CVEs, unrealistic-volume DoS, attacks outside the
+  threat model, social engineering, Cloud edition, unsupported
+  configurations), and a PGP fingerprint placeholder to be published before
+  v0.1.
 - `docs/adr/001..012` — initial set of Architecture Decision Records covering
   the locked toolchain: Node.js LTS 24 + strict TypeScript, pnpm + Turborepo
   monorepo, ESM-only modules, Probot, Zod runtime validation, Pino logger,

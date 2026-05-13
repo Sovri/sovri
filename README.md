@@ -1,0 +1,128 @@
+# Sovri
+
+> EU-sovereign AI code review for regulated enterprises.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-24%20LTS-339933?logo=node.js&logoColor=white)](.nvmrc)
+[![pnpm](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#status)
+
+Sovri is a GitHub pull-request review bot built for organizations that cannot adopt US-hosted SaaS code-review tools — banks under DORA, healthcare providers under HDS, public-sector operators under NIS2, defense and dual-use industries. It is distributed as two complementary editions:
+
+- **Community** — Apache 2.0, self-hosted, free. Everything you need to run reviews on your own infrastructure with the LLM provider of your choice. Lives in this repository under [`packages/*`](#architecture) and [`apps/community-bot/`](#architecture).
+- **Cloud** — proprietary, managed in the European Union. Adds SSO, multi-tenancy, billing, and an audit log on top of the Community engine. Not published here.
+
+The Community edition is the source of truth for all review logic. The Cloud edition only adds SaaS infrastructure; no review feature is gated behind it.
+
+---
+
+## Why Sovri
+
+The dominant AI code-review tools — CodeRabbit, Qodo, CodeAnt — are US-centric SaaS products. For regulated EU customers, that model fails three tests at once:
+
+1. **Data residency** — code is shipped to a US-hosted backend, often through a US-controlled LLM endpoint.
+2. **Auditability** — closed-source pipelines cannot be reviewed by a DPO or RSSI before adoption.
+3. **Vendor lock-in on the model** — the LLM provider is imposed by the vendor, not chosen by the customer.
+
+Sovri inverts each of these:
+
+- **Self-host first** — the bot runs on your own infrastructure; no Sovri-controlled backend is involved in the Community edition.
+- **Open and auditable** — Apache 2.0 source, deterministic toolchain (pinned dependencies, locked LLM SDK versions, SBOM at every release).
+- **Bring-your-own LLM** — Anthropic, Mistral, OpenAI, or any OpenAI-compatible endpoint. No model is bundled or required.
+
+Sovri does **not** claim to be a certified product. There is no ISO 27001, no SOC 2, no HDS, no SecNumCloud certification today. Each of these has a roadmap entry; none is implied by the current state of the code.
+
+---
+
+## Status
+
+**Pre-alpha.** The repository is at the walking-skeleton stage: monorepo bootstrap, toolchain, ADRs and public-facing docs. The community bot itself is being built sprint by sprint and is not yet runnable.
+
+Track progress through the [issues](https://github.com/mpiton/sovri/issues) and the `[Unreleased]` section of [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+## Architecture
+
+The runtime is a thin Probot adapter that delegates every review to pure TypeScript packages.
+
+```text
+GitHub webhook
+      │
+      ▼
+apps/community-bot           (Probot, HMAC validation, command routing)
+      │
+      ▼
+packages/review-engine       (diff → prompt → LLM call → Zod parsing → findings)
+      │
+      ├─► packages/llm-providers   (BYOK adapters)
+      ├─► packages/config          (.sovri.yml parsing)
+      └─► packages/observability   (Pino logger, OpenTelemetry)
+      │
+      ▼
+packages/core                (pure domain, Zod schemas, zero I/O)
+```
+
+Detailed technical decisions are tracked as Architecture Decision Records under [`docs/adr/`](docs/adr/). The full toolchain (Node.js 24 LTS, pnpm 10, Turborepo 2, Probot 14, Zod 4, Vitest 4, oxlint, oxfmt, tsup, Docker on GHCR) is locked through ADRs 001 to 012.
+
+---
+
+## Build from source
+
+The repository builds today, even though the bot is not yet feature-complete.
+
+### Prerequisites
+
+- **Node.js 24 LTS** — version pinned in [`.nvmrc`](.nvmrc). Use `nvm use` or `fnm use`.
+- **pnpm 10** — enable through Corepack: `corepack enable && corepack prepare pnpm@10 --activate`.
+- **Docker** (optional) — only required for the integration tests and the bot image.
+
+### Steps
+
+```bash
+git clone https://github.com/mpiton/sovri.git
+cd sovri
+pnpm install --frozen-lockfile
+pnpm turbo build
+pnpm turbo test
+```
+
+The first install runs `--ignore-scripts` by policy (see [`.npmrc`](.npmrc)); no transitive `postinstall` script is allowed to execute.
+
+---
+
+## Run the Community bot
+
+Not yet available. The first runnable release is targeted for the v0.1 milestone. Once published the bot will be distributed as:
+
+- a multi-architecture container image on GitHub Container Registry (`ghcr.io/mpiton/sovri-community-bot`),
+- a standalone Node.js process for users who prefer to deploy without Docker.
+
+Configuration will be provided through a `.sovri.yml` file in each repository and environment variables for the GitHub App credentials and the LLM API key. The bot is **stateless** in v0.1: its only persistent state is the configuration file and the GitHub API itself.
+
+---
+
+## Documentation
+
+| Resource                                             | What you will find                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`CHANGELOG.md`](CHANGELOG.md)                       | Keep-a-Changelog 1.1 history, Unreleased section updated on every PR.  |
+| [`docs/adr/`](docs/adr/)                             | Architecture Decision Records (toolchain, licensing, security policy). |
+| [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) | How to file issues, propose features, send pull requests.              |
+| [`.github/SECURITY.md`](.github/SECURITY.md)         | Vulnerability reporting policy, scope, response SLA.                   |
+
+---
+
+## Contributing
+
+Contributions are welcome under the Apache 2.0 license of this repository. Read [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) before opening a substantial change — Sovri deliberately ships a narrow feature set and several common additions are out of scope.
+
+Security-sensitive reports go through the private channels in [`.github/SECURITY.md`](.github/SECURITY.md), never through public issues.
+
+---
+
+## License
+
+This repository is licensed under the [Apache License 2.0](LICENSE). The license applies to every file under `packages/*` and `apps/community-bot/`. The proprietary Cloud edition (`apps/cloud-api/`) is **not** distributed under Apache 2.0 and is not published in this repository.
+
+Copyright 2026 Sovri contributors.
