@@ -21,6 +21,37 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Pre-commit guard `scripts/no-forbidden-tools.sh` (#9) rejecting staged files
+  that introduce competing package managers or lint/format toolchains. Two
+  regex families: foreign package-manager lockfiles (`package-lock.json`,
+  `yarn.lock`, `bun.lockb`) per `docs/adr/002-monorepo-pnpm-turborepo.md`, and
+  foreign lint/format configs (`.eslintrc*`, `biome.json*`, `.prettierrc*`,
+  `.prettier.<suffix>`) per `docs/adr/011-oxlint-oxfmt.md`. Patterns are
+  anchored to a path-component boundary, so the existing root `pnpm-lock.yaml`
+  and nested workspace paths (`apps/x/...`, `packages/core/...`) are
+  evaluated identically, and a markdown file whose name happens to contain
+  `eslintrc` without the leading dot is not flagged. Deletions are excluded
+  via `--diff-filter=d`, so removing a legacy forbidden file passes the
+  guard. The error output enumerates every offending path, names the
+  violated ADR, maps each forbidden family to its ADR-approved replacement
+  (pnpm-lock.yaml, .oxlintrc.json, .oxfmtrc.json), and reminds contributors
+  to use `pnpm add` so `pnpm-lock.yaml` is the only lockfile in the repo.
+  Companion `scripts/no-forbidden-tools.test.sh` runner exercises 34
+  acceptance scenarios (10 PASS + 24 BLOCK) in isolated temporary git
+  repositories with `commit.gpgsign=false`, covering each lockfile family at
+  root and nested paths, every documented ESLint legacy config extension
+  (`.eslintrc`, `.json`, `.js`, `.cjs`, `.yaml`, `.yml`), both Biome
+  filenames (`biome.json`, `biome.jsonc`), each Prettier rc and dotted
+  variant (`.prettierrc`, `.prettierrc.json`, `.prettierrc.js`,
+  `.prettierrc.yaml`, `.prettier.config.js`, `.prettier.ignore`), the
+  positive cases for `pnpm-lock.yaml`, `package.json`, `.oxlintrc.json`,
+  `.oxfmtrc.json`, `.npmrc` (`.npmrc` belongs to `no-secrets.sh`), files
+  whose name embeds tool tokens but lacks the required path-component
+  anchor, and the deletion case for an existing `.eslintrc.json`. The
+  "multiple forbidden files in one commit" scenario additionally asserts
+  that every offending path is listed in stdout, not only the BLOCKED
+  header. Portable bash, no GNU-only flags, no Node.js dependency.
+
 - Pre-commit guard `scripts/no-manual-deps.sh` (#8) rejecting commits that
   modify any `dependencies`, `devDependencies`, `peerDependencies`, or
   `optionalDependencies` block in a staged `package.json` (root or nested,
