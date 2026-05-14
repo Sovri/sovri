@@ -370,17 +370,28 @@ done
 # committed source of truth) rather than the dump output: the dump round-trip
 # adds no information for an exact-string assertion and exposes the test to
 # YAML re-emission quirks (quoted vs unquoted scalars, indentation changes)
-# that vary between lefthook versions. The `$`-anchored grep also disambig-
-# uates from look-alike pre-commit lines — e.g. pre-commit's
-# `pnpm exec tsc -b --noEmit` will never satisfy pre-push's `pnpm exec tsc -b`
-# because the trailing flag makes the line strictly longer than the anchor.
+# that vary between lefthook versions. Scope the match to the targeted
+# pre-push command block via awk so a duplicate `run:` line elsewhere in
+# the file (a future commit-msg / pre-merge hook reusing the same string,
+# or a YAML comment containing it) cannot satisfy the assertion. The
+# `pnpm exec tsc -b --noEmit` pre-commit line would already fail an
+# `==`-anchored equality against pre-push's `pnpm exec tsc -b` because of
+# the trailing flag, but explicit block scoping makes the assertion
+# robust against any future drift in adjacent blocks too.
 assert_yml_run() {
   local cmd="$1"
   local expected="$2"
-  if grep -Fxq -- "      run: $expected" "$LEFTHOOK_YML"; then
+  if awk -v cmd="    $cmd:" -v want="      run: $expected" '
+    $0 == "pre-push:" { in_hook = 1; next }
+    in_hook && /^[a-z][a-zA-Z0-9-]*:$/ { exit }
+    in_hook && $0 == cmd { in_cmd = 1; next }
+    in_cmd && /^    [a-z][a-zA-Z0-9-]*:$/ { exit }
+    in_cmd && $0 == want { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$LEFTHOOK_YML"; then
     record_pass
   else
-    record_fail "pre-push $cmd run string drift; expected '$expected' anchored in $LEFTHOOK_YML"
+    record_fail "pre-push $cmd run string drift; expected '$expected' under command '$cmd' in $LEFTHOOK_YML"
   fi
 }
 
