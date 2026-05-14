@@ -970,6 +970,57 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   so downstream packages can rely on `@sovri/core` rather than importing
   internal type files directly.
 
+- `@sovri/core` exports `PullRequestSchema`, `DiffSchema`, `FileChangeSchema`,
+  and `FileChangeStatusSchema` Zod schemas plus their inferred TypeScript types
+  (`PullRequest`, `Diff`, `FileChange`, `FileChangeStatus`) (#19), implementing
+  the input-side domain types referenced by `ARCHI.md` §4.1 and §5.5. The
+  schemas live in `packages/core/src/types/PullRequest.ts` and are re-exported
+  from the package barrel `packages/core/src/index.ts`. `PullRequestSchema`
+  captures the metadata the review engine needs from a Probot pull-request
+  payload — `number` (positive integer), `repo_full_name` (bounded
+  `owner/repo` shape, same regex as `ReviewSchema`), `head_sha` and `base_sha`
+  (40 lowercase hex characters, same regex as `ReviewSchema.commit_sha`),
+  `head_ref` and `base_ref` (non-empty strings), `author` (non-empty
+  `user.login`), `draft` (boolean), `title` (non-empty), `body` (string or
+  `null` for description-less PRs), and `additions` / `deletions` /
+  `changed_files` (non-negative integers). `FileChangeStatusSchema` is the
+  normalised four-value enum `added | modified | removed | renamed` —
+  GitHub's wider `copied | changed | unchanged` extras collapse upstream of
+  `@sovri/core` so the domain layer reasons about the four canonical cases
+  only; the schema carries a leading comment that documents this
+  pre-condition so a caller passing a raw Octokit payload fails loudly at
+  the parse boundary instead of silently mis-categorising the file.
+  `FileChangeSchema` validates a per-file diff entry — `path`
+  (non-empty), `previous_path` (optional, non-empty), `status`, `additions`
+  / `deletions` (non-negative integers), `sha` (40 lowercase hex), `patch`
+  (string, including empty, or `null` for binary/oversized files), and
+  `hunks` (array of structured hunks with `old_start` / `old_lines` /
+  `new_start` / `new_lines` non-negative integers, non-empty `header`, and
+  raw `lines: string[]`). A `superRefine` enforces the cross-field invariant
+  that `previous_path` is required and must differ from `path` when
+  `status === "renamed"`, and rejected entirely on the other three statuses
+  — three error paths the field-level optional alone cannot express.
+  `DiffSchema` wraps the raw `unified_diff` blob alongside the array of
+  parsed `FileChangeSchema` entries so review-engine callers can pass both
+  the textual form (for prompt assembly) and the structured form (for inline
+  comment anchoring) through one validated boundary. The private
+  `HunkSchema` is deliberately not exported — its parser lives outside
+  `@sovri/core`, and keeping it internal preserves the option to evolve the
+  parsed hunk shape without breaking the public surface. The accompanying
+  `packages/core/src/types/PullRequest.test.ts` file covers each schema's
+  happy paths, every boundary on each `sha` / `repo_full_name` / numeric
+  field, all four enum values plus rejections of `copied` / `changed` /
+  `unchanged` / non-string / empty inputs, the `null` / `undefined` /
+  numeric `patch` and `body` cases, hunk-level integer-range and
+  non-string-line rejections, every required-field omission across the four
+  exported schemas, the three `previous_path` / `status` `superRefine`
+  branches (renamed without `previous_path`, renamed with
+  `previous_path === path`, non-renamed with `previous_path`), and the
+  type-inference round-trip for `PullRequest`, `Diff`, `FileChange`, and
+  `FileChangeStatus`. `packages/core/src/index.test.ts` is extended in the
+  same PR to assert each of the four new schemas resolves through the
+  package barrel.
+
 ### Changed
 
 ### Deprecated
