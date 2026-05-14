@@ -21,6 +21,25 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/observability` package scaffold (#21) — Apache 2.0 package that
+  anchors the dependency graph entry point for the Pino logger landing in a
+  follow-up task. Ships `package.json` (name `@sovri/observability`,
+  `pino@9.14.0` as the only runtime dependency, exact-pinned per supply
+  chain policy), `tsconfig.json` extending `tsconfig.base.json`,
+  `tsup.config.ts` mirroring `@sovri/core`'s ESM-only bundler shape, a
+  barrel `src/index.ts` that re-exports only Pino's `Logger` type so
+  downstream consumers can already wire the future logger's return type at
+  compile time (no runtime symbols yet — `unicorn/require-module-specifiers`
+  rejects a bare `export {}` and the type-only re-export keeps the file a
+  valid TS module under `isolatedModules`), an `src/index.test.ts` that
+  asserts the barrel resolves at runtime and that the exported `Logger`
+  type structurally equals `pino`'s `Logger`, and a README pointing at
+  ADR-006. Per ADR-006 no `@opentelemetry/*` dependency is introduced —
+  OpenTelemetry SDK 2.0 is intentionally deferred to v0.5 and lands
+  alongside the `createLogger` factory described in `ARCHI.md` §4.5
+  without breaking the package's public API. The root `tsconfig.json`
+  gains a project reference so `tsc -b` typechecks the new package.
+
 - `@sovri/core` domain helpers `computeSeverityRank`,
   `groupFindingsByFile`, `applyIgnoreRules` (#20) — pure functions used by
   the review engine and bot to rank, bucket, and filter findings prior to
