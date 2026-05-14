@@ -3,11 +3,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { z } from "./index.js";
+import { ReviewSchema, z } from "./index.js";
 
 describe("@sovri/core", () => {
   it("exposes a functional zod instance", () => {
     expect(typeof z).toBe("object");
     expect(typeof z.string).toBe("function");
+  });
+
+  it("exports ReviewSchema from the package barrel", () => {
+    expect(typeof ReviewSchema.parse).toBe("function");
   });
 });

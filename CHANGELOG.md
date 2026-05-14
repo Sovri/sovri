@@ -948,6 +948,28 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   carved out separately because it has no value outside the schema test
   suite it unblocks.
 
+- `@sovri/core` exports `ReviewSchema` and its inferred `Review` type (#18),
+  implementing the top-level review aggregate described for the v0.1 walking
+  skeleton. The schema lives in `packages/core/src/types/Review.ts` and is
+  re-exported from `packages/core/src/index.ts`, keeping the package barrel as
+  the single public entry point for core contracts. It validates review
+  provenance (`id`, `pr_number`, `repo_full_name`, `commit_sha`), timing
+  (`started_at`, `completed_at`), LLM metadata, token counts, summary,
+  findings, walkthrough markdown, status, and optional error text. Repository
+  names must use a bounded `owner/repo` shape, commit SHAs are constrained to
+  40 lowercase hexadecimal characters, token counts must be non-negative
+  integers, status is limited to `success | partial | failed`, and
+  `started_at` must be earlier than or equal to `completed_at`; the date-order
+  rule resolves the issue's open acceptance-criteria question by enforcing the
+  only chronologically valid review lifecycle at schema level. The accompanying
+  `packages/core/src/types/Review.test.ts` suite covers valid reviews, optional
+  errors, zero-token boundaries, bad commit SHA lengths and characters, invalid
+  repository names, invalid temporal ordering, invalid token counts, invalid
+  statuses, required field omissions, and the `Review` type-inference
+  round-trip. `packages/core/src/index.test.ts` also asserts the barrel export
+  so downstream packages can rely on `@sovri/core` rather than importing
+  internal type files directly.
+
 ### Changed
 
 ### Deprecated
@@ -975,6 +997,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `pnpm-workspace.yaml`.
 
 ### Fixed
+
+- `knip.json` now treats `lefthook` as an intentional root tooling dependency,
+  matching the hook-manager policy documented in `docs/adr/012-lefthook-ci-gates.md`
+  and preventing the pre-push `knip` gate from flagging the hook binary as
+  unused.
 
 ### Security
 
