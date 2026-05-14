@@ -60,7 +60,7 @@ automatically.
 | `*.token`               | nested token (e.g. `ctx.token`)                                         |
 | `installation.token`    | the canonical GitHub App installation token shape                       |
 | `pem`                   | GitHub App private key in PEM form                                      |
-| `privateKey`            | private key under any common camelCase name                             |
+| `privateKey`            | exact key `privateKey` (case-sensitive)                                 |
 | `secret`                | catch-all generic secret field                                          |
 | `webhook_secret`        | webhook signing secret                                                  |
 | `*.webhook_secret`      | nested webhook secret in `.sovri.yml` style configs                     |
