@@ -1150,6 +1150,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `@sovri/observability`: Pino `redact` option strips GitHub tokens, LLM API keys, webhook secrets, GitHub App private keys, and authorization headers from every log record (top-level + nested + wildcard one-level paths). Censor is the literal `[Redacted]`. Child loggers inherit the policy. Path source of truth: `REDACT_PATHS` in `packages/observability/src/logger.ts`. Closes #23. (`ARCHI.md` §9.2, CLAUDE.md NEVER rule on token logging.)
+
 - Enforced a 7-day cooldown before any Dependabot version-update pull
   request is opened (#6), mitigating the supply-chain timing window for
   compromised packages highlighted by the May 2026 mini-shai-hulud
