@@ -73,8 +73,16 @@ cleanup() {
 # EXIT alone does not always fire on uncaught signals when `set -e` is off,
 # so register INT and TERM as well to avoid leaking fixtures into the repo
 # (which would then be picked up by the next real `pnpm exec vitest` run
-# and break developer workflows unrelated to this script).
-trap cleanup EXIT INT TERM
+# and break developer workflows unrelated to this script). The INT / TERM
+# handlers run cleanup then exit with the standard `128 + signum` code
+# (130 for SIGINT / Ctrl-C, 143 for SIGTERM) so the original termination
+# semantics are preserved: a trap that only runs cleanup and returns would
+# swallow the signal and let the script continue past the interruption,
+# which would surface as a spurious policy failure in the assertion that
+# happened to be running when the signal arrived.
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 record_pass() {
   PASS=$((PASS + 1))
@@ -253,7 +261,15 @@ run_changelog_check() {
   exit 2
 }
 
+# Every subshell that runs `git` against `$SCRATCH` must clear
+# GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE in addition to silencing the
+# host's global / system git config. Without the unsets, a caller that
+# exported those variables (a lefthook hook re-entering the test, a CI
+# job, a parent IDE) would redirect `git add` / `git diff --cached` to
+# the host's index instead of the scratch repo and the assertion would
+# read state that has nothing to do with the fixture.
 case_out=$(cd "$SCRATCH" \
+  && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE \
   && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
   bash -c "$(declare -f run_changelog_check); run_changelog_check" 2>&1)
 case_ec=$?
@@ -267,6 +283,7 @@ fi
 # Inverse 1: staging .ts AND CHANGELOG.md together must pass.
 (
   cd "$SCRATCH"
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
   export GIT_CONFIG_GLOBAL=/dev/null
   export GIT_CONFIG_NOSYSTEM=1
   echo "# Changelog" >CHANGELOG.md
@@ -278,6 +295,7 @@ fi
 
 case_ec=0
 (cd "$SCRATCH" \
+  && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE \
   && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
   bash -c "$(declare -f run_changelog_check); run_changelog_check" >/dev/null 2>&1) || case_ec=$?
 
@@ -291,6 +309,7 @@ fi
 # regression that wrongly blocks docs-only changes would slip through.
 (
   cd "$SCRATCH"
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
   export GIT_CONFIG_GLOBAL=/dev/null
   export GIT_CONFIG_NOSYSTEM=1
   git reset -q
@@ -302,6 +321,7 @@ fi
 
 case_ec=0
 (cd "$SCRATCH" \
+  && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE \
   && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
   bash -c "$(declare -f run_changelog_check); run_changelog_check" >/dev/null 2>&1) || case_ec=$?
 
