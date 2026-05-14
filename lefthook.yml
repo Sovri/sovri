@@ -56,10 +56,29 @@ pre-commit:
       skip: [merge, rebase]
       fail_text: "CHANGELOG.md must be updated when code changes."
 
-# Note: the pre-push block specified in ARCHI.md §16.1 (vitest run, tsc -b
-# project build, pnpm audit, pnpm dedupe, knip, turbo build packages) is
-# intentionally deferred. It depends on the TypeScript workspace setup
-# (root tsconfig with project references, vitest devDep, populated
-# packages/) which does not exist in the walking-skeleton state at the
-# time this file lands. It will be wired in a follow-up issue once the
-# upstream infra is in place, preserving the ADR-012 reciprocity rule.
+pre-push:
+  parallel: true
+  commands:
+    ts-test:
+      run: pnpm exec vitest run --passWithNoTests --reporter=default
+      fail_text: "Vitest tests fail. No push until everything is green."
+
+    ts-typecheck:
+      run: pnpm exec tsc -b
+      fail_text: "TypeScript type-check fails."
+
+    audit:
+      run: pnpm audit --audit-level=high
+      fail_text: "pnpm audit detected a high or critical vulnerability."
+
+    dedupe:
+      run: pnpm dedupe --check
+      fail_text: "pnpm dedupe --check failed. Run: pnpm dedupe and commit pnpm-lock.yaml."
+
+    knip:
+      run: pnpm exec knip --reporter compact
+      fail_text: "knip detected unused exports/files/deps. Remove them or add explicit ignore in knip.json with rationale."
+
+    build:
+      run: pnpm turbo build --filter='./packages/*'
+      fail_text: "Package build fails. Fix it before push."
