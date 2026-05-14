@@ -14,3 +14,14 @@ export {
 } from "./types/Finding.js";
 
 export { ReviewSchema, type Review } from "./types/Review.js";
+
+export {
+  DiffSchema,
+  FileChangeSchema,
+  FileChangeStatusSchema,
+  PullRequestSchema,
+  type Diff,
+  type FileChange,
+  type FileChangeStatus,
+  type PullRequest,
+} from "./types/PullRequest.js";
