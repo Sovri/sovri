@@ -25,6 +25,6 @@
     "**/.worktrees/**",
     "**/node_modules/**"
   ],
-  "ignoreDependencies": [],
+  "ignoreDependencies": ["lefthook"],
   "ignoreExportsUsedInFile": true
 }

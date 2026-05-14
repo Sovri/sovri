@@ -12,3 +12,5 @@ export {
   type Finding,
   type Severity,
 } from "./types/Finding.js";
+
+export { ReviewSchema, type Review } from "./types/Review.js";
