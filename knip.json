@@ -15,6 +15,11 @@
       "project": ["src/**/*.{ts,tsx,mts}!"],
       "ignoreDependencies": ["pino-pretty"]
     },
+    "packages/config": {
+      "entry": ["src/index.ts!", "src/{cli,bin,server,worker}.ts!"],
+      "project": ["src/**/*.{ts,tsx,mts}!"],
+      "ignoreDependencies": ["@types/js-yaml", "js-yaml"]
+    },
     "apps/*": {
       "entry": ["src/index.ts!", "src/{server,main,bin,worker}.ts!"],
       "project": ["src/**/*.{ts,tsx,mts}!"]

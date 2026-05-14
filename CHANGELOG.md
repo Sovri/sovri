@@ -21,6 +21,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/config` package scaffold (#24) — Apache 2.0 package that anchors
+  the `.sovri.yml` parser surface landing in follow-up tasks. Ships
+  `package.json` (name `@sovri/config`, exact-pinned runtime dependencies
+  `zod@4.4.3` and `js-yaml@4.1.1` plus `workspace:*` links to `@sovri/core`
+  and `@sovri/observability`), `tsconfig.json` extending `tsconfig.base.json`,
+  `tsup.config.ts` mirroring the existing package shape, a barrel
+  `src/index.ts` exporting a permissive placeholder `SovriConfigSchema`
+  (`z.object({}).passthrough()`) plus type-only re-exports of `Severity`
+  and `Logger` from the workspace, and a README. Root `tsconfig.json`
+  gains a project reference so `tsc -b` walks the package; `knip.json`
+  gets a workspace block that scopes the entry to `src/index.ts` and
+  whitelists `js-yaml` / `@types/js-yaml` until the loader follow-up
+  consumes them.
+
 - `@sovri/observability`: `createLogger(name)` factory built on Pino v9 with structured JSON output; reads `LOG_LEVEL`, `LOG_PRETTY`, `SERVICE_NAME`, `SERVICE_VERSION`, `NODE_ENV`; attaches `{ service, version, env }` to every record and `{ component: name }` to child loggers. (#22)
 
 - `@sovri/observability` package scaffold (#21) — Apache 2.0 package that
