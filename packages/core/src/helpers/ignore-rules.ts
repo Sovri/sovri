@@ -5,8 +5,10 @@ import { posix } from "node:path";
 
 import type { Finding } from "../types/Finding.js";
 
-// Node 24 stable. POSIX variant gives platform-independent glob semantics for
-// repository-relative paths (the only shape findings carry in `file`).
+// `path.posix.matchesGlob` was marked stable in Node 24.8.0 (the workspace
+// `engines.node` floor). POSIX variant gives platform-independent glob
+// semantics for repository-relative paths (the only shape findings carry in
+// `file`).
 function matchesAny(file: string, patterns: readonly string[]): boolean {
   for (const pattern of patterns) {
     if (posix.matchesGlob(file, pattern)) return true;

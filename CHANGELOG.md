@@ -53,7 +53,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `applyIgnoreRules(findings, ignores)` filters out findings whose
   `file` matches at least one POSIX glob in `ignores`, returning
   `readonly Finding[]`. The matcher is `node:path`'s
-  `path.posix.matchesGlob` (stable since Node 23), which keeps the
+  `path.posix.matchesGlob` (marked stable in Node v24.8.0 — the new
+  workspace `engines.node` floor lands in the same PR), which keeps the
   package at zero runtime dependencies beyond Zod — the project rule
   forbidding any non-Zod runtime dep is honoured. Surprising semantics
   worth flagging to reviewers: glob metacharacters in the file path are
@@ -1081,6 +1082,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   package barrel.
 
 ### Changed
+
+- Tighten the workspace `engines.node` floor from `>=24.0.0 <25.0.0` to
+  `>=24.8.0 <25.0.0` (#20). The new `applyIgnoreRules` helper relies on
+  `path.posix.matchesGlob`, which the Node maintainers only marked stable
+  in v24.8.0 / v22.20.0 (still experimental on 24.0–24.7.x). Bumping the
+  floor avoids the experimental-API warning on officially supported
+  runtimes and keeps the package contract honest. The matching bump
+  lands in both the workspace root `package.json` and
+  `packages/core/package.json` so `engine-strict=true` in `.npmrc`
+  refuses to install under a pre-stable Node 24.
 
 ### Deprecated
 
