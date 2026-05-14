@@ -21,6 +21,127 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- Placeholder `packages/README.md` (#15) — creates an empty `packages/`
+  directory at the repo root so the pre-push `build` command (`pnpm
+  turbo build --filter='./packages/*'`) resolves its filter to an
+  empty package set and exits `0` in the walking-skeleton state.
+  Without the placeholder, `turbo` aborts with `Directory ... specified
+  in filter does not exist` and blocks every push, which would
+  contradict the v0.1 onboarding promise that `git push` works on a
+  fresh clone. The README form (rather than a zero-byte `.gitkeep`)
+  was chosen because `.claude/rules/30-licensing.md:17` requires an
+  Apache 2.0 header on every file under `packages/**`, and an empty
+  placeholder cannot carry one without defeating its purpose; the
+  README carries the SPDX header and doubles as documentation of the
+  workspace's intended membership. Each subsequent package init task
+  (#21, #24, #27, #31) lands its own `package.json` under this
+  directory and registers as a workspace member via the `packages/*`
+  glob in `pnpm-workspace.yaml`; the README is removed in the PR that
+  introduces the first real workspace member.
+- `lefthook.yml` pre-push wiring (#15) — resolves the deferral noted in
+  the #14 entry below by adding the `pre-push` block specified in
+  `ARCHI.md` §16.1 verbatim. Pre-push declares six commands running in
+  parallel — `ts-test` (`pnpm exec vitest run --passWithNoTests
+  --reporter=default`), `ts-typecheck` (`pnpm exec tsc -b` — full project
+  build, not the `--noEmit` variant used by the same-named pre-commit
+  command), `audit` (`pnpm audit --audit-level=high
+  --ignore-registry-errors`), `dedupe` (`pnpm
+  dedupe --check`), `knip` (`pnpm exec knip --reporter compact`), and
+  `build` (`pnpm turbo build --filter='./packages/*'`) — each carrying
+  an actionable `fail_text` pointing at the exact recovery command. No
+  `skip:` or `glob:` constraints are set on any pre-push command: they
+  must run on every push regardless of branch, worktree state, or merge
+  origin (a push is a deliberate publish event, unlike a commit which
+  can be intermediate). The block mirrors the heavier CI gates declared
+  in `ARCHI.md` §15.3 (`backend-checks` → `ts-test` + `ts-typecheck` +
+  `build`, `knip` → `knip`, `supply-chain` → `audit` + `dedupe`).
+  ADR-012's reciprocity rule (lines 54-56, *"Every rule rejected by CI
+  also has a local hook in `lefthook.yml`. Every local hook also has a
+  CI counterpart. New rules are added to **both layers simultaneously**;
+  a future ADR or amendment is required if a rule deliberately exists
+  in one layer only."*) is technically suspended for the window between
+  this PR and the CI counterparts landing in #48 (`backend-checks`),
+  #49 (`knip` + `supply-chain`), #50–#56 (the remaining workflows): the
+  local layer is wired here, the CI layer is tracked by those open
+  issues, and the temporary one-layer-only state is logged via the
+  Exception procedure documented at ADR-012 lines 58-60 (maintainer-
+  approved exception, follow-up issues already filed, walking-skeleton
+  phase only). No ADR amendment is required because the gap is
+  scheduled, not deliberate — the reciprocity guarantee is restored as
+  soon as #48–#49 (the gates that this PR's hooks mirror) merge. The
+  `pnpm exec vitest run` form depends on `vitest` being resolvable from
+  the root workspace, so this PR also adds `vitest@4.1.6` as a root
+  `devDependency` via `pnpm add -D -w vitest` (the only allowed channel
+  — manual `package.json` edits are blocked by the `no-manual-deps`
+  pre-commit hook from #14, and `.npmrc save-exact=true` plus
+  `.claude/rules/20-security.md` together enforce an exact pin without
+  the `^` / `~` range operators on every devDep including this one),
+  pinning ADR-007's Vitest 4 + MSW 2 stack to its first concrete
+  dependency. MSW remains out of scope until the first integration test
+  lands. ADR-012's
+  expected pre-push duration (30–90 s) is preserved: vitest no-ops on
+  zero discovered tests thanks to `--passWithNoTests`, `tsc -b` is a
+  no-op until the first package's `tsconfig.json` is added to the root
+  references list, `pnpm audit` and `pnpm dedupe --check` are fast
+  metadata reads against the locked tree, `knip` against an empty
+  workspace returns in well under a second, and `pnpm turbo build
+  --filter='./packages/*'` no-ops with the empty filter set until
+  `packages/` is populated. The `audit` command carries the
+  `--ignore-registry-errors` flag (added as a refinement of the
+  `ARCHI.md` §16.1 verbatim spec after a PR review caught the gap):
+  without it, a transient npm advisory registry outage would propagate
+  as a hard non-zero exit and block every contributor's `git push` for
+  the duration of the outage, even with a perfectly clean lockfile.
+  The pnpm CLI documents the flag as "use exit code 0 if the registry
+  responds with an error" so vulnerability findings still surface as
+  blocking exits while infrastructure failures degrade gracefully. The
+  same flag is applied to the matching CI `supply-chain` job spec in
+  `ARCHI.md` §15.3 so the reciprocity rule is preserved when #49
+  lands. The deferral wording from the #14 entry no longer reflects
+  the repo state once this PR lands; the historical text is kept
+  intact below so the [Unreleased] log reads as a truthful sequence of
+  intent → resolution rather than retroactive rewriting.
+- Smoke test extension `scripts/lefthook.test.sh` (#15) — replaces the
+  Section 10 assertion that the `pre-push` block is absent (which #14
+  introduced specifically so accidental partial wiring would trip the
+  test) with three new sections targeting issue #15 acceptance
+  criteria. Section 10 now asserts the declared shape of the pre-push
+  block end to end: the `pre-push:` block is present, `parallel: true`
+  is scoped to that block (re-using the awk window pattern that scopes
+  Section 4 to the pre-commit block so a future `commit-msg` /
+  `post-merge` hook cannot poison the assertion), the six required
+  commands (`ts-test`, `ts-typecheck`, `audit`, `dedupe`, `knip`,
+  `build`) are present at the correct indentation, every pre-push
+  command carries a `fail_text` field, and each command's `run:` line
+  matches the exact string from `ARCHI.md` §16.1 (drift here means
+  spec divergence and trips the test — for example, `pnpm exec tsc -b`
+  on pre-push is distinct from the pre-commit `pnpm exec tsc -b
+  --noEmit` because the pre-push variant must catch missing build
+  artifacts that `--noEmit` skips, and the scoped grep prevents the
+  look-alike substring from satisfying the wrong block). Section 11
+  exercises issue #15 AC2 functionally: a `.lefthook-test-failing.test.ts`
+  fixture written into the repo root (dot-prefixed to stay outside
+  source globs, removed on every script invocation regardless of
+  outcome) declares a failing `expect(1).toBe(2)`, the exact
+  `pnpm exec vitest run --passWithNoTests --reporter=default <file>`
+  form from the spec is invoked against it, and the test passes only
+  when the binary exits non-zero with a `FAIL` token in its output —
+  this confirms that the lefthook command propagates a failing test
+  as a blocking exit code rather than masking it. Section 12 covers
+  AC3 via the inverse path: `pnpm dedupe --check` is invoked against
+  the live workspace and must exit `0` in the healthy state, proving
+  the binary is resolvable, the lockfile is well-formed, and no
+  dedupe drift snuck into the PR diff; the negative path (duplicates
+  present → non-zero exit) is owned by the upstream `pnpm dedupe
+  --check` contract referenced verbatim by §16.1 and is too expensive
+  to synthesise inside a smoke test (it would require a real
+  `pnpm install` loop against a mktemp workspace with two
+  intentionally divergent version constraints, multiplying script
+  runtime by an order of magnitude). The exit-code convention is
+  preserved (`0` pass, `1` policy / spec deviation, `2` infra error
+  such as missing vitest binary), and the existing AC2 / AC3 cases
+  from #14 (`typescript/no-explicit-any` direct check and the inline
+  `changelog-updated` replay across three sub-cases) remain unchanged.
 - Minimal root `tsconfig.json` (#14) extending `tsconfig.base.json`
   with `files: []` and `references: []`. Acts as a placeholder
   aggregator so `pnpm exec tsc -b --noEmit` invoked by the
