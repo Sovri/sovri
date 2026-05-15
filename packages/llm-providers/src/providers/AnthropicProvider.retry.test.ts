@@ -266,6 +266,41 @@ describe("AnthropicProvider retry and timeout handling", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    { responseMs: 999, outcome: "success" },
+    { responseMs: 1000, outcome: "success" },
+    { responseMs: 1001, outcome: "timeout" },
+  ])(
+    "handles timeout boundary response after $responseMs ms as $outcome",
+    async ({ responseMs, outcome }) => {
+      // Given the Anthropic adapter is configured with a timeout of 1000 ms
+      // And the Anthropic response arrives after <response_ms> ms
+      vi.useFakeTimers();
+      const create = vi.fn<AnthropicCreate>(async (_request, options) =>
+        waitForResponseOrAbort(responseMs, options),
+      );
+      const provider = new AnthropicProvider({
+        client: clientFromCreate(create),
+        model: TestModel,
+        timeoutMs: 1000,
+      });
+
+      // When the review engine calls Anthropic once
+      const result = provider.generateStructured(generateParams);
+      const capturedError = outcome === "timeout" ? captureError(result) : undefined;
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(responseMs);
+
+      // Then the call outcome is "<outcome>"
+      if (outcome === "success") {
+        await expect(result).resolves.toEqual(validStructuredResponse);
+      } else {
+        const error = await capturedError;
+        expect(error).toBeInstanceOf(AnthropicTimeoutError);
+      }
+    },
+  );
+
   it("applies positive 20 percent jitter to the first retry delay", async () => {
     // Given the exponential backoff base delay is 500 ms
     // And retry jitter is bounded to plus or minus 20 percent
@@ -382,6 +417,25 @@ function waitForAbort(options: AnthropicCreateOptions): Promise<never> {
       () => reject(new DOMException("The operation was aborted.", "AbortError")),
       { once: true },
     );
+  });
+}
+
+function waitForResponseOrAbort(
+  responseMs: number,
+  options: AnthropicCreateOptions,
+): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    if (options?.signal?.aborted === true) {
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+      return;
+    }
+
+    options?.signal?.addEventListener(
+      "abort",
+      () => reject(new DOMException("The operation was aborted.", "AbortError")),
+      { once: true },
+    );
+    setTimeout(() => resolve(anthropicMessage()), responseMs);
   });
 }
 
