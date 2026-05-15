@@ -70,6 +70,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `lefthook`: drop `--noEmit` from the `ts-typecheck` pre-commit hook so
+  the workspace `tsc -b` no longer trips TS6310 ("Referenced project may
+  not disable emit") on composite project references. The flag was
+  incompatible with the `composite: true` setup in `packages/*` and
+  blocked every commit that touched a referencing package. Aligned with
+  the pre-push `ts-typecheck` line which already runs the emitting form.
+
+- `@sovri/llm-providers`: `AnthropicProvider` no longer requires
+  `ANTHROPIC_API_KEY` when an explicit `client` is injected via constructor
+  options (#29, Codex/cubic-dev review on #92). The env read is deferred to
+  the `??`-right branch so injected SDK clients (unit tests, custom
+  transports, BYO-auth wrappers) are not blocked by the env-var guard. Auth
+  validation is unchanged when the SDK is constructed internally.
+
 - `@sovri/llm-providers`: replace the raw NUL byte in
   `LLMResponseSchema.test.ts` (control-byte path test) with the
   ` ` escape sequence so Git classifies the file as UTF-8

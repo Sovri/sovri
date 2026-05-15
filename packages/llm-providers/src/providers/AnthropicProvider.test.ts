@@ -71,6 +71,14 @@ describe("AnthropicProvider", () => {
     expect(provider.maxTokens).toBe(DEFAULT_ANTHROPIC_MAX_TOKENS);
   });
 
+  it("does not require ANTHROPIC_API_KEY when an explicit client is injected", () => {
+    const client = { messages: { create: vi.fn() } } as never;
+
+    expect(
+      () => new AnthropicProvider({ client, env: { ANTHROPIC_API_KEY: undefined } }),
+    ).not.toThrow();
+  });
+
   it("posts a structured-output request and returns a Zod-validated response", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", TestApiKey);
 

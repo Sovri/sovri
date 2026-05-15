@@ -39,11 +39,10 @@ export class AnthropicProvider implements LLMProvider {
   private readonly client: AnthropicMessagesClient;
 
   constructor(options: AnthropicProviderOptions = {}) {
-    const apiKey = readAnthropicApiKey(options.env ?? process.env);
-
     this.model = resolveModel(options.model);
     this.maxTokens = resolveMaxTokens(options.maxTokens);
-    this.client = options.client ?? new Anthropic({ apiKey });
+    this.client =
+      options.client ?? new Anthropic({ apiKey: readAnthropicApiKey(options.env ?? process.env) });
   }
 
   async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
