@@ -33,6 +33,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `@sovri/review-engine`: `buildReviewPrompt` now escapes triple-backtick
+  sequences inside `unifiedDiff` before interpolating into the fenced `diff`
+  block (#134, cubic-dev review). A diff containing ``` could otherwise close
+  the prompt fence and inject downstream instructions into the LLM context,
+  matching the prompt-injection surface called out in `CLAUDE.md` (review IA
+  attack surface).
+- `@sovri/review-engine`: `ProviderFindingSchema` now refuses inverted ranges
+  via a `.refine(line_end >= line_start)` cross-field check (#134, CodeRabbit
+  + cubic-dev review). Without the guard the LLM could produce
+  `line_end < line_start` and the bot would either post a degenerate inline
+  comment or rely on downstream code to silently swap the bounds.
+
 - `@sovri/llm-providers`: `LLMFindingSchema` and `LLMResponseSchema` are
   hardened against prompt-injected LLM output (#28). The diff entering the
   prompt is untrusted; the response re-enters the bot as untrusted JSON
@@ -58,6 +70,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
     to cap string length on the optional `cwe` field.
 
 ### Changed
+
+- `@sovri/llm-providers`: `LLMProvider` interface now exposes a `readonly
+  model: string` field so callers can record the model that actually produced
+  a generation (#134, Codex + cubic-dev review). `AnthropicProvider` already
+  carried this field; the change just promotes it to the cross-provider
+  contract.
+- `@sovri/review-engine`: `runReview` now sources `ReviewEngineResult.model`
+  from `options.provider.model` instead of `RunReviewInput.model`, and the
+  unused `model` key is dropped from `RunReviewInputSchema` (#134, Codex +
+  cubic-dev review). The previous shape let the caller record an arbitrary
+  model string that did not have to match the provider, skewing audit and
+  cost attribution. Removing the field also fixes a latent strict-schema
+  failure: `buildReviewPrompt` calls `ReviewPromptInputSchema.parse(input)`
+  in strict mode and would reject the now-unexpected `model` key.
 
 - `@sovri/llm-providers`: `AnthropicProvider` retry policy now mirrors the
   Anthropic SDK's documented transient set — HTTP 408 (request timeout),

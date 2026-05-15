@@ -17,7 +17,6 @@ import {
 export const RunReviewInputSchema = z.strictObject({
   unifiedDiff: z.string(),
   instructions: z.array(z.string().min(1)).default([]),
-  model: z.string().min(1),
 });
 
 export type RunReviewInput = z.input<typeof RunReviewInputSchema>;
@@ -61,7 +60,7 @@ export async function runReview(
   return {
     id: uuidv7(),
     provider: options.provider.name,
-    model: reviewInput.model,
+    model: options.provider.model,
     diff,
     summary: parsed.summary,
     findings: parsed.findings,
