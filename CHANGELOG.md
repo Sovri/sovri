@@ -135,6 +135,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: package scaffold for the v0.1 orchestration layer
+  (#31). The package now builds with tsup, participates in the workspace
+  TypeScript project references, and exposes dedicated modules for diff
+  parsing, prompt building, LLM response parsing, walkthrough composition,
+  and orchestration while keeping the deferred ingestion format out of the
+  v0.1 source surface.
+
 - `@sovri/llm-providers`: acceptance coverage confirms the first two
   Anthropic retry delays remain inside their jitter windows: 400 ms to 600 ms
   for the 500 ms base delay and 800 ms to 1200 ms for the 1000 ms second
