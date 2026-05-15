@@ -60,15 +60,18 @@ async function createMessageAttempt(options: {
 }): Promise<unknown> {
   const controller = new AbortController();
   const startedAtMs = Date.now();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
 
   try {
-    return await options.client.messages.create(options.request, {
+    const response = options.client.messages.create(options.request, {
       headers: { "anthropic-beta": STRUCTURED_OUTPUTS_BETA_HEADER },
       maxRetries: 0,
       signal: controller.signal,
       timeout: options.timeoutMs,
     });
+    timeout = setTimeout(() => controller.abort(), options.timeoutMs);
+
+    return await response;
   } catch (cause) {
     return handleMessageFailure({
       ...options,
@@ -77,7 +80,9 @@ async function createMessageAttempt(options: {
       timedOut: controller.signal.aborted,
     });
   } finally {
-    clearTimeout(timeout);
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
   }
 }
 
