@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-export { parseReviewDiff, ParsedReviewDiffSchema } from "./diff/index.js";
+export {
+  DiffParseError,
+  parseReviewDiff,
+  parseUnifiedDiff,
+  ParsedReviewDiffSchema,
+} from "./diff/index.js";
 export type { ParsedReviewDiff, ParsedReviewDiffFile } from "./diff/index.js";
 
 export { buildReviewPrompt, ReviewPromptInputSchema } from "./prompt/index.js";

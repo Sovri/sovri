@@ -1,0 +1,14 @@
+diff --git a/src/app.ts b/src/app.ts
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -1 +1,2 @@
+ export const app = "sovri";
++export const enabled = true;
+diff --git a/src/config.ts b/src/config.ts
+index 3333333333333333333333333333333333333333..4444444444444444444444444444444444444444 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -1,2 +1 @@
+ export const retries = 2;
+-export const legacy = true;

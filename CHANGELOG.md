@@ -161,6 +161,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: `parseUnifiedDiff(raw)` now converts unified Git diff
+  text into the normalized `@sovri/core` `DiffSchema` contract (#32). The parser
+  validates parse-diff output with Zod, preserves binary file entries with
+  skipped content, normalizes Git path prefixes, records rename metadata,
+  maps deletions to `removed`, falls back to a deterministic unknown SHA for
+  abbreviated or missing blob IDs, and wraps malformed or invalid parser output
+  in a typed `DiffParseError`.
+
 - `@sovri/review-engine`: package scaffold for the v0.1 orchestration layer
   (#31). The package now builds with tsup, participates in the workspace
   TypeScript project references, and exposes dedicated modules for diff

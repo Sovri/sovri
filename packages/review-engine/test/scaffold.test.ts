@@ -12,6 +12,7 @@ import {
   composeWalkthrough,
   parseLLMReviewResponse,
   parseReviewDiff,
+  parseUnifiedDiff,
   runReview,
 } from "../src/index.js";
 
@@ -79,5 +80,6 @@ describe("@sovri/review-engine scaffold", () => {
     expect(typeof parseLLMReviewResponse).toBe("function");
     expect(typeof composeWalkthrough).toBe("function");
     expect(typeof runReview).toBe("function");
+    expect(typeof parseUnifiedDiff).toBe("function");
   });
 });
