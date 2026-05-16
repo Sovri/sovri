@@ -114,6 +114,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add acceptance coverage that non-object parsed inputs
   fail with a typed parse error retaining the Zod cause (#224).
 
+- `@sovri/review-engine`: add top-level LLM response schema acceptance coverage
+  for a strict response with summary `Review completed` and one raw finding
+  (#225).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency
