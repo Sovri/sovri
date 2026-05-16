@@ -17,7 +17,7 @@ type RawFindingFixture = {
   line_end: number;
   title: string;
   body: string;
-  suggested_code: string;
+  suggested_code: string | null;
   confidence: number;
 };
 
@@ -208,6 +208,48 @@ describe("parseLLMResponse", () => {
       const [finding] = findings;
 
       expect(finding?.suggestion?.committable).toBe(false);
+    }
+  });
+
+  it("marks non-committable suggestions as false", () => {
+    const examples = [
+      { line_start: 14, line_end: 16, suggested_code: "const total = amount ?? 0;" },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = amount ?? 0;\nreturn total;",
+      },
+      { line_start: 14, line_end: 14, suggested_code: "" },
+      { line_start: 14, line_end: 14, suggested_code: "   " },
+      { line_start: 14, line_end: 14, suggested_code: null },
+    ];
+
+    for (const example of examples) {
+      // Given the raw finding line_start is <line_start>
+      // And the raw finding line_end is <line_end>
+      // And the raw finding suggested_code is <suggested_code>
+      const findings = parseLLMResponse({
+        summary: "One finding found",
+        findings: [
+          buildRawFinding({
+            severity: "minor",
+            category: "maintainability",
+            file: "src/totals.ts",
+            title: "Use explicit zero fallback",
+            body: "The total can be undefined before formatting.",
+            confidence: 0.84,
+            ...example,
+          }),
+        ],
+      });
+
+      const [finding] = findings;
+
+      // When the maintainer computes the committable value
+      const committable = finding?.suggestion?.committable ?? false;
+
+      // Then the committable result is false
+      expect(committable).toBe(false);
     }
   });
 });

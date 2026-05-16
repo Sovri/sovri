@@ -41,6 +41,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   contains a non-empty single-line replacement for a single-line location,
   while keeping empty or multiline replacements non-committable (#204).
 
+- `@sovri/review-engine`: add acceptance coverage for marking multiline,
+  empty, whitespace-only, and null suggestions as non-committable (#205).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency
