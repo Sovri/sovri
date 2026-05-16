@@ -106,6 +106,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `@sovri/review-engine`: `runReview` now routes prompt generation through
+  `buildUserPrompt()` with validated pull request metadata, so the runtime
+  provider request uses the same title, description, and diff prompt contract
+  covered by the #155 acceptance scenario.
+
 - `@sovri/review-engine`: `parseUnifiedDiff` now rejects inputs that do not
   contain a `diff --git ` file header instead of returning files with empty
   `patch` strings (#154, cubic-dev review). Plain unified diffs still parse via

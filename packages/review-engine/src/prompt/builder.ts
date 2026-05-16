@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-export interface PullRequestPromptContext {
-  readonly number: number;
-  readonly repoFullName: string;
-  readonly title: string;
-  readonly description: string | null;
-}
+import { z } from "zod";
+
+export const PullRequestPromptContextSchema = z.strictObject({
+  number: z.number().int().positive(),
+  repoFullName: z.string().min(1),
+  title: z.string(),
+  description: z.string().nullable(),
+});
+
+export type PullRequestPromptContext = z.infer<typeof PullRequestPromptContextSchema>;
 
 export function buildUserPrompt(diff: string, prContext: PullRequestPromptContext): string {
+  const context = PullRequestPromptContextSchema.parse(prContext);
+
   return [
     "Review this pull request.",
-    `Repository: ${prContext.repoFullName}`,
-    `Pull request: #${prContext.number}`,
-    `Title: ${prContext.title}`,
-    `Description: ${prContext.description ?? ""}`,
+    `Repository: ${context.repoFullName}`,
+    `Pull request: #${context.number}`,
+    `Title: ${context.title}`,
+    `Description: ${context.description ?? ""}`,
     "",
     "Diff:",
     diff,
