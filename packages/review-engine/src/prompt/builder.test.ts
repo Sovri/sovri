@@ -19,6 +19,38 @@ function fencedUserDataSections(prompt: string): string[] {
   return [...prompt.matchAll(/```(?:text|diff)\n([\s\S]*?)\n```/g)].map((match) => match[1] ?? "");
 }
 
+describe("prompt builder output contract", () => {
+  it("covers the expected system and user prompt output shape", () => {
+    // Given the prompt builder has tests for buildSystemPrompt.
+    const systemPrompt = buildSystemPrompt({ mode: "full" });
+
+    // And the prompt builder has tests for buildUserPrompt.
+    const diff = `diff --git a/src/cards.ts b/src/cards.ts
+@@ -1 +1,2 @@
+ export const acceptedStates = ["active"];
++export const rejectedStates = ["expired"];`;
+
+    // When the maintainer runs the prompt builder test suite.
+    const userPrompt = buildUserPrompt(diff, {
+      number: 42,
+      repoFullName: "acme/payments",
+      title: "Add card state validation",
+      description: "Reject expired card states.",
+    });
+
+    // Then the tests assert that the system prompt is a non-empty string.
+    expect(systemPrompt).not.toHaveLength(0);
+    // And the tests assert that the user prompt includes PR metadata.
+    expect(userPrompt).toContain("acme/payments");
+    expect(userPrompt).toContain("Pull request: #42");
+    expect(userPrompt).toContain("Add card state validation");
+    expect(userPrompt).toContain("Reject expired card states.");
+    // And the tests assert that the user prompt includes diff content.
+    expect(userPrompt).toContain("src/cards.ts");
+    expect(userPrompt).toContain('export const rejectedStates = ["expired"];');
+  });
+});
+
 describe("buildUserPrompt", () => {
   it("preserves safe review input in the user prompt", () => {
     // Given the diff content is:
