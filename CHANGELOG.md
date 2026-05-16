@@ -195,6 +195,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now asserts directive markers in
+  diff content are escaped without hiding the changed line from review (#157).
+
 - `@sovri/review-engine`: acceptance coverage starts for the v0.1 prompt
   builder user prompt contract, and `buildUserPrompt()` now preserves safe PR
   metadata and diff content in the generated review prompt (#155).
