@@ -34,6 +34,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add acceptance coverage that multiple parsed LLM
   findings each receive a distinct UUID v4 identifier (#202).
 
+- `@sovri/review-engine`: add acceptance coverage for rejecting non-v4 finding
+  identifiers before a parsed finding can be returned (#203).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency
