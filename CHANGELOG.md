@@ -39,7 +39,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `@sovri/review-engine`: return a committable suggestion when a raw finding
   contains a non-empty single-line replacement for a single-line location,
-  covered by acceptance tests (#204).
+  while keeping empty or multiline replacements non-committable (#204).
 
 ### Removed
 

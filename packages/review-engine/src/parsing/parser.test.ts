@@ -189,4 +189,25 @@ describe("parseLLMResponse", () => {
     // And suggestion.committable is true
     expect(finding?.suggestion?.committable).toBe(true);
   });
+
+  it("does not mark empty or multiline replacements as committable", () => {
+    const examples = ["", "const total = amount ?? 0;\nreturn total;"];
+
+    for (const suggestedCode of examples) {
+      const findings = parseLLMResponse({
+        summary: "One finding found",
+        findings: [
+          buildRawFinding({
+            line_start: 14,
+            line_end: 14,
+            suggested_code: suggestedCode,
+          }),
+        ],
+      });
+
+      const [finding] = findings;
+
+      expect(finding?.suggestion?.committable).toBe(false);
+    }
+  });
 });

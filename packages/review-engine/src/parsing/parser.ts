@@ -35,6 +35,17 @@ function toSuggestion(finding: LLMRawFinding): Finding["suggestion"] {
 
   return {
     code: finding.suggested_code,
-    committable: finding.line_start === finding.line_end,
+    committable: isCommittableSuggestion(finding),
   };
+}
+
+function isCommittableSuggestion(finding: LLMRawFinding): boolean {
+  return (
+    finding.line_start === finding.line_end &&
+    finding.suggested_code !== undefined &&
+    finding.suggested_code !== null &&
+    finding.suggested_code.trim().length > 0 &&
+    !finding.suggested_code.includes("\n") &&
+    !finding.suggested_code.includes("\r")
+  );
 }
