@@ -54,6 +54,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `suggested_code` contains only whitespace, while preserving `FindingSchema`
   validation for the returned finding (#207).
 
+- `@sovri/review-engine`: add acceptance coverage that a valid parser response
+  with summary `Review completed` and file `src/review.ts` returns a
+  `Finding[]` whose finding validates against `FindingSchema` (#208).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency

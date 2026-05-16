@@ -68,6 +68,33 @@ describe("parseLLMResponse", () => {
     expect(FindingSchema.parse(finding)).toEqual(finding);
   });
 
+  it("returns a Finding array for a valid response", () => {
+    // Given the test fixture contains a valid response with summary "Review completed"
+    // And the test fixture contains one finding for file "src/review.ts"
+    const response = {
+      summary: "Review completed",
+      findings: [
+        buildRawFinding({
+          file: "src/review.ts",
+        }),
+      ],
+    };
+
+    // When the maintainer runs the parser tests
+    const findings = parseLLMResponse(response);
+
+    const [finding] = findings;
+
+    // Then the valid response test passes
+    expect(findings).toHaveLength(1);
+
+    // And the test asserts that a `Finding[]` is returned
+    expect(Array.isArray(findings)).toBe(true);
+
+    // And the test asserts that the returned finding validates against `FindingSchema`
+    expect(FindingSchema.parse(finding)).toEqual(finding);
+  });
+
   it("assigns separate UUID v4 ids to multiple parsed findings", () => {
     // Given the raw LLM response summary is "One finding found"
     // And the raw LLM response contains a finding for file "src/cards.ts"
