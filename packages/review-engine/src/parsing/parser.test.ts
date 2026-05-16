@@ -305,6 +305,24 @@ describe("parseLLMResponse", () => {
     expect(findings).toHaveLength(0);
   });
 
+  it("accepts a response with exactly 100 findings", () => {
+    // Given the raw LLM response summary is "Maximum findings found"
+    // And the raw LLM response contains 100 findings
+    const response = {
+      summary: "Maximum findings found",
+      findings: Array.from({ length: 100 }, () => buildPaymentFinding()),
+    };
+
+    // When the maintainer parses the LLM response
+    const findings = parseLLMResponse(response);
+
+    // Then parsing succeeds
+    expect(findings).toHaveLength(100);
+
+    // And 100 findings are returned
+    expect(findings).toHaveLength(100);
+  });
+
   it("rejects a non-v4 id before a finding is returned", () => {
     // Given a parser regression assigns id "550e8400-e29b-11d4-a716-446655440000"
     const regressionFinding = {
