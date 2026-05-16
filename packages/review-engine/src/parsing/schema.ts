@@ -14,8 +14,8 @@ export const LLMRawFindingSchema = z
     line_end: z.number().int().positive(),
     title: z.string().min(1).max(200),
     body: z.string().min(1).max(2000),
-    suggested_code: z.string().nullable(),
-    confidence: z.number().min(0).max(1),
+    suggested_code: z.string().nullable().optional(),
+    confidence: z.number().min(0).max(1).default(1),
     cwe: z.string().regex(CwePattern).optional(),
   })
   .refine(({ line_start, line_end }) => line_end >= line_start, {
@@ -28,4 +28,5 @@ export type LLMRawFinding = z.infer<typeof LLMRawFindingSchema>;
 export const LLMResponseSchema = z.strictObject({
   summary: z.string().min(1).max(2000),
   findings: z.array(LLMRawFindingSchema).max(100),
+  walkthrough_markdown: z.string().optional(),
 });

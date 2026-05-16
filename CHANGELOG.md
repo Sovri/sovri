@@ -28,7 +28,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add the initial LLM response parser and raw response
   schemas that convert parsed LLM findings into public `Finding` values with
   UUID v4 identifiers while keeping schema helper types internal to avoid
-  unused public exports (#201).
+  unused public exports. The parser schema also tolerates the current provider
+  response shape while preserving strict validation for unknown keys (#201).
 
 ### Removed
 
