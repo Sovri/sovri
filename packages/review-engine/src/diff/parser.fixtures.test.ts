@@ -30,8 +30,7 @@ describe("real diff fixtures", () => {
   });
 
   it("fails the parser test suite when a required fixture is missing", () => {
-    // Given the required fixture list includes binary.diff.
-    const expectedMissingFixture = "binary.diff";
+    // Given every required fixture must be present on disk.
     const observedFixtures = new Set(
       requiredFixtures.filter((fixture) => existsSync(join(fixturesRoot, `${fixture}.diff`))),
     );
@@ -41,8 +40,8 @@ describe("real diff fixtures", () => {
       .filter((fixture) => !observedFixtures.has(fixture))
       .map((fixture) => `${fixture}.diff`);
 
-    // Then any absent fixture is identified by file name.
-    expect(missingFixtures).not.toContain(expectedMissingFixture);
+    // Then no required fixture is absent, regardless of which.
+    expect(missingFixtures, `missing fixtures: ${missingFixtures.join(", ")}`).toEqual([]);
   });
 
   it("returns an empty valid Diff for an empty fixture", () => {

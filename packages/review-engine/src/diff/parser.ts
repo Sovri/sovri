@@ -56,11 +56,18 @@ export function parseReviewDiff(unifiedDiff: string): ParsedReviewDiff {
 }
 
 export function parseUnifiedDiff(raw: string): Diff {
+  if (raw.trim().length > 0 && !hasGitFileHeader(raw)) {
+    throw new DiffParseError("Unable to parse unified diff: input is not a unified Git diff");
+  }
   const parsedFiles = parseParsedDiff(raw);
   if (raw.trim().length > 0 && parsedFiles.length === 0) {
     throw new DiffParseError("Unable to parse unified diff: input is not a unified Git diff");
   }
   return mapParsedDiffFiles(parsedFiles, raw);
+}
+
+function hasGitFileHeader(raw: string): boolean {
+  return /^diff --git /mu.test(raw);
 }
 
 export function mapParsedDiffFiles(parsedFiles: unknown, unifiedDiff: string): Diff {
@@ -158,9 +165,6 @@ function resolveSha(file: ParsedReviewDiffFile): string {
 function normalizeGitPath(path: string | undefined): string | undefined {
   if (path === undefined || path === "/dev/null") {
     return undefined;
-  }
-  if (path.startsWith("a/") || path.startsWith("b/")) {
-    return path.slice(2);
   }
   return path;
 }

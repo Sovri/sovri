@@ -7,12 +7,12 @@ import { DiffParseError, mapParsedDiffFiles } from "./parser.js";
 
 describe("parse-diff mapping", () => {
   it("normalizes modified file fields for review display", () => {
-    // Given parse-diff produced a modified file with one chunk.
+    // Given parse-diff produced a modified file with one chunk (prefix already stripped by parse-diff).
     const diff = mapParsedDiffFiles(
       [
         {
-          from: "a/src/app.ts",
-          to: "b/src/app.ts",
+          from: "src/app.ts",
+          to: "src/app.ts",
           additions: 2,
           deletions: 1,
           chunks: [
@@ -76,19 +76,20 @@ describe("parse-diff mapping", () => {
   });
 
   it.each([
-    ["a/src/app.ts", "b/src/app.ts", "src/app.ts", undefined],
-    ["/dev/null", "b/src/new.ts", "src/new.ts", undefined],
-    ["a/src/old.ts", "/dev/null", "src/old.ts", undefined],
-    ["a/src/old-name.ts", "b/src/new-name.ts", "src/new-name.ts", "src/old-name.ts"],
-  ])("strips Git prefixes from %s to %s", (from, to, path, previousPath) => {
-    // Given parse-diff produced a file from the table paths.
+    ["src/app.ts", "src/app.ts", "src/app.ts", undefined],
+    ["/dev/null", "src/new.ts", "src/new.ts", undefined],
+    ["src/old.ts", "/dev/null", "src/old.ts", undefined],
+    ["src/old-name.ts", "src/new-name.ts", "src/new-name.ts", "src/old-name.ts"],
+    ["a/config.ts", "a/config.ts", "a/config.ts", undefined],
+  ])("normalizes %s and %s into review display paths", (from, to, path, previousPath) => {
+    // Given parse-diff produced a file from the table paths (Git prefix already stripped upstream).
     const diff = mapParsedDiffFiles(
       [{ from, to, additions: 0, deletions: 0, chunks: [] }],
-      `diff --git ${from} ${to}`,
+      `diff --git a/${path} b/${path}`,
     );
 
     // When the maintainer maps the parse-diff output.
-    // Then current and previous display paths are normalized.
+    // Then current and previous display paths are preserved verbatim (no double-strip).
     expect(diff.files[0]?.path).toBe(path);
     expect(diff.files[0]?.previous_path).toBe(previousPath);
   });
