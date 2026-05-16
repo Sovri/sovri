@@ -195,6 +195,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now explicitly asserts the
+  prompt builder output-shape contract across `buildSystemPrompt()` and
+  `buildUserPrompt()`, including non-empty system prompts, PR metadata, and
+  diff content (#173).
+
 - `@sovri/review-engine`: acceptance coverage now asserts code fences embedded
   in diff content are escaped before the first closing diff fence and raw
   instruction markers are escaped in `buildUserPrompt()` (#172).
