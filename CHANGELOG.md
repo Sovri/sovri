@@ -87,6 +87,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   that raw input fixtures and validated data omit deterministic `id` and
   `source` fields (#216).
 
+- `@sovri/review-engine`: add raw LLM finding schema rejection coverage for
+  deterministic model-provided `id` and `source` fields as unknown keys (#217).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency

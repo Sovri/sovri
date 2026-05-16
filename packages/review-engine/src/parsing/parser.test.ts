@@ -119,6 +119,53 @@ describe("LLMRawFindingSchema", () => {
       expect(validation.data).not.toHaveProperty("source");
     }
   });
+
+  it("rejects deterministic finding fields from raw LLM findings", () => {
+    const deterministicFields = [
+      { field: "id", value: "550e8400-e29b-41d4-a716-446655440000" },
+      { field: "source", value: "llm" },
+    ];
+
+    for (const { field, value } of deterministicFields) {
+      // Given the raw finding has severity "major"
+      // And the raw finding has category "bug"
+      // And the raw finding has file "src/auth/session.ts"
+      // And the raw finding has line_start 44
+      // And the raw finding has line_end 44
+      // And the raw finding has title "Reject unsigned session token"
+      // And the raw finding has body "The session token path accepts unsigned tokens."
+      // And the raw finding has suggested_code null
+      // And the raw finding has confidence 0.80
+      // And the raw finding includes deterministic field "<field>" with value "<value>"
+      const rawFinding = {
+        severity: "major",
+        category: "bug",
+        file: "src/auth/session.ts",
+        line_start: 44,
+        line_end: 44,
+        title: "Reject unsigned session token",
+        body: "The session token path accepts unsigned tokens.",
+        suggested_code: null,
+        confidence: 0.8,
+        [field]: value,
+      };
+
+      // When the maintainer validates the raw finding
+      const validation = LLMRawFindingSchema.safeParse(rawFinding);
+
+      // Then validation fails with an unknown field validation error
+      if (validation.success) {
+        expect.fail("Expected deterministic raw finding field validation to fail");
+      }
+
+      expect(validation.error.issues).toContainEqual(
+        expect.objectContaining({
+          code: "unrecognized_keys",
+          keys: expect.arrayContaining([field]),
+        }),
+      );
+    }
+  });
 });
 
 describe("parseLLMResponse", () => {
