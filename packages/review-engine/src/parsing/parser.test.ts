@@ -398,6 +398,47 @@ describe("LLMResponseSchema", () => {
       expect(parsedFindings).toBeUndefined();
     }
   });
+
+  it("rejects unknown top-level response fields", () => {
+    // Given the valid raw finding file is "src/review.ts"
+    // And the valid raw finding line_start is 21
+    // And the valid finding line_end is 21
+    // And the valid finding suggested_code is "return review;"
+    // Given the raw LLM response summary is "Review completed"
+    // And the raw LLM response contains the valid raw finding
+    // And the raw LLM response includes unknown field "model_notes" with value "approve"
+    const response = {
+      summary: "Review completed",
+      findings: [
+        buildRawFinding({
+          file: "src/review.ts",
+          line_start: 21,
+          line_end: 21,
+          suggested_code: "return review;",
+        }),
+      ],
+      model_notes: "approve",
+    };
+
+    // When the maintainer validates the raw LLM response
+    const validation = LLMResponseSchema.safeParse(response);
+    const parsedFindings = validation.success ? validation.data.findings : undefined;
+
+    // Then validation fails with an unknown field validation error
+    if (validation.success) {
+      expect.fail("Expected unknown top-level field validation to fail");
+    }
+
+    expect(validation.error.issues).toContainEqual(
+      expect.objectContaining({
+        code: "unrecognized_keys",
+        keys: expect.arrayContaining(["model_notes"]),
+      }),
+    );
+
+    // And no parsed findings are returned
+    expect(parsedFindings).toBeUndefined();
+  });
 });
 
 describe("parseLLMResponse", () => {
