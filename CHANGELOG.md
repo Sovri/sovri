@@ -106,6 +106,25 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `@sovri/review-engine`: `parseUnifiedDiff` now rejects inputs that do not
+  contain a `diff --git ` file header instead of returning files with empty
+  `patch` strings (#154, cubic-dev review). Plain unified diffs still parse via
+  `parse-diff` but our `splitFilePatches` only recognises Git headers, so
+  accepting them silently produced lossy `FileChange` entries. Non-empty input
+  without a Git header now throws `DiffParseError`.
+
+- `@sovri/review-engine`: `normalizeGitPath` no longer strips a leading `a/`
+  or `b/` prefix (#154, Codex review). `parse-diff@0.12.0` already removes one
+  Git prefix in `parseFiles`/`parseOldOrNewFile`, so the second strip mangled
+  real paths under top-level `a/` or `b/` directories — `a/config.ts` was
+  emitted as `config.ts`, attaching findings to the wrong file. Mapping tests
+  updated to feed already-stripped paths and cover the regression.
+
+- `@sovri/review-engine`: `parser.fixtures.test.ts` "fails when a required
+  fixture is missing" guard now asserts `missingFixtures` is empty rather than
+  only checking `binary.diff`, so any absent fixture fails the suite
+  (#154, CodeRabbit review).
+
 - `@sovri/llm-providers`: `createAnthropicMessageWithRetry` now enforces the
   configured timeout as a single absolute deadline shared across retry attempts
   (#123). Previously each attempt restarted the full per-call timeout budget,
@@ -160,6 +179,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   the new branch via a `vi.mock` factory.
 
 ### Added
+
+- `@sovri/review-engine`: `parseUnifiedDiff(raw)` now converts unified Git diff
+  text into the normalized `@sovri/core` `DiffSchema` contract (#32). The parser
+  validates parse-diff output with Zod, preserves binary file entries with
+  skipped content, normalizes Git path prefixes, records rename metadata,
+  maps deletions to `removed`, falls back to a deterministic unknown SHA for
+  abbreviated or missing blob IDs, and wraps malformed or invalid parser output
+  in a typed `DiffParseError`.
 
 - `@sovri/review-engine`: package scaffold for the v0.1 orchestration layer
   (#31). The package now builds with tsup, participates in the workspace

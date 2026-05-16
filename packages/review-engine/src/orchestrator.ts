@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+import type { Diff } from "@sovri/core";
 import type { LLMProvider } from "@sovri/llm-providers";
 import type { Logger } from "@sovri/observability";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
 
-import { parseReviewDiff, type ParsedReviewDiff } from "./diff/index.js";
+import { parseUnifiedDiff } from "./diff/index.js";
 import { buildReviewPrompt } from "./prompt/index.js";
 import {
   parseLLMReviewResponse,
@@ -30,7 +31,7 @@ export interface ReviewEngineResult {
   readonly id: string;
   readonly provider: string;
   readonly model: string;
-  readonly diff: ParsedReviewDiff;
+  readonly diff: Diff;
   readonly summary: string;
   readonly findings: ProviderFinding[];
   readonly walkthroughMarkdown: string;
@@ -41,11 +42,11 @@ export async function runReview(
   options: RunReviewOptions,
 ): Promise<ReviewEngineResult> {
   const reviewInput = RunReviewInputSchema.parse(input);
-  const diff = parseReviewDiff(reviewInput.unifiedDiff);
+  const diff = parseUnifiedDiff(reviewInput.unifiedDiff);
   const prompt = buildReviewPrompt(reviewInput);
 
   options.logger?.info(
-    { provider: options.provider.name, changed_files: diff.length },
+    { provider: options.provider.name, changed_files: diff.files.length },
     "Review engine request started",
   );
 
