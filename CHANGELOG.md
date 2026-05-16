@@ -37,9 +37,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add acceptance coverage for rejecting non-v4 finding
   identifiers before a parsed finding can be returned (#203).
 
-- `@sovri/review-engine`: add acceptance coverage for returning a committable
-  suggestion when a raw finding contains a non-empty single-line replacement
-  for a single-line location (#204).
+- `@sovri/review-engine`: return a committable suggestion when a raw finding
+  contains a non-empty single-line replacement for a single-line location,
+  covered by acceptance tests (#204).
 
 ### Removed
 

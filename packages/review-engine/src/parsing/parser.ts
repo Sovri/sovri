@@ -21,8 +21,20 @@ function toFinding(finding: LLMRawFinding): Finding {
     line_end: finding.line_end,
     title: finding.title,
     body: finding.body,
+    suggestion: toSuggestion(finding),
     source: "llm",
     confidence: finding.confidence,
     cwe: finding.cwe,
   });
+}
+
+function toSuggestion(finding: LLMRawFinding): Finding["suggestion"] {
+  if (finding.suggested_code === undefined || finding.suggested_code === null) {
+    return undefined;
+  }
+
+  return {
+    code: finding.suggested_code,
+    committable: finding.line_start === finding.line_end,
+  };
 }
