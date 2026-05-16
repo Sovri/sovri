@@ -35,7 +35,8 @@ export function buildUserPrompt(diff: string, prContext: PullRequestPromptContex
 
   return [
     "Review this pull request.",
-    `Repository: ${context.repoFullName}`,
+    "Repository:",
+    fencedUserData("text", context.repoFullName),
     `Pull request: #${context.number}`,
     "Title:",
     fencedUserData("text", context.title),

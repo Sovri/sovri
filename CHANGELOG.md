@@ -34,9 +34,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Security
 
 - `@sovri/review-engine`: `buildUserPrompt()` now fences and escapes pull
-  request title, description, and unified diff content as user data before
-  they enter the provider prompt, blocking PR metadata from injecting prompt
-  directives outside the protected diff section (#155).
+  request repository, title, description, and unified diff content as user data
+  before they enter the provider prompt, blocking PR metadata from injecting
+  prompt directives outside the protected diff section (#155).
 
 - `@sovri/review-engine`: runtime prompt composition now keeps escaped unified
   diffs inside a fenced `diff` block after routing through `buildUserPrompt()`,
