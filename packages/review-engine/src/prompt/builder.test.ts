@@ -163,4 +163,19 @@ describe("buildSystemPrompt", () => {
       }
     },
   );
+
+  it("measures non-ASCII system template content by UTF-8 bytes", () => {
+    // Given the prompt builder static template contains the text "Review résumé changes".
+    const nonAsciiText = "Review résumé changes";
+
+    // When the maintainer validates the system template size.
+    const acceptedTemplate = `${"x".repeat(1001)}${nonAsciiText}`;
+    const rejectedTemplate = `${"x".repeat(1002)}${nonAsciiText}`;
+
+    // Then the byte length uses UTF-8 encoding.
+    expect(validateSystemTemplateSize(acceptedTemplate)).toBe(acceptedTemplate);
+    expect(() => validateSystemTemplateSize(rejectedTemplate)).toThrow(PromptTemplateSizeError);
+    // And the character "é" counts as 2 bytes.
+    expect(new TextEncoder().encode("é").byteLength).toBe(2);
+  });
 });

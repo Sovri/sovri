@@ -195,6 +195,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now asserts non-ASCII system
+  prompt template content is measured by UTF-8 bytes, including `é` as a
+  two-byte character (#161).
+
 - `@sovri/review-engine`: acceptance coverage now asserts the exact system
   prompt template byte boundary accepts 1023 and 1024 UTF-8 bytes while
   rejecting 1025 bytes (#177).
