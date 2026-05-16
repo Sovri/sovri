@@ -374,6 +374,51 @@ describe("parseLLMResponse", () => {
     expect(FindingSchema.parse(finding)).toEqual(finding);
   });
 
+  it("parses an already-parsed unknown object into findings", () => {
+    // Given the raw LLM response summary is "One finding found"
+    // And the raw finding has severity "major"
+    // And the raw finding has category "bug"
+    // And the raw finding has file "src/orders.ts"
+    // And the raw finding has line_start 18
+    // And the raw finding has line_end 18
+    // And the raw finding has title "Reject cancelled orders"
+    // And the raw finding has body "Cancelled orders still reach the fulfillment queue."
+    // And the raw finding has suggested_code "return;"
+    // And the raw finding has confidence 0.92
+    // Given the LLM response input is the already-parsed object for the response
+    const input: unknown = {
+      summary: "One finding found",
+      findings: [
+        buildRawFinding({
+          file: "src/orders.ts",
+          line_start: 18,
+          line_end: 18,
+          title: "Reject cancelled orders",
+          body: "Cancelled orders still reach the fulfillment queue.",
+          suggested_code: "return;",
+          confidence: 0.92,
+        }),
+      ],
+    };
+
+    // When the maintainer calls `parseLLMResponse`
+    const findings = parseLLMResponse(input);
+
+    const [finding] = findings;
+
+    // Then parsing succeeds
+    expect(findings).toHaveLength(1);
+
+    // And the returned value is a `Finding[]`
+    expect(Array.isArray(findings)).toBe(true);
+
+    // And the returned finding has source "llm"
+    expect(finding?.source).toBe("llm");
+
+    // And the returned finding validates against `FindingSchema`
+    expect(FindingSchema.parse(finding)).toEqual(finding);
+  });
+
   it("assigns a UUID v4 id to a parsed finding", () => {
     // Given the raw LLM response summary is "One finding found"
     // And the raw LLM response contains a finding for file "src/cards.ts"
