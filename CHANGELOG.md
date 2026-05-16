@@ -82,6 +82,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   findings fails without partial output and exposes the findings limit failure
   on the typed parse error cause (#215).
 
+- `@sovri/review-engine`: add raw LLM finding schema acceptance coverage for
+  valid model-provided fields, optional CWE values, and explicit assertions
+  that raw input fixtures and validated data omit deterministic `id` and
+  `source` fields (#216).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency

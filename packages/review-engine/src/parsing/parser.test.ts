@@ -5,6 +5,7 @@ import { FindingSchema, type Category, type Severity } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import { parseLLMResponse } from "./parser.js";
+import { LLMRawFindingSchema } from "./schema.js";
 
 const UuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const NonV4Uuid = "550e8400-e29b-11d4-a716-446655440000";
@@ -50,6 +51,75 @@ function buildPaymentFinding(overrides: Partial<RawFindingFixture> = {}): RawFin
     ...overrides,
   });
 }
+
+describe("LLMRawFindingSchema", () => {
+  it("accepts valid model-provided raw finding fields", () => {
+    const validRawFindings: ReadonlyArray<unknown> = [
+      {
+        severity: "blocker",
+        category: "security",
+        file: "src/auth/session.ts",
+        line_start: 44,
+        line_end: 44,
+        title: "Reject unsigned session token",
+        body: "The session token path accepts unsigned tokens.",
+        suggested_code: "throw new UnauthorizedError();",
+        confidence: 0.99,
+        cwe: "CWE-347",
+      },
+      {
+        severity: "major",
+        category: "bug",
+        file: "src/auth/session.ts",
+        line_start: 1,
+        line_end: 1,
+        title: "Reject missing payment status",
+        body: "The payment status can be omitted.",
+        suggested_code: null,
+        confidence: 0,
+      },
+      {
+        severity: "minor",
+        category: "maintainability",
+        file: "src/auth/session.ts",
+        line_start: 7,
+        line_end: 7,
+        title: "t".repeat(200),
+        body: "b".repeat(2000),
+        suggested_code: "const total = amount ?? 0;",
+        confidence: 1,
+      },
+    ];
+
+    for (const rawFinding of validRawFindings) {
+      // Given the raw finding has severity "<severity>"
+      // And the raw finding has category "<category>"
+      // And the raw finding has file "src/auth/session.ts"
+      // And the raw finding has line_start <line_start>
+      // And the raw finding has line_end <line_end>
+      // And the raw finding has title <title>
+      // And the raw finding has body <body>
+      // And the raw finding has suggested_code <suggested_code>
+      // And the raw finding has confidence <confidence>
+      // And the raw finding has cwe <cwe>
+      // When the maintainer validates the raw finding
+      const validation = LLMRawFindingSchema.safeParse(rawFinding);
+
+      // Then validation succeeds
+      if (!validation.success) {
+        expect.fail("Expected valid raw finding validation to succeed");
+      }
+
+      // And the raw finding does not contain id
+      expect(rawFinding).not.toHaveProperty("id");
+      expect(validation.data).not.toHaveProperty("id");
+
+      // And the raw finding does not contain source
+      expect(rawFinding).not.toHaveProperty("source");
+      expect(validation.data).not.toHaveProperty("source");
+    }
+  });
+});
 
 describe("parseLLMResponse", () => {
   it("assigns a UUID v4 id to a parsed finding", () => {
