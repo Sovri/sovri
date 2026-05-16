@@ -49,6 +49,33 @@ describe("prompt builder output contract", () => {
     expect(userPrompt).toContain("src/cards.ts");
     expect(userPrompt).toContain('export const rejectedStates = ["expired"];');
   });
+
+  it("covers missing pull request description output shape", () => {
+    // Given the PR context has no description.
+    const diff = `diff --git a/src/cards.ts b/src/cards.ts
+@@ -1 +1,2 @@
+ export const acceptedStates = ["active"];
++export const rejectedStates = ["expired"];`;
+
+    // When the maintainer runs the prompt builder test suite.
+    const userPrompt = buildUserPrompt(diff, {
+      number: 42,
+      repoFullName: "acme/payments",
+      title: "Add card state validation",
+      description: null,
+    });
+
+    const descriptionIndex = userPrompt.indexOf("Description:");
+    const noneIndex = userPrompt.indexOf("(none)");
+    const diffIndex = userPrompt.indexOf("Diff:");
+    const diffPathIndex = userPrompt.indexOf("src/cards.ts");
+
+    // Then the output-shape test asserts that the prompt contains "(none)".
+    expect(noneIndex).toBeGreaterThan(descriptionIndex);
+    expect(noneIndex).toBeLessThan(diffIndex);
+    // And the test asserts that diff content still appears after the metadata section.
+    expect(diffPathIndex).toBeGreaterThan(diffIndex);
+  });
 });
 
 describe("buildUserPrompt", () => {

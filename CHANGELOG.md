@@ -195,6 +195,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now explicitly asserts missing
+  pull request descriptions render as `(none)` in the description section while
+  diff content remains after prompt metadata (#176).
+
 - `@sovri/review-engine`: acceptance coverage for oversized system prompt
   templates now asserts the failure message identifies the 1024-byte UTF-8
   limit (#175).
