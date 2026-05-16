@@ -525,6 +525,7 @@ describe("buildSystemPrompt", () => {
     // Then prompt construction fails with a prompt template size error.
     expect(PromptTemplateSizeError).toBeDefined();
     expect(buildPrompt).toThrow(PromptTemplateSizeError);
+    expect(buildPrompt).toThrow("System prompt template exceeds 1024 UTF-8 bytes");
     // And no oversized system prompt is returned.
     expect(prompt).toBeUndefined();
   });

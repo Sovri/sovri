@@ -195,6 +195,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage for oversized system prompt
+  templates now asserts the failure message identifies the 1024-byte UTF-8
+  limit (#175).
+
 - `@sovri/review-engine`: acceptance coverage for prompt metadata escaping now
   reports the specific unsafe raw directive marker when a regression removes
   escaping from `buildUserPrompt()` (#174).
