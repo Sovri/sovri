@@ -19,6 +19,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `@sovri/review-engine`: add the first acceptance test for LLM response
+  parsing, requiring parsed LLM findings to receive UUID v4 identifiers and
+  validate against the public `FindingSchema` (#201).
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency
