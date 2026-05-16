@@ -5,7 +5,7 @@ import { FindingSchema, type Category, type Severity } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import { parseLLMResponse } from "./parser.js";
-import { LLMRawFindingSchema } from "./schema.js";
+import { LLMRawFindingSchema, LLMResponseSchema } from "./schema.js";
 
 const UuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const NonV4Uuid = "550e8400-e29b-11d4-a716-446655440000";
@@ -322,6 +322,39 @@ describe("LLMRawFindingSchema", () => {
         }),
       );
     }
+  });
+});
+
+describe("LLMResponseSchema", () => {
+  it("accepts a strict response with a non-empty summary and one finding", () => {
+    // Given the valid raw finding file is "src/review.ts"
+    // And the valid raw finding line_start is 21
+    // And the valid finding line_end is 21
+    // And the valid finding suggested_code is "return review;"
+    // Given the raw LLM response summary is "Review completed"
+    // And the raw LLM response contains the valid raw finding
+    const response = {
+      summary: "Review completed",
+      findings: [
+        buildRawFinding({
+          file: "src/review.ts",
+          line_start: 21,
+          line_end: 21,
+          suggested_code: "return review;",
+        }),
+      ],
+    };
+
+    // When the maintainer validates the raw LLM response
+    const validation = LLMResponseSchema.safeParse(response);
+
+    // Then validation succeeds
+    if (!validation.success) {
+      expect.fail("Expected strict LLM response validation to succeed");
+    }
+
+    // And the response contains 1 raw finding
+    expect(validation.data.findings).toHaveLength(1);
   });
 });
 
