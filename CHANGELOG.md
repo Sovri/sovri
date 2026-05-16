@@ -195,6 +195,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now asserts markdown instruction
+  text supplied through diff content remains inside quoted user-data sections
+  and cannot enter the prompt instruction section (#171).
+
 - `@sovri/review-engine`: acceptance coverage now asserts markdown supplied in
   PR title, PR description, or diff content appears only inside quoted
   user-data sections of `buildUserPrompt()` (#170).
