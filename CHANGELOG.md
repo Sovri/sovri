@@ -195,6 +195,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: acceptance coverage now asserts oversized system
+  prompt templates fail construction instead of returning a prompt over the
+  1024-byte budget (#156).
+
 - `@sovri/review-engine`: `buildSystemPrompt({ mode: "full" })` now exposes
   the compact v0.1 baseline system template, and `buildReviewPrompt()` reuses
   that builder for runtime prompt composition (#159).
