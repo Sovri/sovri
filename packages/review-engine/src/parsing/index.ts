@@ -36,3 +36,10 @@ export function parseLLMReviewResponse<T>(response: unknown, schema: z.ZodType<T
 export function parseProviderFindings(response: unknown): ProviderFinding[] {
   return z.array(ProviderFindingSchema).parse(response);
 }
+
+export {
+  parseWithRetry,
+  RetryBudgetValidationError,
+  type ParseWithRetryOptions,
+  type ParseWithRetryPrompts,
+} from "./retry.js";

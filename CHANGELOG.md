@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add retry parsing for malformed or schema-invalid
+  LLM responses, including corrective prompts with parse issue details,
+  provider-raised parse failures, configurable retry budgets, and deterministic
+  `review_failed` findings after exhausted retries (#260-#284).
+
+- `@sovri/review-engine`: make retry parser acceptance test helpers fail fast
+  when mock provider responses are exhausted (#260-#284).
+
 - `@sovri/review-engine`: add the first acceptance test for LLM response
   parsing, requiring parsed LLM findings to receive UUID v4 identifiers and
   validate against the public `FindingSchema` (#201).
