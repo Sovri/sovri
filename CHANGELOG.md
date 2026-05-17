@@ -21,6 +21,92 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: re-export `buildInlineComments`,
+  `InlineCommentDraftSchema`, and the `InlineCommentDraft` type from the
+  package entrypoint so downstream consumers can build GitHub inline drafts
+  without reaching into internal modules (#372).
+
+### Changed
+
+- `@sovri/review-engine`: `InlineCommentDraftSchema` now rejects payloads that
+  provide only one of `start_line` / `start_side`, enforcing GitHub's
+  multi-line comment contract at validation time instead of at API time
+  (#372).
+
+- `@sovri/review-engine`: add acceptance coverage that multi-line inline
+  findings are skipped when any RIGHT-side line in the range is absent (#353).
+
+- `@sovri/review-engine`: add acceptance coverage that findings targeting
+  missing RIGHT-side diff lines are skipped without error (#352).
+
+- `@sovri/review-engine`: add acceptance coverage that findings targeting
+  files absent from the parsed diff are skipped without error (#351).
+
+- `@sovri/review-engine`: add acceptance coverage that findings on
+  existing RIGHT-side changed lines become inline comment drafts (#350).
+
+- `@sovri/review-engine`: add acceptance coverage that inline comment
+  drafts only expose GitHub review comment payload fields (#349).
+
+- `@sovri/review-engine`: add acceptance coverage that malformed inline
+  comment drafts missing `line` are rejected by the draft schema (#348).
+
+- `@sovri/review-engine`: add acceptance coverage for Octokit-ready
+  single-line inline comment draft payloads without deprecated `position`
+  fields (#347).
+
+- `@sovri/review-engine`: validate inline finding ranges before mapping
+  them to GitHub review comment draft fields (#346).
+
+- `@sovri/review-engine`: add acceptance coverage that reversed finding
+  ranges fail validation before inline mapping (#346).
+
+- `@sovri/review-engine`: add acceptance coverage that a two-line finding
+  range is represented as a multi-line inline comment draft (#345).
+
+- `@sovri/review-engine`: add acceptance coverage that a multi-line
+  finding maps to `start_line`, `start_side`, ending `line`, and `side`
+  fields (#344).
+
+- `@sovri/review-engine`: add acceptance coverage that a single-line
+  finding maps to a RIGHT-side `line` draft without range fields (#343).
+
+- `@sovri/review-engine`: add fixture-backed acceptance coverage that inline
+  comment generation is deterministic across repeated runs (#342).
+
+- `@sovri/review-engine`: skip inline comment drafts when a finding range
+  cannot be anchored to RIGHT-side diff lines (#341).
+
+- `@sovri/review-engine`: add fixture-backed acceptance coverage for
+  unanchorable inline findings returning no draft comments (#341).
+
+- `@sovri/review-engine`: generate multi-line inline comment draft ranges
+  with `start_line`, `start_side`, and ending `line` fields (#340).
+
+- `@sovri/review-engine`: add fixture-backed acceptance coverage for
+  multi-line inline comment draft generation (#340).
+
+- `@sovri/review-engine`: add the inline comment draft schema for
+  validating GitHub review comment payloads (#339).
+
+- `@sovri/review-engine`: add fixture-backed acceptance coverage for
+  single-line inline comment draft generation (#339).
+
+- `@sovri/review-engine`: add acceptance coverage that empty inline finding
+  input returns an empty draft list without error (#338).
+
+- `@sovri/review-engine`: validate inline comment findings before
+  generating drafts (#337).
+
+- `@sovri/review-engine`: add acceptance coverage that invalid inline
+  finding input fails validation without partial drafts (#337).
+
+- `@sovri/review-engine`: add the initial inline comment draft generator
+  for valid findings (#336).
+
+- `@sovri/review-engine`: add acceptance coverage for converting valid
+  findings into inline comment drafts (#336).
+
 - `@sovri/review-engine`: add acceptance coverage that same-severity
   walkthrough findings use stable file, line, then title tie-break ordering
   (#310).
