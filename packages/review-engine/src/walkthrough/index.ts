@@ -18,6 +18,12 @@ export function composeWalkthrough(input: WalkthroughInput): string {
     "",
     "### Findings",
     "",
-    ...review.findings.map((finding) => `- ${finding.title}`),
+    ...review.findings.map((finding) =>
+      [`- ${finding.title}`, `  ${escapeMarkdownLinkDelimiters(finding.body)}`].join("\n"),
+    ),
   ].join("\n");
+}
+
+function escapeMarkdownLinkDelimiters(value: string): string {
+  return value.replaceAll("[", "\\[").replaceAll("]", "\\]");
 }
