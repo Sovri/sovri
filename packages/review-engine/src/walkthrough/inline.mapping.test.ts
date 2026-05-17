@@ -56,6 +56,31 @@ describe("buildInlineComments line mapping", () => {
     // And the draft side is "RIGHT"
     expect(comments[0]?.side).toBe("RIGHT");
   });
+
+  it("treats a two-line range as a multi-line comment", () => {
+    // Given a parsed diff contains file "src/config.ts" with RIGHT-side lines 20 and 21
+    const diff = createConfigDiff(20, [
+      "export const enableReviews = true;",
+      "export const maxFindings = 25;",
+    ]);
+
+    // And a finding targets file "src/config.ts" from line 20 to line 21
+    const findings = [createConfigFinding(20, 21)];
+
+    // When the maintainer calls `buildInlineComments(findings, diff)`
+    const comments = buildInlineComments(findings, diff);
+
+    // Then exactly 1 inline comment draft is returned
+    expect(comments).toHaveLength(1);
+    // And the draft start_line is 20
+    expect(comments[0]?.start_line).toBe(20);
+    // And the draft line is 21
+    expect(comments[0]?.line).toBe(21);
+    // And the draft start_side is "RIGHT"
+    expect(comments[0]?.start_side).toBe("RIGHT");
+    // And the draft side is "RIGHT"
+    expect(comments[0]?.side).toBe("RIGHT");
+  });
 });
 
 function createConfigDiff(newStart: number, addedLines: readonly string[]): Diff {
