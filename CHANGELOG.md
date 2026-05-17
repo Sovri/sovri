@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add fixture-backed acceptance coverage for
+  unanchorable inline findings returning no draft comments (#341).
+
 - `@sovri/review-engine`: generate multi-line inline comment draft ranges
   with `start_line`, `start_side`, and ending `line` fields (#340).
 
