@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: validate inline finding ranges before mapping
+  them to GitHub review comment draft fields (#346).
+
 - `@sovri/review-engine`: add acceptance coverage that reversed finding
   ranges fail validation before inline mapping (#346).
 
