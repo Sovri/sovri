@@ -24,11 +24,18 @@ export type { PullRequestPromptContext, SystemPromptConfig } from "./prompt/buil
 
 export {
   parseLLMReviewResponse,
+  parseWithRetry,
   parseProviderFindings,
   ProviderFindingSchema,
   ProviderReviewResponseSchema,
+  RetryBudgetValidationError,
 } from "./parsing/index.js";
-export type { ProviderFinding, ProviderReviewResponse } from "./parsing/index.js";
+export type {
+  ParseWithRetryOptions,
+  ParseWithRetryPrompts,
+  ProviderFinding,
+  ProviderReviewResponse,
+} from "./parsing/index.js";
 
 export { composeWalkthrough, WalkthroughInputSchema } from "./walkthrough/index.js";
 export type { WalkthroughInput } from "./walkthrough/index.js";
