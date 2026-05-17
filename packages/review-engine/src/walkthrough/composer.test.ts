@@ -145,4 +145,21 @@ describe("composeWalkthrough", () => {
     expect(markdown).not.toContain("``items\\[`index`\\]``");
     expect(markdown).toContain("\\[discussion\\](#discussion_r987654321)");
   });
+
+  it("does not treat escaped backticks as code span delimiters", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body: "See \\`[discussion](#discussion_r987654321)\\`",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("\\`\\[discussion\\](#discussion_r987654321)\\`");
+    expect(markdown).not.toContain("\\`[discussion](#discussion_r987654321)\\`");
+  });
 });

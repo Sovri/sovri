@@ -51,8 +51,8 @@ function splitInlineCodeSpans(value: string): MarkdownSegment[] {
   let cursor = 0;
 
   while (cursor < value.length) {
-    const codeStart = value.indexOf("`", cursor);
-    if (codeStart === -1) {
+    const codeStart = findNextUnescapedBacktick(value, cursor);
+    if (codeStart === undefined) {
       segments.push({ kind: "text", text: value.slice(cursor) });
       break;
     }
@@ -75,6 +75,25 @@ function splitInlineCodeSpans(value: string): MarkdownSegment[] {
   return segments;
 }
 
+function findNextUnescapedBacktick(value: string, start: number): number | undefined {
+  let cursor = start;
+
+  while (cursor < value.length) {
+    const nextBacktick = value.indexOf("`", cursor);
+    if (nextBacktick === -1) {
+      return undefined;
+    }
+
+    if (!isEscaped(value, nextBacktick)) {
+      return nextBacktick;
+    }
+
+    cursor = nextBacktick + 1;
+  }
+
+  return undefined;
+}
+
 function readBacktickRunLength(value: string, start: number): number {
   let length = 0;
 
@@ -93,8 +112,8 @@ function findClosingBacktickRun(
   let cursor = start;
 
   while (cursor < value.length) {
-    const codeEnd = value.indexOf("`", cursor);
-    if (codeEnd === -1) {
+    const codeEnd = findNextUnescapedBacktick(value, cursor);
+    if (codeEnd === undefined) {
       return undefined;
     }
 
@@ -107,4 +126,14 @@ function findClosingBacktickRun(
   }
 
   return undefined;
+}
+
+function isEscaped(value: string, index: number): boolean {
+  let backslashCount = 0;
+
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) {
+    backslashCount += 1;
+  }
+
+  return backslashCount % 2 === 1;
 }
