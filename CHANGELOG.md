@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that a two-line finding
+  range is represented as a multi-line inline comment draft (#345).
+
 - `@sovri/review-engine`: add acceptance coverage that a multi-line
   finding maps to `start_line`, `start_side`, ending `line`, and `side`
   fields (#344).
