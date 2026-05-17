@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that shuffled
+  walkthrough finding inputs produce identical deterministic markdown with no
+  generated dates or identifiers (#308).
+
 - `@sovri/review-engine`: add acceptance coverage that invalid
   walkthrough review inputs fail validation without returning partial markdown
   (#307).
