@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that walkthrough
+  composition does not invent inline comment anchors when review findings lack
+  trusted inline-comment URL metadata (#287).
+
 - `@sovri/review-engine`: add retry parsing for malformed or schema-invalid
   LLM responses, including corrective prompts with parse issue details,
   provider-raised parse failures, configurable retry budgets, and deterministic
