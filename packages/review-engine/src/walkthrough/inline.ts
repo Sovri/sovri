@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import type { Diff, Finding } from "@sovri/core";
+import { FindingSchema, z, type Diff, type Finding } from "@sovri/core";
 
 export type InlineCommentDraft = {
   readonly path: string;
@@ -14,7 +14,9 @@ export function buildInlineComments(
   findings: readonly Finding[],
   _diff: Diff,
 ): InlineCommentDraft[] {
-  return findings.map((finding) => ({
+  const validFindings = z.array(FindingSchema).parse(findings);
+
+  return validFindings.map((finding) => ({
     path: finding.file,
     body: formatInlineBody(finding),
     line: finding.line_start,
