@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: render walkthrough markdown from golden-backed
+  sections, including TL;DR, severity-grouped findings, file-by-file summaries,
+  stable ordering, and HTML-safe table cells (#291).
+
 - `@sovri/review-engine`: add golden walkthrough fixtures covering
   multi-finding, no-finding, HTML-escaping, and multiline-body review outputs
   (#291).
