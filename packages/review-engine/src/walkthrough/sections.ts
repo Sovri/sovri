@@ -122,7 +122,10 @@ function compareFindingsWithinFile(left: Finding, right: Finding): number {
   return (
     left.file.localeCompare(right.file) ||
     left.line_start - right.line_start ||
-    formatCell(left.title).localeCompare(formatCell(right.title))
+    left.line_end - right.line_end ||
+    left.title.localeCompare(right.title) ||
+    left.body.localeCompare(right.body) ||
+    left.id.localeCompare(right.id)
   );
 }
 

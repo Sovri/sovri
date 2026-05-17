@@ -2,7 +2,7 @@
 
 ### TL;DR
 
-Five review findings need attention.
+Three review findings need attention.
 
 ### Findings
 

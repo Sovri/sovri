@@ -340,6 +340,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `@sovri/review-engine`: `composeWalkthrough` now renders the trimmed summary
+  in TL;DR instead of the raw input, so leading/trailing whitespace cannot leak
+  into the output (#335, coderabbit + cubic-dev review).
+
+- `@sovri/review-engine`: `compareFindingsWithinFile` now compares raw `title`
+  and `body` fields and falls back to `line_end` then `id`, so distinct
+  findings sharing file/line/title no longer rely on input order — ordering is
+  total and stable under shuffled inputs (#335, codex + coderabbit + cubic-dev
+  review).
+
+- `@sovri/review-engine`: walkthrough golden fixture `multi-finding` summary
+  text corrected from "Five" to "Three" review findings to match the actual
+  fixture count (#335, coderabbit review).
+
 - `@sovri/core`: `FindingSchema.id` now requires UUID v4 instead of accepting
   any syntactically valid UUID version, so parser regressions that assign older
   UUID versions are rejected before a `Finding` can be returned (#203).

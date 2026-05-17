@@ -14,13 +14,14 @@ export type WalkthroughInput = z.input<typeof WalkthroughInputSchema>;
 export function composeWalkthrough(input: unknown): string {
   const review = WalkthroughInputSchema.parse(input);
   const findings = sortFindings(review.findings);
+  const summary = review.summary.trim();
 
   return [
     "## Sovri review",
     "",
     "### TL;DR",
     "",
-    formatMarkdownText(review.summary.trim().length > 0 ? review.summary : "No summary provided."),
+    formatMarkdownText(summary.length > 0 ? summary : "No summary provided."),
     "",
     "### Findings",
     "",
