@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add the initial inline comment draft generator
+  for valid findings (#336).
+
 - `@sovri/review-engine`: add acceptance coverage for converting valid
   findings into inline comment drafts (#336).
 
