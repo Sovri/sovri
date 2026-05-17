@@ -28,6 +28,25 @@ describe("buildInlineComments diff anchoring", () => {
     // And the draft line is 31
     expect(draft?.line).toBe(31);
   });
+
+  it("skips a finding on a missing file", () => {
+    // Given a parsed diff contains file "src/billing.ts" with RIGHT-side line 31
+    const diff = createBillingDiff([31]);
+
+    // And a finding targets file "src/payments.ts" from line 31 to line 31
+    const findings = [createBillingFinding("src/payments.ts", 31)];
+    let comments: ReturnType<typeof buildInlineComments> = [];
+
+    // When the maintainer calls `buildInlineComments(findings, diff)`
+    const buildComments = () => {
+      comments = buildInlineComments(findings, diff);
+    };
+
+    // Then exactly 0 inline comment drafts are returned
+    // And no error is raised
+    expect(buildComments).not.toThrow();
+    expect(comments).toHaveLength(0);
+  });
 });
 
 function createBillingDiff(rightSideLines: readonly number[]): Diff {
