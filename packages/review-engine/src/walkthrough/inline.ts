@@ -3,12 +3,14 @@
 
 import { FindingSchema, z, type Diff, type Finding } from "@sovri/core";
 
-export type InlineCommentDraft = {
-  readonly path: string;
-  readonly body: string;
-  readonly line: number;
-  readonly side: "RIGHT";
-};
+export const InlineCommentDraftSchema = z.object({
+  path: z.string().min(1),
+  body: z.string().min(1),
+  line: z.number().int().positive(),
+  side: z.literal("RIGHT"),
+});
+
+export type InlineCommentDraft = z.infer<typeof InlineCommentDraftSchema>;
 
 export function buildInlineComments(
   findings: readonly Finding[],
@@ -16,12 +18,14 @@ export function buildInlineComments(
 ): InlineCommentDraft[] {
   const validFindings = z.array(FindingSchema).parse(findings);
 
-  return validFindings.map((finding) => ({
-    path: finding.file,
-    body: formatInlineBody(finding),
-    line: finding.line_start,
-    side: "RIGHT",
-  }));
+  return validFindings.map((finding) =>
+    InlineCommentDraftSchema.parse({
+      path: finding.file,
+      body: formatInlineBody(finding),
+      line: finding.line_start,
+      side: "RIGHT",
+    }),
+  );
 }
 
 function formatInlineBody(finding: Finding): string {
