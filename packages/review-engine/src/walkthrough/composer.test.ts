@@ -74,4 +74,109 @@ describe("composeWalkthrough", () => {
     // And the markdown must not contain a generated GitHub comment URL
     expect(markdown).not.toMatch(/https:\/\/github\.com\/mpiton\/sovri\/pull\/36#discussion_r\d+/u);
   });
+
+  it.each([
+    [
+      "See [inline comment](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+      "See \\[inline comment\\](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+      "See [inline comment](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+    ],
+    [
+      "Refer to [discussion](#discussion_r987654321)",
+      "Refer to \\[discussion\\](#discussion_r987654321)",
+      "Refer to [discussion](#discussion_r987654321)",
+    ],
+  ])("renders anchor-like user text inert: %s", (body, inertText, activeText) => {
+    // Given the finding body is <body>
+    // And no inline-comment URL metadata is present on the review input
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body,
+        },
+      ],
+    };
+
+    // When the maintainer calls `composeWalkthrough(review)`
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    // Then the markdown contains <inertText>
+    expect(markdown).toContain(inertText);
+    // And the markdown does not contain <activeText>
+    expect(markdown).not.toContain(activeText);
+    // And the composer does not promote the body link to the finding anchor
+    expect(markdown).not.toContain("[Missing payload null guard](");
+  });
+
+  it("does not escape brackets inside inline code spans", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body: "Check `items[i]` before [discussion](#discussion_r987654321)",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("`items[i]`");
+    expect(markdown).not.toContain("`items\\[i\\]`");
+    expect(markdown).toContain("\\[discussion\\](#discussion_r987654321)");
+  });
+
+  it("does not escape brackets inside multi-backtick code spans", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body: "Check ``items[`index`]`` before [discussion](#discussion_r987654321)",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("``items[`index`]``");
+    expect(markdown).not.toContain("``items\\[`index`\\]``");
+    expect(markdown).toContain("\\[discussion\\](#discussion_r987654321)");
+  });
+
+  it("does not treat escaped backticks as code span delimiters", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body: "See \\`[discussion](#discussion_r987654321)\\`",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("\\`\\[discussion\\](#discussion_r987654321)\\`");
+    expect(markdown).not.toContain("\\`[discussion](#discussion_r987654321)\\`");
+  });
+
+  it("allows escaped backticks to close an already-open code span", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body: "`code \\` [discussion](#discussion_r987654321)`",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("`code \\` \\[discussion\\](#discussion_r987654321)`");
+    expect(markdown).not.toContain("`code \\` [discussion](#discussion_r987654321)`");
+  });
 });
