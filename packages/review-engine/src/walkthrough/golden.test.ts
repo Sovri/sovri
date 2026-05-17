@@ -50,6 +50,22 @@ describe("composeWalkthrough golden fixtures", () => {
     expect(markdown).toBe(expectedMarkdown);
     expect(expectedMarkdown).toContain(requiredText);
   });
+
+  it.each(["multi-finding.golden.md", "no-findings.golden.md", "html-escaping.golden.md"])(
+    "asserts required layout sections in %s",
+    (goldenFixture) => {
+      // Given the fixture expected output is <goldenFixture>
+      const expectedMarkdown = loadTextFixture(goldenFixture);
+
+      // When the maintainer runs the walkthrough tests
+      // Then the golden output contains "### TL;DR"
+      expect(expectedMarkdown).toContain("### TL;DR");
+      // And the golden output contains "### Findings"
+      expect(expectedMarkdown).toContain("### Findings");
+      // And the golden output contains "### File-by-file"
+      expect(expectedMarkdown).toContain("### File-by-file");
+    },
+  );
 });
 
 function loadReviewFixture(name: string): Review {
