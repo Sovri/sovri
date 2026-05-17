@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that malformed inline
+  comment drafts missing `line` are rejected by the draft schema (#348).
+
 - `@sovri/review-engine`: add acceptance coverage for Octokit-ready
   single-line inline comment draft payloads without deprecated `position`
   fields (#347).
