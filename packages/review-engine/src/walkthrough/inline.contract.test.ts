@@ -38,6 +38,29 @@ describe("buildInlineComments payload contract", () => {
     // And the draft does not contain a `position` field
     expect(draft).not.toHaveProperty("position");
   });
+
+  it("rejects a malformed draft that omits line", () => {
+    // Given an inline comment draft has path "src/auth.ts"
+    // And the draft has body "Missing authorization check"
+    // And the draft has side "RIGHT"
+    // And the draft omits `line`
+    const malformedDraft = {
+      path: "src/auth.ts",
+      body: "Missing authorization check",
+      side: "RIGHT",
+    };
+    let adapterDraft: unknown;
+
+    // When the maintainer validates the draft against `InlineCommentDraftSchema`
+    const validateAndPass = () => {
+      adapterDraft = InlineCommentDraftSchema.parse(malformedDraft);
+    };
+
+    // Then validation fails
+    expect(validateAndPass).toThrow();
+    // And the draft is not passed to the GitHub adapter
+    expect(adapterDraft).toBeUndefined();
+  });
 });
 
 function createAuthDiff(): Diff {
