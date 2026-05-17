@@ -74,4 +74,39 @@ describe("composeWalkthrough", () => {
     // And the markdown must not contain a generated GitHub comment URL
     expect(markdown).not.toMatch(/https:\/\/github\.com\/mpiton\/sovri\/pull\/36#discussion_r\d+/u);
   });
+
+  it.each([
+    [
+      "See [inline comment](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+      "See \\[inline comment\\](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+      "See [inline comment](https://github.com/mpiton/sovri/pull/36#discussion_r123456789)",
+    ],
+    [
+      "Refer to [discussion](#discussion_r987654321)",
+      "Refer to \\[discussion\\](#discussion_r987654321)",
+      "Refer to [discussion](#discussion_r987654321)",
+    ],
+  ])("renders anchor-like user text inert: %s", (body, inertText, activeText) => {
+    // Given the finding body is <body>
+    // And no inline-comment URL metadata is present on the review input
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          body,
+        },
+      ],
+    };
+
+    // When the maintainer calls `composeWalkthrough(review)`
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    // Then the markdown contains <inertText>
+    expect(markdown).toContain(inertText);
+    // And the markdown does not contain <activeText>
+    expect(markdown).not.toContain(activeText);
+    // And the composer does not promote the body link to the finding anchor
+    expect(markdown).not.toContain("[Missing payload null guard](");
+  });
 });
