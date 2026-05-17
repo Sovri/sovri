@@ -21,6 +21,110 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that same-severity
+  walkthrough findings use stable file, line, then title tie-break ordering
+  (#310).
+
+- `@sovri/review-engine`: add acceptance coverage that higher-severity
+  walkthrough findings render before lower-severity findings even when the
+  input array is reversed (#309).
+
+- `@sovri/review-engine`: add acceptance coverage that shuffled
+  walkthrough finding inputs produce identical deterministic markdown with no
+  generated dates or identifiers (#308).
+
+- `@sovri/review-engine`: add acceptance coverage that invalid
+  walkthrough review inputs fail validation without returning partial markdown
+  (#307).
+
+- `@sovri/review-engine`: add acceptance coverage that valid no-finding
+  reviews still return useful walkthrough markdown with summary and empty
+  findings sections (#306).
+
+- `@sovri/review-engine`: add acceptance coverage that valid reviews return
+  markdown strings with TL;DR summary text and the empty-summary fallback
+  (#305).
+
+- `@sovri/review-engine`: add acceptance coverage that walkthrough
+  structure checks reject markdown missing the File-by-file section (#304).
+
+- `@sovri/review-engine`: add acceptance coverage that no-finding
+  walkthroughs keep the required section structure and empty-state copy (#303).
+
+- `@sovri/review-engine`: add acceptance coverage that Findings groups
+  present severities in descending rank order from blocker through nitpick
+  (#302).
+
+- `@sovri/review-engine`: add acceptance coverage that multi-finding
+  walkthroughs render the required Sovri review, TL;DR, Findings, and
+  File-by-file sections in order (#301).
+
+- `@sovri/review-engine`: add acceptance coverage that escaped file paths
+  and table pipes stay safe in both Findings and File-by-file walkthrough
+  sections (#300).
+
+- `@sovri/review-engine`: add acceptance coverage that raw `<img>` HTML
+  copied from a finding body is escaped in walkthrough markdown (#299).
+
+- `@sovri/review-engine`: add acceptance coverage that walkthrough
+  composition escapes user-controlled summary, finding title, finding body,
+  and finding file values before rendering markdown (#298).
+
+- `@sovri/review-engine`: add acceptance coverage that the File-by-file
+  walkthrough summary repeats finding locations and titles under sorted files
+  with per-file counts (#297).
+
+- `@sovri/review-engine`: add acceptance coverage that finding detail
+  completeness checks exercise `composeWalkthrough` output and reject
+  walkthrough rows missing the explanatory body text (#296).
+
+- `@sovri/review-engine`: add acceptance coverage that multiline finding
+  bodies render as one markdown-safe paragraph without raw table-cell newlines
+  or `<br>` tags (#295).
+
+- `@sovri/review-engine`: add acceptance coverage that walkthrough findings
+  render single-line and range locations with their titles and bodies (#294).
+
+- `@sovri/review-engine`: add golden comparison coverage that layout drift
+  fails with the affected golden fixture identified (#293).
+
+- `@sovri/review-engine`: add golden fixture coverage that required TL;DR,
+  Findings, and File-by-file walkthrough sections remain present (#292).
+
+- `@sovri/review-engine`: render walkthrough markdown from golden-backed
+  sections, including TL;DR, severity-grouped findings, file-by-file summaries,
+  stable ordering, and HTML-safe table cells (#291).
+
+- `@sovri/review-engine`: add golden walkthrough fixtures covering
+  multi-finding, no-finding, HTML-escaping, and multiline-body review outputs
+  (#291).
+
+- `@sovri/review-engine`: add acceptance coverage that inline comment anchor
+  rendering remains out of scope until the review input exposes trusted
+  inline-comment URL metadata (#290).
+
+- `@sovri/review-engine`: render finding bodies as one markdown-safe paragraph
+  in walkthrough output while neutralizing markdown link delimiters for
+  anchor-like user text, preserving brackets inside single- and multi-backtick
+  inline code spans, treating escaped opening backticks as literal text, and
+  preserving Markdown closing semantics inside code spans (#289).
+
+- `@sovri/review-engine`: add acceptance coverage that anchor-like user text
+  in finding bodies is rendered as inert markdown when no trusted inline-comment
+  URL metadata exists (#289).
+
+- `@sovri/review-engine`: add acceptance coverage for rejecting fabricated
+  GitHub discussion links when review findings lack trusted inline-comment URL
+  metadata (#288).
+
+- `@sovri/review-engine`: make walkthrough composition accept validated review
+  inputs and render finding titles without generated inline comment anchors
+  (#287).
+
+- `@sovri/review-engine`: add acceptance coverage that walkthrough
+  composition does not invent inline comment anchors when review findings lack
+  trusted inline-comment URL metadata (#287).
+
 - `@sovri/review-engine`: add retry parsing for malformed or schema-invalid
   LLM responses, including corrective prompts with parse issue details,
   provider-raised parse failures, configurable retry budgets, and deterministic
@@ -235,6 +339,31 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   producing `{}` that an LLM would silently honour.
 
 ### Fixed
+
+- `@sovri/review-engine`: walkthrough finding ordering now uses code-point
+  comparison instead of `localeCompare`, so the rendered markdown is identical
+  across hosts regardless of ICU locale (e.g. `a.ts` always sorts before
+  `ä.ts`). Regression covered in stable-ordering-tiebreak.test.ts (#335,
+  codex review).
+
+- `@sovri/review-engine`: `formatMarkdownText` no longer HTML-escapes
+  characters inside inline code spans, so finding text like `` `<button>` ``
+  or `` `a && b` `` renders verbatim instead of leaking `&lt;`, `&gt;`, and
+  `&amp;` entities into rendered code (#335, codex review).
+
+- `@sovri/review-engine`: `composeWalkthrough` now renders the trimmed summary
+  in TL;DR instead of the raw input, so leading/trailing whitespace cannot leak
+  into the output (#335, coderabbit + cubic-dev review).
+
+- `@sovri/review-engine`: `compareFindingsWithinFile` now compares raw `title`
+  and `body` fields and falls back to `line_end` then `id`, so distinct
+  findings sharing file/line/title no longer rely on input order — ordering is
+  total and stable under shuffled inputs (#335, codex + coderabbit + cubic-dev
+  review).
+
+- `@sovri/review-engine`: walkthrough golden fixture `multi-finding` summary
+  text corrected from "Five" to "Three" review findings to match the actual
+  fixture count (#335, coderabbit review).
 
 - `@sovri/core`: `FindingSchema.id` now requires UUID v4 instead of accepting
   any syntactically valid UUID version, so parser regressions that assign older
