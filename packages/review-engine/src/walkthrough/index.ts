@@ -19,9 +19,16 @@ export function composeWalkthrough(input: WalkthroughInput): string {
     "### Findings",
     "",
     ...review.findings.map((finding) =>
-      [`- ${finding.title}`, `  ${escapeMarkdownLinkDelimiters(finding.body)}`].join("\n"),
+      [`- ${finding.title}`, `  ${formatBody(finding.body)}`].join("\n"),
     ),
   ].join("\n");
+}
+
+function formatBody(value: string): string {
+  return escapeMarkdownLinkDelimiters(value)
+    .split(/\s*\r?\n\s*/u)
+    .filter((line) => line.length > 0)
+    .join(" ");
 }
 
 function escapeMarkdownLinkDelimiters(value: string): string {
