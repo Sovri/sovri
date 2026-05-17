@@ -340,6 +340,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `@sovri/review-engine`: `formatMarkdownText` no longer HTML-escapes
+  characters inside inline code spans, so finding text like `` `<button>` ``
+  or `` `a && b` `` renders verbatim instead of leaking `&lt;`, `&gt;`, and
+  `&amp;` entities into rendered code (#335, codex review).
+
 - `@sovri/review-engine`: `composeWalkthrough` now renders the trimmed summary
   in TL;DR instead of the raw input, so leading/trailing whitespace cannot leak
   into the output (#335, coderabbit + cubic-dev review).

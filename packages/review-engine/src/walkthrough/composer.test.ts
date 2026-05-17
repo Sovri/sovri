@@ -110,6 +110,28 @@ describe("composeWalkthrough", () => {
     expect(markdown).not.toContain("[Missing payload null guard](");
   });
 
+  it("does not HTML-escape characters inside inline code spans", () => {
+    const review: Review = {
+      ...baseReview,
+      findings: [
+        {
+          ...baseReview.findings[0],
+          title: "Use `<button>` instead of `a && b`",
+          body: "Replace `<div>` with `a && b` in `tag<T>` template.",
+        },
+      ],
+    };
+
+    const markdown = composeWalkthrough(review as unknown as WalkthroughInput);
+
+    expect(markdown).toContain("`<button>`");
+    expect(markdown).toContain("`a && b`");
+    expect(markdown).toContain("`<div>`");
+    expect(markdown).toContain("`tag<T>`");
+    expect(markdown).not.toContain("`&lt;button&gt;`");
+    expect(markdown).not.toContain("`a &amp;&amp; b`");
+  });
+
   it("does not escape brackets inside inline code spans", () => {
     const review: Review = {
       ...baseReview,

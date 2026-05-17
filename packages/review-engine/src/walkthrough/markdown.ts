@@ -2,7 +2,11 @@
 // Copyright 2026 Sovri SAS
 
 export function formatMarkdownText(value: string): string {
-  return escapeMarkdownLinkDelimiters(escapeHtml(normalizeParagraph(value)));
+  return splitInlineCodeSpans(normalizeParagraph(value))
+    .map((segment) =>
+      segment.kind === "code" ? segment.text : escapeLinkDelimiters(escapeHtml(segment.text)),
+    )
+    .join("");
 }
 
 export function formatTableCell(value: string): string {
@@ -24,14 +28,8 @@ function escapeTablePipes(value: string): string {
   return value.replaceAll("|", "\\|");
 }
 
-function escapeMarkdownLinkDelimiters(value: string): string {
-  return splitInlineCodeSpans(value)
-    .map((segment) =>
-      segment.kind === "code"
-        ? segment.text
-        : segment.text.replaceAll("[", "\\[").replaceAll("]", "\\]"),
-    )
-    .join("");
+function escapeLinkDelimiters(value: string): string {
+  return value.replaceAll("[", "\\[").replaceAll("]", "\\]");
 }
 
 type MarkdownSegment = {
