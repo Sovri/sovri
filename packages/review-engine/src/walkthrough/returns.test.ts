@@ -79,6 +79,29 @@ describe("composeWalkthrough markdown return value", () => {
       expect(markdown).not.toContain("[object Object]");
     },
   );
+
+  it("returns useful markdown for a valid review with no findings", () => {
+    // Given the review validates against `ReviewSchema`
+    // And the review summary is "No actionable findings were found."
+    // And the review contains 0 findings
+    const review = ReviewSchema.parse({
+      ...baseReview,
+      summary: "No actionable findings were found.",
+      findings: [],
+    });
+
+    // When the maintainer calls `composeWalkthrough(review)`
+    const markdown = composeWalkthrough(review);
+
+    // Then the returned value is a string
+    expect(typeof markdown).toBe("string");
+    // And the markdown contains "No actionable findings were found."
+    expect(markdown).toContain("No actionable findings were found.");
+    // And the markdown contains "No findings"
+    expect(markdown).toContain("No findings");
+    // And the markdown contains "### File-by-file"
+    expect(markdown).toContain("### File-by-file");
+  });
 });
 
 function extractSection(markdown: string, heading: string): string {
