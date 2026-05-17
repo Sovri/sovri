@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add acceptance coverage that valid no-finding
+  reviews still return useful walkthrough markdown with summary and empty
+  findings sections (#306).
+
 - `@sovri/review-engine`: add acceptance coverage that valid reviews return
   markdown strings with TL;DR summary text and the empty-summary fallback
   (#305).
