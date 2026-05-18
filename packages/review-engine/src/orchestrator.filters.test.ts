@@ -284,4 +284,68 @@ describe("reviewPullRequest config filters", () => {
       }),
     );
   });
+
+  it("drops ignored paths after parsing", async () => {
+    const reviewPullRequest = getReviewPullRequest();
+    const oneFilePullRequest: PullRequest = {
+      ...pullRequest,
+      additions: 6,
+      deletions: 1,
+      changed_files: 1,
+    };
+    const oneFileDiff: Diff = {
+      unified_diff: diff.unified_diff,
+      files: [
+        {
+          path: "packages/review-engine/src/orchestrator.ts",
+          status: "modified",
+          additions: 6,
+          deletions: 1,
+          sha: "cccccccccccccccccccccccccccccccccccccccc",
+          patch: "@@ -15,0 +16,2 @@",
+          hunks: [],
+        },
+      ],
+    };
+    const examples: ReadonlyArray<{
+      readonly file: string;
+      readonly title: string;
+      readonly findingCount: number;
+    }> = [
+      { file: "docs/notes.md", title: "Ignored doc finding", findingCount: 0 },
+      {
+        file: "packages/review-engine/src/orchestrator.ts",
+        title: "Kept orchestrator issue",
+        findingCount: 1,
+      },
+    ];
+
+    await Promise.all(
+      examples.map(async ({ file, title, findingCount }) => {
+        let providerCallCount = 0;
+        const provider = createProvider([providerFinding("major", file, 18, title)]);
+        const countingProvider: LLMProvider = {
+          ...provider,
+          async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
+            providerCallCount += 1;
+            return provider.generateStructured(params);
+          },
+        };
+
+        // Given the pull request changes 1 file
+        // And the pull request has 6 additions and 1 deletion
+        // And the provider returns one "major" finding for file <file> titled <title>
+        // When the maintainer calls `reviewPullRequest`
+        const review = await reviewPullRequest(
+          { pullRequest: oneFilePullRequest, diff: oneFileDiff, config },
+          { provider: countingProvider },
+        );
+
+        // Then the provider is called exactly 1 time
+        expect(providerCallCount).toBe(1);
+        // And the returned Review contains <findingCount> findings
+        expect(review.findings).toHaveLength(findingCount);
+      }),
+    );
+  });
 });
