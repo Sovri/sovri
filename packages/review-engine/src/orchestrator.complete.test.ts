@@ -14,9 +14,13 @@ import type {
   LLMProvider,
   StructuredGeneration,
 } from "@sovri/llm-providers";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { reviewPullRequest } from "./orchestrator.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 type ReviewPullRequestRuntime = (
   input: {
@@ -163,6 +167,31 @@ describe("reviewPullRequest complete Review contract", () => {
     expect(provider.calls).toBe(0);
   });
 
+  it("rejects an assembled Review without token usage before returning it", async () => {
+    const provider = new CompleteReviewProvider();
+    const originalParse = ReviewSchema.parse.bind(ReviewSchema);
+
+    vi.spyOn(ReviewSchema, "parse").mockImplementation((value: unknown) => {
+      if (isSuccessfulReviewAssembly(value)) {
+        const tokenlessReview: Record<string, unknown> = { ...value };
+        delete tokenlessReview["tokens_used"];
+
+        return originalParse(tokenlessReview);
+      }
+
+      return originalParse(value);
+    });
+
+    // Given the orchestrator has assembled a Review without `tokens_used`
+    // When the orchestrator validates the assembled Review
+    const review = reviewPullRequest({ pullRequest, diff, config }, { provider });
+
+    // Then validation fails against `ReviewSchema`
+    await expect(review).rejects.toBeInstanceOf(z.ZodError);
+    // And the invalid Review is not returned to the caller
+    expect(provider.calls).toBe(1);
+  });
+
   it("returns a complete successful Review for a zero-finding provider response", async () => {
     const provider = new CompleteReviewProvider(ZeroFindingProviderResponse, {
       prompt: 700,
@@ -268,6 +297,22 @@ function getReviewPullRequestRuntime(): ReviewPullRequestRuntime {
   }
 
   return candidate;
+}
+
+function isSuccessfulReviewAssembly(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    Reflect.get(value, "llm_provider") === "test-provider" &&
+    Reflect.get(value, "status") === "success" &&
+    Reflect.has(value, "tokens_used")
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const config: ReviewFilterConfig = {
