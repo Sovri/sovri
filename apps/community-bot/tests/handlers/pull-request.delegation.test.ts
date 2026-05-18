@@ -3,7 +3,6 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
 import type { SovriConfig } from "@sovri/config";
 import type { Diff, Review } from "@sovri/review-engine";
@@ -18,7 +17,7 @@ const REPO_FULL_NAME = "mpiton/sovri";
 const OPENED_HEAD_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SYNCHRONIZED_HEAD_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const DELIVERY_ID = "8f1b9c2d-3e4f-45a6-91b2-123456789abc";
-const HANDLER_SOURCE_PATH = resolve("src/handlers/pull-request.ts");
+const HANDLER_SOURCE_URL = new URL("../../src/handlers/pull-request.ts", import.meta.url);
 
 describe("pull request handlers - ATDD #477", () => {
   it.each([
@@ -79,7 +78,7 @@ describe("pull request handlers - ATDD #477", () => {
 
 describe("pull request handlers - remaining ATDD scenarios", () => {
   it("rejects handler-owned finding generation", () => {
-    const source = readFileSync(HANDLER_SOURCE_PATH, "utf8");
+    const source = readFileSync(HANDLER_SOURCE_URL, "utf8");
 
     // Given "apps/community-bot/src/handlers/pull-request.ts" creates a finding with severity "major"
     expect(source).not.toContain('severity: "major"');
@@ -97,7 +96,7 @@ describe("pull request handlers - remaining ATDD scenarios", () => {
       diff: buildDiff(),
       review: buildReview({ commitSha: SYNCHRONIZED_HEAD_SHA }),
     });
-    const source = readFileSync(HANDLER_SOURCE_PATH, "utf8");
+    const source = readFileSync(HANDLER_SOURCE_URL, "utf8");
 
     // Given the diff fetcher returns a unified diff containing 2 changed files
     const diff = buildDiff({ changedFiles: 2 });
