@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `apps/community-bot`: add the initial Probot scaffold with manifest,
+  package metadata, source layout, TypeScript inheritance, and scaffold
+  contract tests (#39).
+
 - `@sovri/review-engine`: add the initial `reviewPullRequest`
   orchestration entrypoint with severity threshold and ignored path filters
   while enforcing configured review limits and preserving provider finding
@@ -432,6 +436,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   for summaries with exactly 2000 JavaScript string characters (#229).
 
 ### Fixed
+
+- `apps/community-bot`: scaffold tests now exercise the real validators
+  (CodeRabbit + cubic-dev review on #452). `inspectManifestAccess` enforces
+  the manifest `name` field, and the layout scenario routes presence checks
+  through a new `inspectLayoutPresence` helper instead of re-deriving the
+  missing element from the same input list.
+
+- `apps/community-bot`: `dev` script targets the compiled `dist/app.js`
+  instead of `src/app.ts` (Codex review on #452). The TypeScript sources use
+  ESM `.js` import specifiers that Probot's CLI cannot resolve against the
+  raw `src/` tree, so the previous script failed in a clean checkout. The
+  script now runs `tsup` then `probot run ./dist/app.js`.
 
 - `@sovri/review-engine`: `normalizeFindingPath` no longer rewrites provider
   finding paths whose repository-relative form merely contains an ignore-rule
