@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { ReviewSchema, z, type Diff, type PullRequest, type Severity } from "@sovri/core";
+import {
+  FindingSchema,
+  ReviewSchema,
+  z,
+  type Diff,
+  type PullRequest,
+  type Severity,
+} from "@sovri/core";
 import type {
   GenerateStructuredParams,
   LLMProvider,
@@ -112,6 +119,29 @@ describe("reviewPullRequest complete Review contract", () => {
     ]);
   });
 
+  it("returns a successful Review that validates against core schemas", async () => {
+    const provider = new CompleteReviewProvider(SchemaValidationProviderResponse);
+
+    // Given the provider returns summary "Review completed for orchestrator flow."
+    // And the provider returns one finding for file "packages/review-engine/src/orchestrator.ts" on line 42
+    // And the provider reports 812 prompt tokens and 144 completion tokens
+    // When the maintainer calls `reviewPullRequest`
+    const review = await reviewPullRequest({ pullRequest, diff, config }, { provider });
+
+    // Then the returned Review validates against `ReviewSchema`
+    expect(ReviewSchema.safeParse(review).success).toBe(true);
+    // And the Review pull request number is 38
+    expect(review.pr_number).toBe(38);
+    // And the Review repository is "mpiton/sovri"
+    expect(review.repo_full_name).toBe("mpiton/sovri");
+    // And the Review commit SHA is "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    expect(review.commit_sha).toBe("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    // And `started_at` is before or equal to `completed_at`
+    expect(review.started_at.getTime()).toBeLessThanOrEqual(review.completed_at.getTime());
+    // And every returned finding validates against `FindingSchema`
+    expect(review.findings.every((finding) => FindingSchema.safeParse(finding).success)).toBe(true);
+  });
+
   it("rejects invalid pull request input before calling the provider", async () => {
     const provider = new CompleteReviewProvider();
     const runtimeReviewPullRequest = getReviewPullRequestRuntime();
@@ -199,6 +229,23 @@ const MajorFindingProviderResponse: ProviderResponseFixture = {
     },
   ],
   walkthroughMarkdown: "## Sovri review\n\nOne major orchestration finding.",
+};
+
+const SchemaValidationProviderResponse: ProviderResponseFixture = {
+  summary: "Review completed for orchestrator flow.",
+  findings: [
+    {
+      severity: "major",
+      category: "bug",
+      file: "packages/review-engine/src/orchestrator.ts",
+      line_start: 42,
+      line_end: 42,
+      title: "Schema-valid finding",
+      body: "The returned finding should satisfy the core FindingSchema.",
+      confidence: 0.91,
+    },
+  ],
+  walkthroughMarkdown: "## Sovri review\n\nReview completed for orchestrator flow.",
 };
 
 const ZeroFindingProviderResponse: ProviderResponseFixture = {
