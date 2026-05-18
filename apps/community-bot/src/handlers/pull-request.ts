@@ -103,27 +103,47 @@ async function handlePullRequest(
   dependencies: PullRequestHandlerDependencies,
 ): Promise<void> {
   const target = buildTarget(context);
-  dependencies.logger.info(
-    {
-      delivery_id: context.id,
-      event: context.name,
-      pr_number: target.number,
-      repo: target.repoFullName,
-    },
-    "Pull request review started",
-  );
+  const logContext = buildLogContext(context, target);
+  dependencies.logger.info(logContext, "Pull request review started");
 
-  const config = await dependencies.loadConfig(target);
-  const diff = await dependencies.fetchDiff(target);
-  const review = await dependencies.reviewPullRequest(
-    {
-      config,
-      diff,
-      pullRequest: buildPullRequest(context),
-    },
-    dependencies.reviewOptions ?? DefaultReviewOptions,
-  );
-  await dependencies.postReview(target, review);
+  try {
+    const config = await dependencies.loadConfig(target);
+    if (context.payload.pull_request.draft && !config.review.autoReviewDrafts) {
+      dependencies.logger.info(
+        {
+          ...logContext,
+          draft: true,
+        },
+        "Pull request review skipped",
+      );
+      return;
+    }
+
+    const diff = await dependencies.fetchDiff(target);
+    const review = await dependencies.reviewPullRequest(
+      {
+        config,
+        diff,
+        pullRequest: buildPullRequest(context),
+      },
+      dependencies.reviewOptions ?? DefaultReviewOptions,
+    );
+    await dependencies.postReview(target, review);
+    dependencies.logger.info(
+      {
+        ...logContext,
+        result: review.status,
+      },
+      "Pull request review completed",
+    );
+  } catch (error) {
+    await reportReviewFailure({
+      dependencies,
+      error,
+      logContext,
+      target,
+    });
+  }
 }
 
 function buildTarget(context: PullRequestWebhookContext): ReviewPostTarget {
@@ -153,4 +173,55 @@ function buildPullRequest(
     repo_full_name: context.payload.repository.full_name,
     title: pullRequest.title,
   };
+}
+
+function buildLogContext(
+  context: PullRequestWebhookContext,
+  target: ReviewPostTarget,
+): Readonly<Record<string, unknown>> {
+  return {
+    delivery_id: context.id,
+    event: context.name,
+    pr_number: target.number,
+    repo: target.repoFullName,
+  };
+}
+
+async function reportReviewFailure(values: {
+  readonly dependencies: PullRequestHandlerDependencies;
+  readonly error: unknown;
+  readonly logContext: Readonly<Record<string, unknown>>;
+  readonly target: ReviewPostTarget;
+}): Promise<void> {
+  const errorMessage = errorMessageFrom(values.error);
+  const commentErrorMessage = await tryPostFailureComment(values.dependencies, values.target);
+
+  values.dependencies.logger.error(
+    {
+      ...values.logContext,
+      comment_error_message: commentErrorMessage,
+      error_message: errorMessage,
+    },
+    "Pull request review failed",
+  );
+}
+
+async function tryPostFailureComment(
+  dependencies: PullRequestHandlerDependencies,
+  target: ReviewPostTarget,
+): Promise<string | undefined> {
+  try {
+    await dependencies.postErrorComment(target, "review failed");
+    return undefined;
+  } catch (error) {
+    return errorMessageFrom(error);
+  }
+}
+
+function errorMessageFrom(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "unknown review failure";
 }
