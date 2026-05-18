@@ -37,6 +37,11 @@ class CompleteReviewProvider implements LLMProvider {
   public readonly maxTokens = 2048;
   public calls = 0;
 
+  constructor(
+    private readonly response: ProviderResponseFixture = MajorFindingProviderResponse,
+    private readonly tokenUsage: TokenUsageFixture = { prompt: 812, completion: 144 },
+  ) {}
+
   async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
     const generation = await this.generateStructuredWithUsage(params);
 
@@ -50,22 +55,11 @@ class CompleteReviewProvider implements LLMProvider {
 
     return {
       data: params.schema.parse({
-        summary: "One major orchestration finding.",
-        findings: [
-          {
-            severity: "major",
-            category: "bug",
-            file: "packages/review-engine/src/orchestrator.ts",
-            line_start: 42,
-            line_end: 42,
-            title: "Missing orchestration guard",
-            body: "The orchestration path should preserve the complete Review contract.",
-            confidence: 0.91,
-          },
-        ],
-        walkthrough_markdown: "## Sovri review\n\nOne major orchestration finding.",
+        summary: this.response.summary,
+        findings: this.response.findings,
+        walkthrough_markdown: this.response.walkthroughMarkdown,
       }),
-      tokenUsage: { prompt: 812, completion: 144 },
+      tokenUsage: this.tokenUsage,
     };
   }
 }
@@ -138,9 +132,80 @@ describe("reviewPullRequest complete Review contract", () => {
     await expect(review).rejects.toBeInstanceOf(z.ZodError);
     expect(provider.calls).toBe(0);
   });
+
+  it("returns a complete successful Review for a zero-finding provider response", async () => {
+    const provider = new CompleteReviewProvider(ZeroFindingProviderResponse, {
+      prompt: 700,
+      completion: 32,
+    });
+
+    // Given the parsed diff contains file "packages/review-engine/src/orchestrator.ts" with RIGHT-side line 42
+    // And the provider returns summary "No actionable findings."
+    // And the provider returns 0 findings
+    // And the provider reports 700 prompt tokens and 32 completion tokens
+    // When the maintainer calls `reviewPullRequest`
+    const review = ReviewSchema.parse(
+      await reviewPullRequest({ pullRequest, diff, config }, { provider }),
+    );
+
+    // Then the returned Review has status "success"
+    expect(review.status).toBe("success");
+    // And the returned Review findings contain 0 findings
+    expect(review.findings).toHaveLength(0);
+    // And the returned Review has non-empty `walkthrough_markdown`
+    expect(review.walkthrough_markdown.length).toBeGreaterThan(0);
+
+    expect(review.summary).toBe("No actionable findings.");
+    expect(review.tokens_used).toEqual({ prompt: 700, completion: 32 });
+  });
 });
 
 const UuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+interface TokenUsageFixture {
+  readonly prompt: number;
+  readonly completion: number;
+}
+
+interface ProviderResponseFixture {
+  readonly summary: string;
+  readonly findings: readonly ProviderFindingFixture[];
+  readonly walkthroughMarkdown: string;
+}
+
+interface ProviderFindingFixture {
+  readonly severity: "major";
+  readonly category: "bug";
+  readonly file: string;
+  readonly line_start: number;
+  readonly line_end: number;
+  readonly title: string;
+  readonly body: string;
+  readonly confidence: number;
+}
+
+const MajorFindingProviderResponse: ProviderResponseFixture = {
+  summary: "One major orchestration finding.",
+  findings: [
+    {
+      severity: "major",
+      category: "bug",
+      file: "packages/review-engine/src/orchestrator.ts",
+      line_start: 42,
+      line_end: 42,
+      title: "Missing orchestration guard",
+      body: "The orchestration path should preserve the complete Review contract.",
+      confidence: 0.91,
+    },
+  ],
+  walkthroughMarkdown: "## Sovri review\n\nOne major orchestration finding.",
+};
+
+const ZeroFindingProviderResponse: ProviderResponseFixture = {
+  summary: "No actionable findings.",
+  findings: [],
+  walkthroughMarkdown: "## Sovri review\n\nNo actionable findings.",
+};
 
 function isReviewPullRequestRuntime(value: unknown): value is ReviewPullRequestRuntime {
   return typeof value === "function";
