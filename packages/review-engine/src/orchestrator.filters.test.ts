@@ -393,4 +393,50 @@ describe("reviewPullRequest config filters", () => {
       }),
     );
   });
+
+  it("treats the changed-line limit as inclusive before the provider call", async () => {
+    const reviewPullRequest = getReviewPullRequest();
+    const examples: ReadonlyArray<{
+      readonly additions: number;
+      readonly deletions: number;
+      readonly providerCalls: number;
+      readonly status: Review["status"];
+    }> = [
+      { additions: 20, deletions: 5, providerCalls: 1, status: "success" },
+      { additions: 20, deletions: 6, providerCalls: 0, status: "failed" },
+    ];
+
+    await Promise.all(
+      examples.map(async ({ additions, deletions, providerCalls, status }) => {
+        let providerCallCount = 0;
+        const provider = createProvider([]);
+        const countingProvider: LLMProvider = {
+          ...provider,
+          async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
+            providerCallCount += 1;
+            return provider.generateStructured(params);
+          },
+        };
+        const inputPullRequest: PullRequest = {
+          ...pullRequest,
+          additions,
+          deletions,
+          changed_files: 1,
+        };
+
+        // Given the pull request changes 1 file
+        // And the pull request has <additions> additions and <deletions> deletions
+        // When the maintainer calls `reviewPullRequest`
+        const review = await reviewPullRequest(
+          { pullRequest: inputPullRequest, diff, config },
+          { provider: countingProvider },
+        );
+
+        // Then the provider call count is <providerCalls>
+        expect(providerCallCount).toBe(providerCalls);
+        // And the returned Review status is <status>
+        expect(review.status).toBe(status);
+      }),
+    );
+  });
 });

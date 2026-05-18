@@ -38,6 +38,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add scenario test coverage that file count review
   limits are inclusive before provider calls (#376).
 
+- `@sovri/review-engine`: add scenario test coverage that changed-line review
+  limits are inclusive before provider calls (#377).
+
 - `@sovri/review-engine`: re-export `buildInlineComments`,
   `InlineCommentDraftSchema`, and the `InlineCommentDraft` type from the
   package entrypoint so downstream consumers can build GitHub inline drafts
