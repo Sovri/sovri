@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertNotIgnored,
   expectPathExists,
+  inspectLayoutPresence,
   packageRoot,
   readJsonObject,
   requiredSourceFiles,
@@ -35,11 +36,11 @@ describe("community bot source layout scaffold", () => {
     );
     // And "<path>" does not exist
     // When the scaffold layout is inspected
-    const missing = requiredSourceFiles.find((sourceFile) => !presentFiles.has(sourceFile));
+    const result = inspectLayoutPresence(presentFiles);
     // Then the layout check fails
-    expect(missing).toBe(missingPath);
+    expect(result.ok).toBe(false);
     // And the failure mentions "<path>"
-    expect(missing).toContain(missingPath);
+    expect(result).toMatchObject({ message: missingPath });
   });
 
   it("materializes the commands placeholder as a TypeScript source file", async () => {

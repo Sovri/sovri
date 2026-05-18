@@ -146,10 +146,7 @@ describe("community bot manifest scaffold", () => {
     delete manifest.name;
     // And the manifest has no "name" field
     // When the scaffold manifest is validated against the Probot schema
-    const result =
-      manifest.name === "Sovri Community Bot"
-        ? inspectManifestAccess(manifest)
-        : { message: "name", ok: false };
+    const result = inspectManifestAccess(manifest);
     // Then validation fails
     expect(result.ok).toBe(false);
     // And the validation error mentions the missing "name" field

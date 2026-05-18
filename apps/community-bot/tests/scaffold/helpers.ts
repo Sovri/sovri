@@ -135,7 +135,19 @@ export function inspectTsconfigInheritance(config: Record<string, unknown>): Che
   return { ok: true };
 }
 
+export function inspectLayoutPresence(presentFiles: ReadonlySet<string>): CheckResult {
+  for (const required of requiredSourceFiles) {
+    if (!presentFiles.has(required)) {
+      return { message: required, ok: false };
+    }
+  }
+  return { ok: true };
+}
+
 export function inspectManifestAccess(manifest: Record<string, unknown>): CheckResult {
+  if (typeof manifest.name !== "string" || manifest.name.length === 0) {
+    return { message: "name", ok: false };
+  }
   const permissions = manifest.default_permissions;
   if (!isRecord(permissions)) {
     return { message: "Expected default_permissions", ok: false };

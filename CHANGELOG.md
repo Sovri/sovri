@@ -437,6 +437,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `apps/community-bot`: scaffold tests now exercise the real validators
+  (CodeRabbit + cubic-dev review on #452). `inspectManifestAccess` enforces
+  the manifest `name` field, and the layout scenario routes presence checks
+  through a new `inspectLayoutPresence` helper instead of re-deriving the
+  missing element from the same input list.
+
 - `@sovri/review-engine`: `normalizeFindingPath` no longer rewrites provider
   finding paths whose repository-relative form merely contains an ignore-rule
   prefix mid-path (#427, Codex + cubic-dev review). The previous
