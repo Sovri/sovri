@@ -478,6 +478,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   payloads inside correlated failure logging instead of escaping before the
   handler error path (#41).
 
+- `apps/community-bot`: derive PR review inline comments from the review
+  engine's diff-anchored drafts so unanchorable findings cannot make GitHub
+  reject the entire review request (#41).
+
 - `apps/community-bot`: scaffold tests now exercise the real validators
   (CodeRabbit + cubic-dev review on #452). `inspectManifestAccess` enforces
   the manifest `name` field, and the layout scenario routes presence checks

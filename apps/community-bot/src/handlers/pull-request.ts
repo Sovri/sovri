@@ -73,6 +73,8 @@ type PullRequestReviewCommentParameters = {
   readonly line: number;
   readonly path: string;
   readonly side: "RIGHT";
+  readonly start_line?: number;
+  readonly start_side?: "RIGHT";
 };
 
 type RepositoryContentParameters = {
@@ -107,7 +109,7 @@ export type PullRequestHandlerDependencies = {
   readonly loadConfig: (target: ReviewPostTarget) => Promise<SovriConfig>;
   readonly logger: PullRequestHandlerLogger;
   readonly postErrorComment: (target: ReviewCommentTarget, message: string) => Promise<void>;
-  readonly postReview: (target: ReviewPostTarget, review: Review) => Promise<void>;
+  readonly postReview: (target: ReviewPostTarget, review: Review, diff: Diff) => Promise<void>;
   readonly reviewPullRequest: (
     input: ReviewPullRequestInput,
     options: ReviewPullRequestOptions,
@@ -203,7 +205,7 @@ async function handlePullRequest(
       },
       reviewOptions,
     );
-    await dependencies.postReview(target, review);
+    await dependencies.postReview(target, review, diff);
     dependencies.logger.info(
       {
         ...logContext,

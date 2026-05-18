@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG, type SovriConfig } from "@sovri/config";
-import type { Review } from "@sovri/review-engine";
+import type { Diff, Review } from "@sovri/review-engine";
 
 import { createPullRequestHandlerDependencies } from "../../src/github/pull-request-review.js";
 import type { PullRequestWebhookContext } from "../../src/handlers/pull-request.js";
@@ -103,14 +103,14 @@ review:
       ANTHROPIC_API_KEY: "test-key",
     });
 
-    await dependencies.postReview(buildTarget(), buildReview());
+    await dependencies.postReview(buildTarget(), buildReview(), buildDiff());
 
     expect(runtime.reviewRequests).toEqual([
       expect.objectContaining({
         body: "Review complete",
         comments: [
           {
-            body: "**major: Delegation check**\n\nThe handler should delegate review work.",
+            body: "**Delegation check**\n\nThe handler should delegate review work.",
             line: 42,
             path: "apps/community-bot/src/handlers/pull-request.ts",
             side: "RIGHT",
@@ -121,6 +121,45 @@ review:
         owner: "mpiton",
         pull_number: 41,
         repo: "sovri",
+      }),
+    ]);
+  });
+
+  it("filters unanchorable findings before posting inline review comments", async () => {
+    const runtime = buildRuntimeContext();
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+    const review = buildReview({
+      findings: [
+        buildFinding({
+          body: "The handler should anchor a range only when every line is in the diff.",
+          lineEnd: 43,
+          title: "Multi-line anchor",
+        }),
+        buildFinding({
+          body: "This line is outside the delivered diff.",
+          lineStart: 999,
+          lineEnd: 999,
+          title: "Unanchorable finding",
+        }),
+      ],
+    });
+
+    await dependencies.postReview(buildTarget(), review, buildDiff());
+
+    expect(runtime.reviewRequests).toEqual([
+      expect.objectContaining({
+        comments: [
+          {
+            body: "**Multi-line anchor**\n\nThe handler should anchor a range only when every line is in the diff.",
+            line: 43,
+            path: "apps/community-bot/src/handlers/pull-request.ts",
+            side: "RIGHT",
+            start_line: 42,
+            start_side: "RIGHT",
+          },
+        ],
       }),
     ]);
   });
@@ -237,6 +276,44 @@ function buildTarget() {
   };
 }
 
+function buildDiff(): Diff {
+  const header = "@@ -42,1 +42,2 @@";
+  const patch = [
+    "diff --git a/apps/community-bot/src/handlers/pull-request.ts b/apps/community-bot/src/handlers/pull-request.ts",
+    `index ${"e".repeat(40)}..${"f".repeat(40)} 100644`,
+    "--- a/apps/community-bot/src/handlers/pull-request.ts",
+    "+++ b/apps/community-bot/src/handlers/pull-request.ts",
+    header,
+    "-old",
+    "+new",
+    "+line",
+  ].join("\n");
+
+  return {
+    files: [
+      {
+        additions: 2,
+        deletions: 1,
+        hunks: [
+          {
+            header,
+            lines: ["-old", "+new", "+line"],
+            new_lines: 2,
+            new_start: 42,
+            old_lines: 1,
+            old_start: 42,
+          },
+        ],
+        patch,
+        path: "apps/community-bot/src/handlers/pull-request.ts",
+        sha: "ffffffffffffffffffffffffffffffffffffffff",
+        status: "modified",
+      },
+    ],
+    unified_diff: patch,
+  };
+}
+
 function buildConfig(values: { readonly model: string }): SovriConfig {
   return {
     ...DEFAULT_CONFIG,
@@ -247,24 +324,11 @@ function buildConfig(values: { readonly model: string }): SovriConfig {
   };
 }
 
-function buildReview(): Review {
+function buildReview(values: { readonly findings?: Review["findings"] } = {}): Review {
   return {
     completed_at: new Date("2026-05-18T10:00:01.000Z"),
     commit_sha: HeadSha,
-    findings: [
-      {
-        body: "The handler should delegate review work.",
-        category: "maintainability",
-        confidence: 0.95,
-        file: "apps/community-bot/src/handlers/pull-request.ts",
-        id: "123e4567-e89b-42d3-a456-426614174000",
-        line_end: 42,
-        line_start: 42,
-        severity: "major",
-        source: "llm",
-        title: "Delegation check",
-      },
-    ],
+    findings: values.findings ?? [buildFinding()],
     id: "123e4567-e89b-42d3-a456-426614174001",
     llm_model: "test-model",
     llm_provider: "test-provider",
@@ -278,6 +342,28 @@ function buildReview(): Review {
       prompt: 100,
     },
     walkthrough_markdown: "Review complete",
+  };
+}
+
+function buildFinding(
+  values: {
+    readonly body?: string;
+    readonly lineEnd?: number;
+    readonly lineStart?: number;
+    readonly title?: string;
+  } = {},
+): Review["findings"][number] {
+  return {
+    body: values.body ?? "The handler should delegate review work.",
+    category: "maintainability",
+    confidence: 0.95,
+    file: "apps/community-bot/src/handlers/pull-request.ts",
+    id: "123e4567-e89b-42d3-a456-426614174000",
+    line_end: values.lineEnd ?? 42,
+    line_start: values.lineStart ?? 42,
+    severity: "major",
+    source: "llm",
+    title: values.title ?? "Delegation check",
   };
 }
 

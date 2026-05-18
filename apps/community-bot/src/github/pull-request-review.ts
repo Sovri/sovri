@@ -5,8 +5,11 @@ import { DEFAULT_CONFIG, parseConfigContent, type SovriConfig } from "@sovri/con
 import { AnthropicProvider } from "@sovri/llm-providers";
 import { createLogger } from "@sovri/observability";
 import {
+  buildInlineComments,
   parseUnifiedDiff,
   reviewPullRequest,
+  type Diff,
+  type InlineCommentDraft,
   type Review,
   type ReviewPullRequestOptions,
 } from "@sovri/review-engine";
@@ -30,7 +33,7 @@ export function createPullRequestHandlerDependencies(
     loadConfig: (target) => loadRepositoryConfig(context, target),
     logger,
     postErrorComment: (target, message) => postErrorComment(context, target, message),
-    postReview: (target, review) => postReview(context, target, review),
+    postReview: (target, review, diff) => postReview(context, target, review, diff),
     reviewPullRequest,
   };
 }
@@ -83,22 +86,37 @@ async function postReview(
   context: PullRequestWebhookContext,
   target: ReviewPostTarget,
   review: Review,
+  diff: Diff,
 ): Promise<void> {
   const repo = splitRepoFullName(target.repoFullName);
   await context.octokit.rest.pulls.createReview({
     body: review.walkthrough_markdown,
-    comments: review.findings.map((finding) => ({
-      body: `**${finding.severity}: ${finding.title}**\n\n${finding.body}`,
-      line: finding.line_start,
-      path: finding.file,
-      side: "RIGHT",
-    })),
+    comments: buildInlineComments(review.findings, diff).map(toPullRequestReviewComment),
     commit_id: target.commitSha,
     event: "COMMENT",
     owner: repo.owner,
     pull_number: target.number,
     repo: repo.repo,
   });
+}
+
+function toPullRequestReviewComment(draft: InlineCommentDraft) {
+  const base = {
+    body: draft.body,
+    line: draft.line,
+    path: draft.path,
+    side: draft.side,
+  };
+
+  if (draft.start_line === undefined || draft.start_side === undefined) {
+    return base;
+  }
+
+  return {
+    ...base,
+    start_line: draft.start_line,
+    start_side: draft.start_side,
+  };
 }
 
 async function postErrorComment(
