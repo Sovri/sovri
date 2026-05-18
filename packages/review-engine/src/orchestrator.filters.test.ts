@@ -212,4 +212,15 @@ describe("reviewPullRequest config filters", () => {
     // And the returned findings do not include "Ignored doc finding"
     expect(titles).not.toContain("Ignored doc finding");
   });
+
+  it("normalizes Windows provider paths before ignored path filtering", async () => {
+    const provider = createProvider([
+      providerFinding("major", "C:\\repo\\docs\\notes.md", 3, "Ignored doc finding"),
+    ]);
+    const reviewPullRequest = getReviewPullRequest();
+
+    const review = await reviewPullRequest({ pullRequest, diff, config }, { provider });
+
+    expect(review.findings).toHaveLength(0);
+  });
 });

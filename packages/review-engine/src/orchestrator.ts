@@ -201,7 +201,11 @@ function applyReviewFilters(
   ignores: readonly string[],
 ): readonly Finding[] {
   const thresholdRank = computeSeverityRank(severityThreshold);
-  const bySeverity = findings.filter(
+  const normalizedFindings = findings.map((finding) => ({
+    ...finding,
+    file: normalizeFindingPath(finding.file, ignores),
+  }));
+  const bySeverity = normalizedFindings.filter(
     (finding) => computeSeverityRank(finding.severity) >= thresholdRank,
   );
 
@@ -213,7 +217,7 @@ function toFinding(finding: ProviderFinding): Finding {
     id: uuidv4(),
     severity: finding.severity,
     category: finding.category,
-    file: normalizeFindingPath(finding.file),
+    file: finding.file,
     line_start: finding.line_start,
     line_end: finding.line_end,
     title: finding.title,
@@ -223,8 +227,23 @@ function toFinding(finding: ProviderFinding): Finding {
   };
 }
 
-function normalizeFindingPath(file: string): string {
-  const normalized = posix.normalize(file.replaceAll("\\", "/"));
+function normalizeFindingPath(file: string, ignores: readonly string[]): string {
+  const withoutDrivePrefix = file.replaceAll("\\", "/").replace(/^[A-Za-z]:\//u, "/");
+  const normalized = posix.normalize(withoutDrivePrefix);
   const repositoryPath = normalized.replace(/^(?:\/|\.\.\/|\.\/)+/u, "");
-  return repositoryPath.length > 0 ? repositoryPath : normalized;
+  const nonEmptyPath = repositoryPath.length > 0 ? repositoryPath : normalized;
+
+  return findIgnoredSuffix(nonEmptyPath, ignores) ?? nonEmptyPath;
+}
+
+function findIgnoredSuffix(file: string, ignores: readonly string[]): string | undefined {
+  for (const ignore of ignores) {
+    const prefix = ignore.split(/[*?[{]/u)[0];
+    if (prefix === undefined || prefix.length === 0) continue;
+
+    const index = file.indexOf(prefix);
+    if (index > 0) return file.slice(index);
+  }
+
+  return undefined;
 }
