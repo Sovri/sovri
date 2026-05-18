@@ -21,6 +21,108 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add the initial `reviewPullRequest`
+  orchestration entrypoint with severity threshold and ignored path filters
+  while enforcing configured review limits and preserving provider finding
+  metadata with safe POSIX and Windows path normalization (#373).
+
+- `@sovri/review-engine`: add scenario coverage for review orchestrator
+  severity threshold and ignored path filters (#373).
+
+- `@sovri/review-engine`: add scenario test coverage that findings below the
+  configured severity threshold are dropped (#374).
+
+- `@sovri/review-engine`: add scenario test coverage that ignored paths are
+  dropped after parsing while non-ignored findings are kept (#375).
+
+- `@sovri/review-engine`: add scenario test coverage that file count review
+  limits are inclusive before provider calls (#376).
+
+- `@sovri/review-engine`: add scenario test coverage that changed-line review
+  limits are inclusive before provider calls (#377).
+
+- `@sovri/review-engine`: add scenario test coverage for pre-provider limit
+  skips returning schema-valid failed reviews with zero token usage (#378).
+
+- `@sovri/review-engine`: copy provider token usage into Review results,
+  including Anthropic cached input-token fields, when providers expose
+  structured generation metadata (#379).
+
+- `@sovri/review-engine`: add scenario test coverage that invalid provider
+  token usage is rejected before returning a Review (#380).
+
+- `@sovri/review-engine`: accumulate token usage across schema-validation
+  corrective retries, mark corrected reviews as partial, and avoid retrying
+  provider protocol errors that expose validation issues while validating each
+  attempt's token usage before accumulation (#381).
+
+- `@sovri/review-engine`: add MSW-backed integration coverage for the
+  `reviewPullRequest` happy path producing a successful Review and anchorable
+  inline comment draft (#382).
+
+- `@sovri/review-engine`: add MSW-backed integration coverage for the
+  `reviewPullRequest` corrective retry path returning a partial Review with
+  accumulated token usage (#383).
+
+- `@sovri/review-engine`: return a schema-valid failed Review with a synthetic
+  `review_failed` finding when provider response parsing still fails after the
+  corrective retry, including deleted-file fallback locations with zero new-line
+  anchors and long retryable provider error messages (#384).
+
+- `@sovri/review-engine`: add use-case coverage that a normal
+  `reviewPullRequest` call only crosses I/O boundaries through the injected
+  provider, including an import-time environment-read guard (#385).
+
+- `@sovri/review-engine`: reject missing `reviewPullRequest` providers through
+  explicit input validation before review execution or fallback I/O can occur
+  (#386).
+
+- `@sovri/review-engine`: return a failed `Review` when the injected provider
+  rejects during `reviewPullRequest`, without attempting fallback filesystem or
+  network I/O (#387).
+
+- `@sovri/review-engine`: add scenario coverage that a valid provider response
+  produces every required `Review` field in `reviewPullRequest` (#388).
+
+- `@sovri/review-engine`: validate `reviewPullRequest` pull request, diff, and
+  config inputs before provider execution so invalid inputs cannot produce
+  partial reviews (#389).
+
+- `@sovri/review-engine`: add scenario coverage that zero-finding provider
+  responses still produce complete successful reviews (#390).
+
+- `@sovri/review-engine`: add scenario coverage that successful
+  `reviewPullRequest` results validate against `ReviewSchema` and
+  `FindingSchema` (#391).
+
+- `@sovri/review-engine`: add scenario coverage through `reviewPullRequest`
+  that assembled reviews missing `tokens_used` are rejected by `ReviewSchema`
+  before return (#392).
+
+- `@sovri/review-engine`: add scenario coverage that parse-fallback failed
+  reviews still validate against `ReviewSchema` after repeated schema-invalid
+  provider responses (#393).
+
+- `@sovri/review-engine`: add scenario coverage that first-response
+  `reviewPullRequest` success sets status `success` without corrective retry,
+  error output, or synthetic fallback findings (#394).
+
+- `@sovri/review-engine`: add scenario coverage that corrective retry success
+  sets status `partial` without error output or synthetic fallback findings
+  (#395).
+
+- `@sovri/review-engine`: make exhausted parse-fallback Reviews expose a
+  `could not parse` error while preserving the synthetic `review_failed`
+  finding (#396).
+
+- `@sovri/review-engine`: add scenario coverage that pre-LLM file-limit skips
+  set failed status, zero token usage, and limit error text without provider
+  calls (#397).
+
+- `@sovri/review-engine`: add scenario coverage that provider rejections set
+  failed status, zero token usage, and provider error text after one provider
+  call (#398).
+
 - `@sovri/review-engine`: re-export `buildInlineComments`,
   `InlineCommentDraftSchema`, and the `InlineCommentDraft` type from the
   package entrypoint so downstream consumers can build GitHub inline drafts
@@ -328,6 +430,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `@sovri/review-engine`: add top-level LLM response schema boundary coverage
   for summaries with exactly 2000 JavaScript string characters (#229).
+
+### Fixed
+
+- `@sovri/review-engine`: `normalizeFindingPath` no longer rewrites provider
+  finding paths whose repository-relative form merely contains an ignore-rule
+  prefix mid-path (#427, Codex + cubic-dev review). The previous
+  `findIgnoredSuffix` heuristic used `indexOf`/`slice`, so an ignore pattern
+  like `src/**` would rewrite `packages/review-engine/src/orchestrator.ts` to
+  `src/orchestrator.ts` and silently drop a valid finding. Findings now keep
+  their normalized repository-relative path and only match ignore globs
+  literally.
 
 ### Removed
 
