@@ -482,6 +482,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   engine's diff-anchored drafts so unanchorable findings cannot make GitHub
   reject the entire review request (#41).
 
+- `apps/community-bot`: load repository `.sovri.yml` from the delivered base
+  commit SHA so review config and diff inputs use the same webhook snapshot
+  (#41).
+
 - `apps/community-bot`: scaffold tests now exercise the real validators
   (CodeRabbit + cubic-dev review on #452). `inspectManifestAccess` enforces
   the manifest `name` field, and the layout scenario routes presence checks

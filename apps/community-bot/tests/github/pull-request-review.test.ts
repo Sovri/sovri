@@ -14,7 +14,7 @@ const BaseSha = "dddddddddddddddddddddddddddddddddddddddd";
 const HeadSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 describe("pull request GitHub adapter", () => {
-  it("loads repository configuration from .sovri.yml on the base ref", async () => {
+  it("loads repository configuration from .sovri.yml on the delivered base SHA", async () => {
     const runtime = buildRuntimeContext({
       configContent: `
 llm:
@@ -37,7 +37,7 @@ review:
         mediaType: { format: "raw" },
         owner: "mpiton",
         path: ".sovri.yml",
-        ref: "main",
+        ref: BaseSha,
         repo: "sovri",
       }),
     ]);

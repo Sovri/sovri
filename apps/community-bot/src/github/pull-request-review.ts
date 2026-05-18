@@ -50,7 +50,7 @@ async function loadRepositoryConfig(
       },
       owner: repo.owner,
       path: ".sovri.yml",
-      ref: context.payload.pull_request.base?.ref ?? context.payload.pull_request.base?.sha ?? "",
+      ref: target.baseSha,
       repo: repo.repo,
     });
 
