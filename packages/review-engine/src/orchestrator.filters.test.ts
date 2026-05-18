@@ -220,15 +220,41 @@ describe("reviewPullRequest config filters", () => {
     expect(titles).not.toContain("Ignored doc finding");
   });
 
-  it("normalizes Windows provider paths before ignored path filtering", async () => {
+  it("normalizes Windows-style backslash separators before ignored path filtering", async () => {
     const provider = createProvider([
-      providerFinding("major", "C:\\repo\\docs\\notes.md", 3, "Ignored doc finding"),
+      providerFinding("major", "docs\\notes.md", 3, "Ignored doc finding"),
     ]);
     const reviewPullRequest = getReviewPullRequest();
 
     const review = await reviewPullRequest({ pullRequest, diff, config }, { provider });
 
     expect(review.findings).toHaveLength(0);
+  });
+
+  it("keeps findings whose repository path merely contains an ignore-rule prefix", async () => {
+    const prefixConfig: ReviewFilterConfig = {
+      ...config,
+      ignores: ["src/**"],
+    };
+    const provider = createProvider([
+      providerFinding(
+        "major",
+        "packages/review-engine/src/orchestrator.ts",
+        18,
+        "Mid-path prefix finding",
+      ),
+    ]);
+    const reviewPullRequest = getReviewPullRequest();
+
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config: prefixConfig },
+      { provider },
+    );
+
+    expect(review.findings.map((finding) => finding.title)).toContain("Mid-path prefix finding");
+    expect(review.findings.map((finding) => finding.file)).toContain(
+      "packages/review-engine/src/orchestrator.ts",
+    );
   });
 
   it("drops findings below the configured threshold", async () => {

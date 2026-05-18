@@ -431,6 +431,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `@sovri/review-engine`: add top-level LLM response schema boundary coverage
   for summaries with exactly 2000 JavaScript string characters (#229).
 
+### Fixed
+
+- `@sovri/review-engine`: `normalizeFindingPath` no longer rewrites provider
+  finding paths whose repository-relative form merely contains an ignore-rule
+  prefix mid-path (#427, Codex + cubic-dev review). The previous
+  `findIgnoredSuffix` heuristic used `indexOf`/`slice`, so an ignore pattern
+  like `src/**` would rewrite `packages/review-engine/src/orchestrator.ts` to
+  `src/orchestrator.ts` and silently drop a valid finding. Findings now keep
+  their normalized repository-relative path and only match ignore globs
+  literally.
+
 ### Removed
 
 - `@sovri/llm-providers`: `zod-to-json-schema@3.25.2` runtime dependency
