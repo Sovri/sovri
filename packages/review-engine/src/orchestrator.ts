@@ -35,6 +35,7 @@ const TokenUsageSchema = z.object({
 });
 
 const ZeroTokenUsage = TokenUsageSchema.parse({ prompt: 0, completion: 0 });
+const FindingBodyMaxLength = 2_000;
 
 type TokenUsage = z.infer<typeof TokenUsageSchema>;
 
@@ -43,10 +44,18 @@ interface StructuredGeneration<T> {
   readonly tokenUsage: TokenUsage;
 }
 
-interface ParsedReviewGeneration {
+type ParsedReviewGeneration = SuccessfulReviewGeneration | FailedReviewGeneration;
+
+interface SuccessfulReviewGeneration {
   readonly parsed: ProviderReviewResponse;
   readonly tokenUsage: TokenUsage;
-  readonly status: Review["status"];
+  readonly status: "success" | "partial";
+}
+
+interface FailedReviewGeneration {
+  readonly error: string;
+  readonly tokenUsage: TokenUsage;
+  readonly status: "failed";
 }
 
 type ProviderReviewAttempt =
@@ -179,6 +188,13 @@ export async function reviewPullRequest(
     schema: ProviderReviewResponseSchema,
     maxTokens: options.provider.maxTokens,
   });
+  if (generation.status === "failed") {
+    return buildFailedReview(input.pullRequest, options.provider, startedAt, generation.error, {
+      findings: [buildReviewFailedFinding(input.diff, generation.error)],
+      tokenUsage: generation.tokenUsage,
+    });
+  }
+
   const findings = applyReviewFilters(
     generation.parsed.findings.map(toFinding),
     input.config.review.severityThreshold,
@@ -225,7 +241,15 @@ async function generateParsedProviderReview(
   });
 
   if (!retryAttempt.success) {
-    throw retryAttempt.error;
+    if (!isRetryableSchemaFailure(retryAttempt.error)) {
+      throw retryAttempt.error;
+    }
+
+    return {
+      error: schemaFailureMessage(retryAttempt.error),
+      tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
+      status: "failed",
+    };
   }
 
   return {
@@ -338,6 +362,10 @@ function buildCorrectiveSystemPrompt(systemPrompt: string, failure: unknown): st
   ].join("\n");
 }
 
+function schemaFailureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Provider response failed schema validation";
+}
+
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -364,6 +392,10 @@ function buildFailedReview(
   provider: LLMProvider,
   startedAt: Date,
   error: string,
+  options: {
+    readonly findings?: readonly Finding[];
+    readonly tokenUsage?: TokenUsage;
+  } = {},
 ): Review {
   return ReviewSchema.parse({
     id: uuidv7(),
@@ -374,13 +406,46 @@ function buildFailedReview(
     completed_at: new Date(),
     llm_provider: provider.name,
     llm_model: provider.model,
-    tokens_used: { prompt: 0, completion: 0 },
+    tokens_used: options.tokenUsage ?? ZeroTokenUsage,
     summary: error,
-    findings: [],
+    findings: options.findings ?? [],
     walkthrough_markdown: `## Sovri review\n\n${error}`,
     status: "failed",
     error,
   });
+}
+
+function buildReviewFailedFinding(diff: Diff, error: string): Finding {
+  const fallbackLocation = getFallbackFindingLocation(diff);
+
+  return {
+    id: uuidv4(),
+    severity: "major",
+    category: "maintainability",
+    file: fallbackLocation.file,
+    line_start: fallbackLocation.line,
+    line_end: fallbackLocation.line,
+    title: "review_failed",
+    body: buildReviewFailedFindingBody(error),
+    source: "llm",
+    confidence: 1,
+  };
+}
+
+function buildReviewFailedFindingBody(error: string): string {
+  const body = `Provider response could not be parsed after corrective retry: ${error}`;
+
+  return body.length <= FindingBodyMaxLength ? body : body.slice(0, FindingBodyMaxLength);
+}
+
+function getFallbackFindingLocation(diff: Diff): { readonly file: string; readonly line: number } {
+  const firstFile = diff.files.at(0);
+  const firstHunk = firstFile?.hunks.at(0);
+
+  return {
+    file: firstFile?.path ?? "unknown",
+    line: Math.max(firstHunk?.new_start ?? firstHunk?.old_start ?? 1, 1),
+  };
 }
 
 function applyReviewFilters(

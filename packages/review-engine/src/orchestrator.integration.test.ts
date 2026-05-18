@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { z, type PullRequest } from "@sovri/core";
+import { z, type Diff, type PullRequest } from "@sovri/core";
 import type {
   GenerateStructuredParams,
   LLMProvider,
@@ -21,6 +21,12 @@ const TokenUsageSchema = z.object({
   prompt: z.number().int().nonnegative(),
   completion: z.number().int().nonnegative(),
 });
+
+class RetryableProviderError extends Error {
+  public override readonly name = "RetryableProviderError";
+  public readonly retryableWithCorrectivePrompt = true;
+  public readonly tokenUsage = { prompt: 7, completion: 3 };
+}
 
 const server = setupServer();
 
@@ -162,6 +168,101 @@ describe("reviewPullRequest MSW integration paths", () => {
     // And the returned Review `tokens_used.prompt` is 900
     expect(review.tokens_used.prompt).toBe(900);
   });
+
+  it("emits the parse fallback Review after repeated schema-invalid responses", async () => {
+    let observedProviderRequests = 0;
+    server.use(
+      http.post(ProviderUrl, () => {
+        observedProviderRequests += 1;
+
+        return HttpResponse.json({
+          data: {
+            summary: 42,
+            findings: [],
+            walkthrough_markdown: "## Sovri review\n\nInvalid review.",
+          },
+          tokenUsage: { prompt: 300, completion: 80 },
+        });
+      }),
+    );
+    const provider = createHttpProvider();
+    const diff = deletedFileDiff;
+
+    // Given MSW first returns schema-invalid provider JSON
+    // And MSW then returns schema-invalid provider JSON again
+    // When the integration test calls `reviewPullRequest`
+    const review = await reviewPullRequest(
+      {
+        pullRequest,
+        diff,
+        config: {
+          review: { severityThreshold: "major" },
+          ignores: [],
+          limits: {
+            maxFilesPerReview: 5,
+            maxLinesPerReview: 50,
+          },
+        },
+      },
+      { provider },
+    );
+
+    // Then exactly 2 provider requests are observed by MSW
+    expect(observedProviderRequests).toBe(2);
+    // And the returned Review status is "failed"
+    expect(review.status).toBe("failed");
+    // And the returned Review findings contain a synthetic finding titled "review_failed"
+    expect(review.findings).toEqual([
+      expect.objectContaining({
+        line_end: 1,
+        line_start: 1,
+        title: "review_failed",
+      }),
+    ]);
+    // And no unhandled network request is observed by MSW
+    expect(observedProviderRequests).toBe(2);
+  });
+
+  it("truncates parse fallback finding body when retryable provider errors are long", async () => {
+    let observedProviderAttempts = 0;
+    const provider: LLMProvider = {
+      name: "long-error-provider",
+      model: "test-model",
+      maxTokens: 2048,
+      async generateStructured<T>(): Promise<T> {
+        observedProviderAttempts += 1;
+
+        throw new RetryableProviderError("x".repeat(3_000));
+      },
+    };
+
+    // Given the provider fails twice with a retryable error longer than the finding body limit
+    // When the integration test calls `reviewPullRequest`
+    const review = await reviewPullRequest(
+      {
+        pullRequest,
+        diff: deletedFileDiff,
+        config: {
+          review: { severityThreshold: "major" },
+          ignores: [],
+          limits: {
+            maxFilesPerReview: 5,
+            maxLinesPerReview: 50,
+          },
+        },
+      },
+      { provider },
+    );
+
+    // Then exactly 2 provider attempts are observed
+    expect(observedProviderAttempts).toBe(2);
+    // And the returned Review status is "failed"
+    expect(review.status).toBe("failed");
+    // And the synthetic finding body stays within the schema limit
+    const finding = review.findings.at(0);
+    expect(finding).toEqual(expect.objectContaining({ title: "review_failed" }));
+    expect(finding?.body.length).toBe(2_000);
+  });
 });
 
 function createHttpProvider(): LLMProvider {
@@ -240,3 +341,37 @@ index 1111111..2222222 100644
 +const review = await generateParsedProviderReview(options.provider, params);
  return review;
 `;
+
+const deletedFileUnifiedDiff = `diff --git a/packages/review-engine/src/orchestrator.ts b/packages/review-engine/src/orchestrator.ts
+deleted file mode 100644
+index 1111111..0000000
+--- a/packages/review-engine/src/orchestrator.ts
++++ /dev/null
+@@ -1,2 +0,0 @@
+-export function removedReviewPath() {
+-}
+`;
+
+const deletedFileDiff: Diff = {
+  unified_diff: deletedFileUnifiedDiff,
+  files: [
+    {
+      path: "packages/review-engine/src/orchestrator.ts",
+      status: "removed",
+      additions: 0,
+      deletions: 2,
+      sha: "cccccccccccccccccccccccccccccccccccccccc",
+      patch: "@@ -1,2 +0,0 @@\n-export function removedReviewPath() {\n-}",
+      hunks: [
+        {
+          old_start: 1,
+          old_lines: 2,
+          new_start: 0,
+          new_lines: 0,
+          header: "@@ -1,2 +0,0 @@",
+          lines: ["-export function removedReviewPath() {", "-}"],
+        },
+      ],
+    },
+  ],
+};
