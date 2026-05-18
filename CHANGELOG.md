@@ -88,6 +88,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   config inputs before provider execution so invalid inputs cannot produce
   partial reviews (#389).
 
+- `@sovri/review-engine`: add scenario coverage that zero-finding provider
+  responses still produce complete successful reviews (#390).
+
 - `@sovri/review-engine`: re-export `buildInlineComments`,
   `InlineCommentDraftSchema`, and the `InlineCommentDraft` type from the
   package entrypoint so downstream consumers can build GitHub inline drafts
