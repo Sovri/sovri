@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { DEFAULT_CONFIG, type SovriConfig } from "@sovri/config";
+import { DEFAULT_CONFIG, parseConfigContent, type SovriConfig } from "@sovri/config";
 import { AnthropicProvider } from "@sovri/llm-providers";
 import { createLogger } from "@sovri/observability";
 import {
@@ -26,12 +26,42 @@ export function createPullRequestHandlerDependencies(
   return {
     buildReviewOptions: (config) => buildReviewOptions(config, env),
     fetchDiff: (target) => fetchPullRequestDiff(context, target),
-    loadConfig: async () => DEFAULT_CONFIG,
+    loadConfig: (target) => loadRepositoryConfig(context, target),
     logger,
     postErrorComment: (target, message) => postErrorComment(context, target, message),
     postReview: (target, review) => postReview(context, target, review),
     reviewPullRequest,
   };
+}
+
+async function loadRepositoryConfig(
+  context: PullRequestWebhookContext,
+  target: ReviewPostTarget,
+): Promise<SovriConfig> {
+  const repo = splitRepoFullName(target.repoFullName);
+  try {
+    const response = await context.octokit.rest.repos.getContent({
+      mediaType: {
+        format: "raw",
+      },
+      owner: repo.owner,
+      path: ".sovri.yml",
+      ref: context.payload.pull_request.base?.ref ?? context.payload.pull_request.base?.sha ?? "",
+      repo: repo.repo,
+    });
+
+    if (typeof response.data !== "string") {
+      throw new PullRequestReviewAdapterError("Repository config content is invalid");
+    }
+
+    return parseConfigContent(response.data, ".sovri.yml");
+  } catch (error) {
+    if (isMissingRepositoryConfig(error)) {
+      return DEFAULT_CONFIG;
+    }
+
+    throw error;
+  }
 }
 
 async function fetchPullRequestDiff(context: PullRequestWebhookContext, target: ReviewPostTarget) {
@@ -59,6 +89,12 @@ async function postReview(
   const repo = splitRepoFullName(target.repoFullName);
   await context.octokit.rest.pulls.createReview({
     body: review.walkthrough_markdown,
+    comments: review.findings.map((finding) => ({
+      body: `**${finding.severity}: ${finding.title}**\n\n${finding.body}`,
+      line: finding.line_start,
+      path: finding.file,
+      side: "RIGHT",
+    })),
     commit_id: target.commitSha,
     event: "COMMENT",
     owner: repo.owner,
@@ -95,6 +131,7 @@ function createProvider(config: SovriConfig, env: NodeJS.ProcessEnv): AnthropicP
 
   return new AnthropicProvider({
     env: buildAnthropicEnv(config, env),
+    model: config.llm.model,
   });
 }
 
@@ -117,11 +154,25 @@ function splitRepoFullName(repoFullName: string): {
   const owner = parts[0];
   const repo = parts[1];
 
-  if (owner === undefined || repo === undefined || owner.length === 0 || repo.length === 0) {
+  if (
+    parts.length !== 2 ||
+    owner === undefined ||
+    repo === undefined ||
+    owner.length === 0 ||
+    repo.length === 0
+  ) {
     throw new PullRequestReviewAdapterError("Repository full name is invalid");
   }
 
   return { owner, repo };
+}
+
+function isMissingRepositoryConfig(error: unknown): boolean {
+  if (error === null || typeof error !== "object") {
+    return false;
+  }
+
+  return Reflect.get(error, "status") === 404;
 }
 
 class PullRequestReviewAdapterError extends Error {

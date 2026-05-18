@@ -41,6 +41,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `apps/community-bot`: wire opened and synchronize webhooks to the pull
   request review handler flow at runtime (#41).
 
+- `apps/community-bot`: load repository `.sovri.yml` content for runtime pull
+  request reviews and post structured findings as inline PR review comments
+  (#41).
+
+- `@sovri/config`: expose validated `.sovri.yml` content parsing for GitHub
+  webhook adapters (#41).
+
 - `apps/community-bot`: add pull request handler orchestration for opened
   and synchronize webhooks using injected config, diff, review, and posting
   collaborators without adding handler-local review logic (#477).

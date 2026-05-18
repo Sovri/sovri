@@ -800,6 +800,11 @@ function buildOctokit(): PullRequestWebhookContext["octokit"] {
           throw new Error("unexpected GitHub pull request review");
         },
       },
+      repos: {
+        async getContent() {
+          throw new Error("unexpected GitHub repository content request");
+        },
+      },
     },
   };
 }

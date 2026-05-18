@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+import { describe, expect, it } from "vitest";
+
+import { DEFAULT_CONFIG, type SovriConfig } from "@sovri/config";
+import type { Review } from "@sovri/review-engine";
+
+import { createPullRequestHandlerDependencies } from "../../src/github/pull-request-review.js";
+import type { PullRequestWebhookContext } from "../../src/handlers/pull-request.js";
+
+const RepoFullName = "mpiton/sovri";
+const HeadSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+describe("pull request GitHub adapter", () => {
+  it("loads repository configuration from .sovri.yml on the base ref", async () => {
+    const runtime = buildRuntimeContext({
+      configContent: `
+llm:
+  provider: anthropic
+  model: claude-3-5-sonnet-latest
+  apiKeySecret: ANTHROPIC_API_KEY
+review:
+  autoReviewDrafts: true
+`,
+    });
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+
+    const config = await dependencies.loadConfig(buildTarget());
+
+    expect(config.review.autoReviewDrafts).toBe(true);
+    expect(runtime.contentRequests).toEqual([
+      expect.objectContaining({
+        mediaType: { format: "raw" },
+        owner: "mpiton",
+        path: ".sovri.yml",
+        ref: "main",
+        repo: "sovri",
+      }),
+    ]);
+  });
+
+  it("falls back to default configuration when .sovri.yml is absent", async () => {
+    const runtime = buildRuntimeContext({ missingConfig: true });
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+
+    await expect(dependencies.loadConfig(buildTarget())).resolves.toEqual(DEFAULT_CONFIG);
+  });
+
+  it("creates provider options from the configured model", () => {
+    const runtime = buildRuntimeContext();
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+    const config = buildConfig({ model: "claude-3-5-sonnet-latest" });
+
+    const options = dependencies.buildReviewOptions?.(config);
+
+    expect(options?.provider.model).toBe("claude-3-5-sonnet-latest");
+  });
+
+  it("posts walkthrough and inline finding comments in the PR review", async () => {
+    const runtime = buildRuntimeContext();
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+
+    await dependencies.postReview(buildTarget(), buildReview());
+
+    expect(runtime.reviewRequests).toEqual([
+      expect.objectContaining({
+        body: "Review complete",
+        comments: [
+          {
+            body: "**major: Delegation check**\n\nThe handler should delegate review work.",
+            line: 42,
+            path: "apps/community-bot/src/handlers/pull-request.ts",
+            side: "RIGHT",
+          },
+        ],
+        commit_id: HeadSha,
+        event: "COMMENT",
+        owner: "mpiton",
+        pull_number: 41,
+        repo: "sovri",
+      }),
+    ]);
+  });
+
+  it("rejects repository names with extra path segments", async () => {
+    const runtime = buildRuntimeContext();
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+
+    await expect(
+      dependencies.postErrorComment(
+        { ...buildTarget(), repoFullName: "mpiton/sovri/extra" },
+        "review failed",
+      ),
+    ).rejects.toThrow("Repository full name is invalid");
+  });
+});
+
+function buildRuntimeContext(
+  values: {
+    readonly configContent?: string;
+    readonly missingConfig?: boolean;
+  } = {},
+): {
+  readonly context: PullRequestWebhookContext;
+  readonly contentRequests: unknown[];
+  readonly reviewRequests: unknown[];
+} {
+  const contentRequests: unknown[] = [];
+  const reviewRequests: unknown[] = [];
+
+  return {
+    contentRequests,
+    context: {
+      id: "8f1b9c2d-3e4f-45a6-91b2-123456789abc",
+      name: "pull_request.opened",
+      octokit: {
+        async request() {
+          throw new Error("unexpected GitHub diff request");
+        },
+        rest: {
+          issues: {
+            async createComment() {
+              return undefined;
+            },
+          },
+          pulls: {
+            async createReview(parameters) {
+              reviewRequests.push(parameters);
+              return undefined;
+            },
+          },
+          repos: {
+            async getContent(parameters) {
+              contentRequests.push(parameters);
+              if (values.missingConfig === true) {
+                throw new GitHubNotFoundError();
+              }
+
+              return { data: values.configContent ?? "" };
+            },
+          },
+        },
+      },
+      payload: {
+        action: "opened",
+        pull_request: {
+          additions: 12,
+          base: {
+            ref: "main",
+            sha: "dddddddddddddddddddddddddddddddddddddddd",
+          },
+          body: "Implement pull request handlers.",
+          changed_files: 1,
+          deletions: 3,
+          draft: false,
+          head: {
+            ref: "task-41",
+            sha: HeadSha,
+          },
+          number: 41,
+          title: "Implement handlers/pull-request.ts",
+          user: {
+            login: "octocat",
+          },
+        },
+        repository: {
+          full_name: RepoFullName,
+        },
+      },
+    },
+    reviewRequests,
+  };
+}
+
+function buildTarget() {
+  return {
+    commitSha: HeadSha,
+    number: 41,
+    repoFullName: RepoFullName,
+  };
+}
+
+function buildConfig(values: { readonly model: string }): SovriConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    llm: {
+      ...DEFAULT_CONFIG.llm,
+      model: values.model,
+    },
+  };
+}
+
+function buildReview(): Review {
+  return {
+    completed_at: new Date("2026-05-18T10:00:01.000Z"),
+    commit_sha: HeadSha,
+    findings: [
+      {
+        body: "The handler should delegate review work.",
+        category: "maintainability",
+        confidence: 0.95,
+        file: "apps/community-bot/src/handlers/pull-request.ts",
+        id: "123e4567-e89b-42d3-a456-426614174000",
+        line_end: 42,
+        line_start: 42,
+        severity: "major",
+        source: "llm",
+        title: "Delegation check",
+      },
+    ],
+    id: "123e4567-e89b-42d3-a456-426614174001",
+    llm_model: "test-model",
+    llm_provider: "test-provider",
+    pr_number: 41,
+    repo_full_name: RepoFullName,
+    started_at: new Date("2026-05-18T10:00:00.000Z"),
+    status: "success",
+    summary: "Review complete",
+    tokens_used: {
+      completion: 20,
+      prompt: 100,
+    },
+    walkthrough_markdown: "Review complete",
+  };
+}
+
+class GitHubNotFoundError extends Error {
+  public readonly status = 404;
+}

@@ -34,6 +34,11 @@ export type PullRequestOctokit = {
     readonly pulls: {
       readonly createReview: (parameters: PullRequestReviewParameters) => Promise<unknown>;
     };
+    readonly repos: {
+      readonly getContent: (
+        parameters: RepositoryContentParameters,
+      ) => Promise<{ readonly data: unknown }>;
+    };
   };
 };
 
@@ -55,10 +60,28 @@ type IssueCommentParameters = {
 
 type PullRequestReviewParameters = {
   readonly body: string;
+  readonly comments: PullRequestReviewCommentParameters[];
   readonly commit_id: string;
   readonly event: "COMMENT";
   readonly owner: string;
   readonly pull_number: number;
+  readonly repo: string;
+};
+
+type PullRequestReviewCommentParameters = {
+  readonly body: string;
+  readonly line: number;
+  readonly path: string;
+  readonly side: "RIGHT";
+};
+
+type RepositoryContentParameters = {
+  readonly mediaType: {
+    readonly format: "raw";
+  };
+  readonly owner: string;
+  readonly path: ".sovri.yml";
+  readonly ref: string;
   readonly repo: string;
 };
 
