@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `@sovri/review-engine`: add the initial `reviewPullRequest`
+  orchestration entrypoint with severity threshold and ignored path filters
+  (#373).
+
 - `@sovri/review-engine`: add scenario coverage for review orchestrator
   severity threshold and ignored path filters (#373).
 
