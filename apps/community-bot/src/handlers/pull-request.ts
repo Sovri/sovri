@@ -12,14 +12,54 @@ import type {
 export type PullRequestWebhookContext = {
   readonly id: string;
   readonly name: string;
-  readonly octokit: unknown;
+  readonly octokit: PullRequestOctokit;
   readonly payload: {
     readonly action: string;
     readonly pull_request: PullRequestPayload;
     readonly repository: {
-      readonly full_name: string;
+      readonly full_name?: string;
     };
   };
+};
+
+export type PullRequestOctokit = {
+  readonly request: <TData>(
+    route: string,
+    parameters: PullRequestDiffParameters,
+  ) => Promise<{ readonly data: TData }>;
+  readonly rest: {
+    readonly issues: {
+      readonly createComment: (parameters: IssueCommentParameters) => Promise<unknown>;
+    };
+    readonly pulls: {
+      readonly createReview: (parameters: PullRequestReviewParameters) => Promise<unknown>;
+    };
+  };
+};
+
+type PullRequestDiffParameters = {
+  readonly mediaType: {
+    readonly format: "diff";
+  };
+  readonly owner: string;
+  readonly pull_number: number;
+  readonly repo: string;
+};
+
+type IssueCommentParameters = {
+  readonly body: string;
+  readonly issue_number: number;
+  readonly owner: string;
+  readonly repo: string;
+};
+
+type PullRequestReviewParameters = {
+  readonly body: string;
+  readonly commit_id: string;
+  readonly event: "COMMENT";
+  readonly owner: string;
+  readonly pull_number: number;
+  readonly repo: string;
 };
 
 export type ReviewPostTarget = {
@@ -45,28 +85,29 @@ export type PullRequestHandlerDependencies = {
     input: ReviewPullRequestInput,
     options: ReviewPullRequestOptions,
   ) => Promise<Review>;
+  readonly buildReviewOptions?: (config: SovriConfig) => ReviewPullRequestOptions;
   readonly reviewOptions?: ReviewPullRequestOptions;
 };
 
 type PullRequestPayload = {
-  readonly additions: number;
-  readonly base: {
-    readonly ref: string;
-    readonly sha: string;
+  readonly additions?: number;
+  readonly base?: {
+    readonly ref?: string;
+    readonly sha?: string;
   };
-  readonly body: string | null;
-  readonly changed_files: number;
-  readonly deletions: number;
-  readonly draft: boolean;
-  readonly head: {
-    readonly ref: string;
-    readonly sha: string;
+  readonly body?: string | null;
+  readonly changed_files?: number;
+  readonly deletions?: number;
+  readonly draft?: boolean;
+  readonly head?: {
+    readonly ref?: string;
+    readonly sha?: string;
   };
-  readonly number: number;
-  readonly title: string;
-  readonly user: {
-    readonly login: string;
-  };
+  readonly number?: number;
+  readonly title?: string;
+  readonly user?: {
+    readonly login?: string;
+  } | null;
 };
 
 const DefaultReviewOptions: ReviewPullRequestOptions = {
@@ -108,7 +149,7 @@ async function handlePullRequest(
 
   try {
     const config = await dependencies.loadConfig(target);
-    if (context.payload.pull_request.draft && !config.review.autoReviewDrafts) {
+    if ((context.payload.pull_request.draft ?? false) && !config.review.autoReviewDrafts) {
       dependencies.logger.info(
         {
           ...logContext,
@@ -120,13 +161,17 @@ async function handlePullRequest(
     }
 
     const diff = await dependencies.fetchDiff(target);
+    const reviewOptions =
+      dependencies.buildReviewOptions?.(config) ??
+      dependencies.reviewOptions ??
+      DefaultReviewOptions;
     const review = await dependencies.reviewPullRequest(
       {
         config,
         diff,
         pullRequest: buildPullRequest(context),
       },
-      dependencies.reviewOptions ?? DefaultReviewOptions,
+      reviewOptions,
     );
     await dependencies.postReview(target, review);
     dependencies.logger.info(
@@ -147,10 +192,11 @@ async function handlePullRequest(
 }
 
 function buildTarget(context: PullRequestWebhookContext): ReviewPostTarget {
+  const pullRequest = context.payload.pull_request;
   return {
-    commitSha: context.payload.pull_request.head.sha,
-    number: context.payload.pull_request.number,
-    repoFullName: context.payload.repository.full_name,
+    commitSha: requireString(pullRequest.head?.sha, "pull_request.head.sha"),
+    number: requireNumber(pullRequest.number, "pull_request.number"),
+    repoFullName: requireString(context.payload.repository.full_name, "repository.full_name"),
   };
 }
 
@@ -159,19 +205,19 @@ function buildPullRequest(
 ): ReviewPullRequestInput["pullRequest"] {
   const pullRequest = context.payload.pull_request;
   return {
-    additions: pullRequest.additions,
-    author: pullRequest.user.login,
-    base_ref: pullRequest.base.ref,
-    base_sha: pullRequest.base.sha,
-    body: pullRequest.body,
-    changed_files: pullRequest.changed_files,
-    deletions: pullRequest.deletions,
-    draft: pullRequest.draft,
-    head_ref: pullRequest.head.ref,
-    head_sha: pullRequest.head.sha,
-    number: pullRequest.number,
-    repo_full_name: context.payload.repository.full_name,
-    title: pullRequest.title,
+    additions: requireNumber(pullRequest.additions, "pull_request.additions"),
+    author: requireString(pullRequest.user?.login, "pull_request.user.login"),
+    base_ref: requireString(pullRequest.base?.ref, "pull_request.base.ref"),
+    base_sha: requireString(pullRequest.base?.sha, "pull_request.base.sha"),
+    body: pullRequest.body ?? null,
+    changed_files: requireNumber(pullRequest.changed_files, "pull_request.changed_files"),
+    deletions: requireNumber(pullRequest.deletions, "pull_request.deletions"),
+    draft: pullRequest.draft ?? false,
+    head_ref: requireString(pullRequest.head?.ref, "pull_request.head.ref"),
+    head_sha: requireString(pullRequest.head?.sha, "pull_request.head.sha"),
+    number: requireNumber(pullRequest.number, "pull_request.number"),
+    repo_full_name: requireString(context.payload.repository.full_name, "repository.full_name"),
+    title: requireString(pullRequest.title, "pull_request.title"),
   };
 }
 
@@ -224,4 +270,20 @@ function errorMessageFrom(error: unknown): string {
   }
 
   return "unknown review failure";
+}
+
+function requireString(value: string | undefined, field: string): string {
+  if (value === undefined || value.length === 0) {
+    throw new PullRequestHandlerDependencyError(`${field} is required`);
+  }
+
+  return value;
+}
+
+function requireNumber(value: number | undefined, field: string): number {
+  if (value === undefined) {
+    throw new PullRequestHandlerDependencyError(`${field} is required`);
+  }
+
+  return value;
 }

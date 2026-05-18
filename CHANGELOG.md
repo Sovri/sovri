@@ -38,6 +38,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `apps/community-bot`: add draft skipping, correlated safe logging, and
   single error-comment reporting to pull request handlers (#478-#501).
 
+- `apps/community-bot`: wire opened and synchronize webhooks to the pull
+  request review handler flow at runtime (#41).
+
 - `apps/community-bot`: add pull request handler orchestration for opened
   and synchronize webhooks using injected config, diff, review, and posting
   collaborators without adding handler-local review logic (#477).
