@@ -64,6 +64,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `reviewPullRequest` corrective retry path returning a partial Review with
   accumulated token usage (#383).
 
+- `@sovri/review-engine`: return a schema-valid failed Review with a synthetic
+  `review_failed` finding when provider response parsing still fails after the
+  corrective retry, including deleted-file fallback locations with zero new-line
+  anchors and long retryable provider error messages (#384).
+
 - `@sovri/review-engine`: re-export `buildInlineComments`,
   `InlineCommentDraftSchema`, and the `InlineCommentDraft` type from the
   package entrypoint so downstream consumers can build GitHub inline drafts
