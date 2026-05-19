@@ -10,7 +10,7 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
 COPY packages/ packages/
 COPY apps/community-bot/ apps/community-bot/
 
@@ -27,7 +27,7 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
 COPY --from=builder /app/packages/ packages/
 COPY --from=builder /app/apps/community-bot/ apps/community-bot/
 
