@@ -2,6 +2,7 @@ FROM node:24-alpine AS build
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV CI="true"
 
 WORKDIR /app
 
@@ -11,7 +12,7 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @sovri/community-bot... build
-RUN pnpm deploy --filter @sovri/community-bot --prod /app/deploy/community-bot
+RUN pnpm deploy --legacy --filter @sovri/community-bot --prod /app/deploy/community-bot
 
 FROM node:24-alpine AS runtime
 
