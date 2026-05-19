@@ -52,6 +52,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   of bubbling into the main `postReview` try, so a successful
   `pulls.createReview` or `pulls.updateReview` is no longer misreported as a
   failure and never triggers a duplicate fallback comment (#43).
+- `apps/community-bot`: Docker `builder` and `prod-deps` stages now `COPY .npmrc`
+  before `pnpm install` so the supply-chain controls (`ignore-scripts=true`,
+  `engine-strict=true`, `save-exact=true`) apply during image builds instead of
+  silently dropping when the stage starts from a clean WORKDIR (#617).
+- `apps/community-bot`: Docker `HEALTHCHECK` now probes `http://127.0.0.1:${PORT}/health`
+  so the `PORT` env override stays in sync with the runtime listener instead of
+  always hitting port 3000 (#617).
+- `apps/community-bot` tests: `inspectRuntimeUser` contract predicate now accepts
+  `sovri`, `sovri:1001`, and `1001:1001` to match the `final image must run as
+  sovri:1001` failure message it advertises (#617).
 - `apps/community-bot` tests: `waitFor` helper now rejects synchronously when
   the abort signal is already aborted (including the `ms === 0` fast path) and
   removes its abort listener on natural timeout to avoid dangling references.
@@ -67,6 +77,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `apps/community-bot`: add an app-scoped multi-stage Docker image contract
+  covering root `.dockerignore` exclusions, non-root runtime identity, runtime
+  artifact layout, image-size budget boundaries, and `/health` healthcheck
+  metadata (#601-#616).
 
 - `apps/community-bot`: add Probot/MSW end-to-end ATDD coverage for opened
   and synchronize pull request review flows, deterministic GitHub fixtures,
