@@ -41,6 +41,9 @@ importers:
       '@sovri/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@sovri/llm-providers':
+        specifier: workspace:*
+        version: link:../../packages/llm-providers
       '@sovri/observability':
         specifier: workspace:*
         version: link:../../packages/observability

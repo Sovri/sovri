@@ -28,6 +28,30 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `apps/community-bot`: add ATDD coverage for pull request handler
+  delegation across opened and synchronize webhook examples (#477).
+
+- `apps/community-bot`: add cwd-independent ATDD coverage for pull request
+  handler safety, draft, synchronization, and error-reporting scenarios
+  (#478-#501).
+
+- `apps/community-bot`: add draft skipping, correlated safe logging, and
+  single error-comment reporting to pull request handlers (#478-#501).
+
+- `apps/community-bot`: wire opened and synchronize webhooks to the pull
+  request review handler flow at runtime (#41).
+
+- `apps/community-bot`: load repository `.sovri.yml` content for runtime pull
+  request reviews and post structured findings as inline PR review comments
+  (#41).
+
+- `@sovri/config`: expose validated `.sovri.yml` content parsing for GitHub
+  webhook adapters (#41).
+
+- `apps/community-bot`: add pull request handler orchestration for opened
+  and synchronize webhooks using injected config, diff, review, and posting
+  collaborators without adding handler-local review logic (#477).
+
 - `apps/community-bot`: add the Probot bootstrap entry point contract with a
   named `app` registration factory, runtime environment validation, and
   structured startup logging through `@sovri/observability`, with local dev
@@ -448,6 +472,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   for summaries with exactly 2000 JavaScript string characters (#229).
 
 ### Fixed
+
+- `apps/community-bot`: fetch pull request diffs from the delivered
+  `base_sha...head_sha` comparison and keep invalid pull request webhook
+  payloads inside correlated failure logging instead of escaping before the
+  handler error path (#41).
+
+- `apps/community-bot`: derive PR review inline comments from the review
+  engine's diff-anchored drafts so unanchorable findings cannot make GitHub
+  reject the entire review request (#41).
+
+- `apps/community-bot`: load repository `.sovri.yml` from the delivered base
+  commit SHA so review config and diff inputs use the same webhook snapshot
+  (#41).
 
 - `apps/community-bot`: scaffold tests now exercise the real validators
   (CodeRabbit + cubic-dev review on #452). `inspectManifestAccess` enforces

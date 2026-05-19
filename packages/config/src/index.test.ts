@@ -14,6 +14,7 @@ import {
 import {
   DEFAULT_CONFIG as DefaultConfigFromLoader,
   loadConfig as loadConfigFromLoader,
+  parseConfigContent as parseConfigContentFromLoader,
 } from "./loader.js";
 import {
   SovriConfigParseError as ParseErrorFromErrors,
@@ -23,6 +24,7 @@ import {
 import {
   DEFAULT_CONFIG,
   loadConfig,
+  parseConfigContent,
   SovriConfigParseError,
   SovriConfigSchema,
   SovriConfigValidationError,
@@ -51,6 +53,10 @@ describe("@sovri/config barrel", () => {
   it("re-exports loadConfig and DEFAULT_CONFIG from ./loader.js", () => {
     expect(loadConfig).toBe(loadConfigFromLoader);
     expect(DEFAULT_CONFIG).toBe(DefaultConfigFromLoader);
+  });
+
+  it("re-exports parseConfigContent from ./loader.js", () => {
+    expect(parseConfigContent).toBe(parseConfigContentFromLoader);
   });
 
   it("re-exports SovriConfigParseError and SovriConfigValidationError from ./errors.js", () => {

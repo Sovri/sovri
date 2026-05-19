@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+import { Buffer } from "node:buffer";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -119,6 +120,20 @@ export async function loadConfig(repoRoot: string): Promise<SovriConfig> {
       return DEFAULT_CONFIG;
     }
     throw err;
+  }
+
+  return parseConfigContent(raw, filePath);
+}
+
+export function parseConfigContent(raw: string, filePath: string = CONFIG_FILENAME): SovriConfig {
+  const size = Buffer.byteLength(raw, "utf8");
+  if (size > MAX_CONFIG_BYTES) {
+    throw new SovriConfigParseError(
+      filePath,
+      new Error(
+        `.sovri.yml is ${String(size)} bytes; maximum allowed is ${String(MAX_CONFIG_BYTES)} bytes`,
+      ),
+    );
   }
 
   let parsed: unknown;
