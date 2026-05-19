@@ -19,6 +19,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- `apps/community-bot` tests: `waitFor` helper now rejects synchronously when
+  the abort signal is already aborted (including the `ms === 0` fast path) and
+  removes its abort listener on natural timeout to avoid dangling references.
+
 ### Security
 
 - `apps/community-bot`: validate `PRIVATE_KEY` by parsing through

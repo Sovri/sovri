@@ -142,15 +142,21 @@ export function buildFiles(count: number, prefix = "src/file"): PullRequestFile[
 }
 
 async function waitFor(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    throw new GitHubAbortError();
+  }
   if (ms === 0) {
     return;
   }
   await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(resolve, ms);
     const abort = () => {
       clearTimeout(timeout);
       reject(new GitHubAbortError());
     };
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
     signal.addEventListener("abort", abort, { once: true });
   });
 }
