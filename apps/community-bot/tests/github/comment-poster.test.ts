@@ -649,6 +649,7 @@ function buildRuntime(
   const reviewStore = [...(values.reviews ?? [])];
   const issueCommentStore = [...(values.issueComments ?? [])];
   const createReviewRequests: PullRequestReviewRequest[] = [];
+  const createReviewCommentRequests: unknown[] = [];
   const updateReviewRequests: unknown[] = [];
   const createIssueCommentRequests: { readonly body: string }[] = [];
   const updateIssueCommentRequests: unknown[] = [];
@@ -659,6 +660,7 @@ function buildRuntime(
 
   const runtime = {
     createIssueCommentRequests,
+    createReviewCommentRequests,
     createReviewRequests,
     fallbackCreateStatus: values.fallbackCreateStatus,
     issueCommentStore,
@@ -684,6 +686,7 @@ function buildRuntime(
       ).length;
     },
     nextIssueCommentId: FallbackCommentId,
+    nextReviewCommentId: 11000,
     nextReviewId: ReviewId,
     octokit: undefined as unknown as CommentPosterOctokit,
     reviewCreateStatus: values.reviewCreateStatus,
@@ -705,7 +708,10 @@ function buildRuntime(
           issueCommentStore.push(comment);
           return { data: comment };
         },
-        async listComments() {
+        async listComments(parameters) {
+          if ((parameters.page ?? 1) > 1) {
+            return { data: [] };
+          }
           return { data: issueCommentStore };
         },
         async updateComment(parameters) {
@@ -731,7 +737,16 @@ function buildRuntime(
           reviewStore.push(review);
           return { data: review };
         },
-        async listReviews() {
+        async createReviewComment(parameters) {
+          createReviewCommentRequests.push(parameters);
+          const id = runtime.nextReviewCommentId;
+          runtime.nextReviewCommentId += 1;
+          return { data: { id } };
+        },
+        async listReviews(parameters) {
+          if ((parameters.page ?? 1) > 1) {
+            return { data: [] };
+          }
           return { data: reviewStore };
         },
         async updateReview(parameters) {
@@ -793,6 +808,17 @@ function createMswOctokit(): CommentPosterOctokit {
             },
           );
           return { data: await readIdResponse(response) };
+        },
+        async createReviewComment(parameters) {
+          const response = await fetch(
+            `${GitHubBaseUrl}/repos/${parameters.owner}/${parameters.repo}/pulls/${parameters.pull_number}/comments`,
+            {
+              body: JSON.stringify(parameters),
+              method: "POST",
+            },
+          );
+          const data = await readIdResponse(response);
+          return { data: { id: data.id } };
         },
         async listReviews(parameters) {
           const response = await fetch(

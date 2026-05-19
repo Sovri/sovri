@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `apps/community-bot`: comment poster now posts fresh inline review drafts via
+  `pulls.createReviewComment` when updating an existing marked walkthrough
+  review (previously only the body was updated, dropping new findings on
+  synchronize reruns), paginates `pulls.listReviews` and `issues.listComments`
+  to find markers beyond the first page, optionally filters lookups by
+  `actorLogin` to avoid matching foreign artifacts that contain the marker,
+  and re-checks for an existing marked fallback comment before creating a new
+  one to close the TOCTOU window on concurrent reruns (#43).
 - `apps/community-bot` tests: `waitFor` helper now rejects synchronously when
   the abort signal is already aborted (including the `ms === 0` fast path) and
   removes its abort listener on natural timeout to avoid dangling references.

@@ -16,6 +16,9 @@ export type RepositoryRef = {
 export type GitHubReviewResponse = {
   readonly body?: string | null;
   readonly id: number;
+  readonly user?: {
+    readonly login?: string;
+  } | null;
 };
 
 export type GitHubIssueCommentResponse = GitHubReviewResponse;
@@ -50,7 +53,23 @@ export type CommentPosterLogger = {
 };
 
 export type CommentPosterOptions = {
+  readonly actorLogin?: string;
   readonly logger?: CommentPosterLogger;
+};
+
+const LIST_PAGE_SIZE = 100;
+
+export type PullRequestReviewCommentCreateParameters = {
+  readonly body: string;
+  readonly commit_id: string;
+  readonly line: number;
+  readonly owner: string;
+  readonly path: string;
+  readonly pull_number: number;
+  readonly repo: string;
+  readonly side: "RIGHT";
+  readonly start_line?: number;
+  readonly start_side?: "RIGHT";
 };
 
 export type CommentPosterOctokit = {
@@ -70,6 +89,9 @@ export type CommentPosterOctokit = {
       readonly createReview: (
         parameters: PullRequestReviewRequest,
       ) => Promise<{ readonly data: GitHubReviewResponse }>;
+      readonly createReviewComment: (
+        parameters: PullRequestReviewCommentCreateParameters,
+      ) => Promise<{ readonly data: { readonly id: number } }>;
       readonly listReviews: (
         parameters: PullRequestReviewListParameters,
       ) => Promise<{ readonly data: readonly GitHubReviewResponse[] }>;
@@ -90,6 +112,8 @@ type IssueCommentCreateParameters = {
 type IssueCommentListParameters = {
   readonly issue_number: number;
   readonly owner: string;
+  readonly page?: number;
+  readonly per_page?: number;
   readonly repo: string;
 };
 
@@ -102,12 +126,17 @@ type IssueCommentUpdateParameters = {
 
 type PullRequestReviewListParameters = {
   readonly owner: string;
+  readonly page?: number;
+  readonly per_page?: number;
   readonly pull_number: number;
   readonly repo: string;
 };
 
-type PullRequestReviewUpdateParameters = PullRequestReviewListParameters & {
+type PullRequestReviewUpdateParameters = {
   readonly body: string;
+  readonly owner: string;
+  readonly pull_number: number;
+  readonly repo: string;
   readonly review_id: number;
 };
 
@@ -142,8 +171,21 @@ export async function postReview(
 ): Promise<void> {
   const postLogger = options.logger ?? logger;
   const body = markWalkthrough(review.walkthroughMarkdown);
-  const existingReview = await findMarkedReview(octokit, repo, prNumber);
+  const actorLogin = options.actorLogin;
+
+  const existingReview = await findMarkedReview(octokit, repo, prNumber, actorLogin);
   if (existingReview !== undefined) {
+    await Promise.all(
+      review.inlineComments.map((draft) =>
+        octokit.rest.pulls.createReviewComment({
+          ...toPullRequestReviewComment(draft),
+          commit_id: review.commitSha,
+          owner: repo.owner,
+          pull_number: prNumber,
+          repo: repo.repo,
+        }),
+      ),
+    );
     const response = await octokit.rest.pulls.updateReview({
       body,
       owner: repo.owner,
@@ -155,24 +197,13 @@ export async function postReview(
     return;
   }
 
-  const existingComment = await findMarkedIssueComment(octokit, repo, prNumber);
-  if (existingComment !== undefined) {
-    const response = await octokit.rest.issues.updateComment({
-      body,
-      comment_id: existingComment.id,
-      owner: repo.owner,
-      repo: repo.repo,
-    });
-    logFallbackPosted(postLogger, repo, prNumber, response.data.id);
-    return;
-  }
-
   try {
     const request = buildPullRequestReviewRequest(repo, prNumber, review, body);
     const response = await octokit.rest.pulls.createReview(request);
     logReviewPosted(postLogger, repo, prNumber, response.data.id);
   } catch (error) {
     await postFallbackComment({
+      actorLogin,
       body,
       error,
       logger: postLogger,
@@ -298,32 +329,66 @@ async function findMarkedReview(
   octokit: CommentPosterOctokit,
   repo: RepositoryRef,
   prNumber: number,
+  actorLogin: string | undefined,
 ): Promise<GitHubReviewResponse | undefined> {
-  const response = await octokit.rest.pulls.listReviews({
-    owner: repo.owner,
-    pull_number: prNumber,
-    repo: repo.repo,
-  });
+  for (let page = 1; ; page += 1) {
+    const response = await octokit.rest.pulls.listReviews({
+      owner: repo.owner,
+      page,
+      per_page: LIST_PAGE_SIZE,
+      pull_number: prNumber,
+      repo: repo.repo,
+    });
 
-  return response.data.find(hasWalkthroughMarker);
+    const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
+    if (match !== undefined) {
+      return match;
+    }
+    if (response.data.length < LIST_PAGE_SIZE) {
+      return undefined;
+    }
+  }
 }
 
 async function findMarkedIssueComment(
   octokit: CommentPosterOctokit,
   repo: RepositoryRef,
   prNumber: number,
+  actorLogin: string | undefined,
 ): Promise<GitHubIssueCommentResponse | undefined> {
-  const response = await octokit.rest.issues.listComments({
-    issue_number: prNumber,
-    owner: repo.owner,
-    repo: repo.repo,
-  });
+  for (let page = 1; ; page += 1) {
+    const response = await octokit.rest.issues.listComments({
+      issue_number: prNumber,
+      owner: repo.owner,
+      page,
+      per_page: LIST_PAGE_SIZE,
+      repo: repo.repo,
+    });
 
-  return response.data.find(hasWalkthroughMarker);
+    const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
+    if (match !== undefined) {
+      return match;
+    }
+    if (response.data.length < LIST_PAGE_SIZE) {
+      return undefined;
+    }
+  }
 }
 
-function hasWalkthroughMarker(item: { readonly body?: string | null }): boolean {
-  return typeof item.body === "string" && item.body.includes(WALKTHROUGH_MARKER);
+function hasWalkthroughMarker(
+  item: {
+    readonly body?: string | null;
+    readonly user?: { readonly login?: string } | null;
+  },
+  actorLogin: string | undefined,
+): boolean {
+  if (typeof item.body !== "string" || !item.body.includes(WALKTHROUGH_MARKER)) {
+    return false;
+  }
+  if (actorLogin === undefined) {
+    return true;
+  }
+  return item.user?.login === actorLogin;
 }
 
 function markWalkthrough(markdown: string): string {
@@ -335,6 +400,7 @@ function markWalkthrough(markdown: string): string {
 }
 
 async function postFallbackComment(values: {
+  readonly actorLogin: string | undefined;
   readonly body: string;
   readonly error: unknown;
   readonly logger: CommentPosterLogger;
@@ -344,6 +410,23 @@ async function postFallbackComment(values: {
 }): Promise<void> {
   const status = statusFrom(values.error);
   try {
+    const existing = await findMarkedIssueComment(
+      values.octokit,
+      values.repo,
+      values.prNumber,
+      values.actorLogin,
+    );
+    if (existing !== undefined) {
+      const updated = await values.octokit.rest.issues.updateComment({
+        body: values.body,
+        comment_id: existing.id,
+        owner: values.repo.owner,
+        repo: values.repo.repo,
+      });
+      logFallbackPosted(values.logger, values.repo, values.prNumber, updated.data.id);
+      return;
+    }
+
     const response = await values.octokit.rest.issues.createComment({
       body: values.body,
       issue_number: values.prNumber,
