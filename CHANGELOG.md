@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `apps/community-bot`: keep comment-poster marker pagination sequential while
+  satisfying the strict `no-await-in-loop` oxlint gate.
+
 - `apps/community-bot` tests: derive exact `/version` endpoint expectations
   from the community bot package manifest instead of repeating the current
   package version literal in assertions (#570).
@@ -68,6 +71,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `apps/community-bot`: the `pulls.listFiles` fallback now rejects as soon as
   it reaches GitHub's 3000-file listing cap, since the endpoint cannot signal
   truncation past the cap and would otherwise return a silently truncated diff.
+- `apps/community-bot`: `scripts/smoke-docker.sh` now bounds each `/health`
+  probe with `--connect-timeout 1 --max-time 2` so a single hung curl request
+  cannot bypass the 30s `HEALTH_TIMEOUT_MS` contract, re-checks the elapsed
+  deadline after a 200 response so a probe that starts just under the deadline
+  and returns after it is reported as a timeout failure instead of a smoke
+  pass, and the operational smoke-docker test suite asserts the
+  script-emitted elapsed-wait line and build-failure phase string instead of
+  tautological local-variable matches (#633).
 
 ### Security
 
@@ -77,6 +88,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `apps/community-bot`: add `scripts/smoke-docker.sh` and operational coverage
+  for local Docker build/run smoke testing, `/health` polling, boot-log
+  assertions, supported macOS/Linux behavior, failure exit codes, and smoke
+  container cleanup (#47, #618-#632).
 
 - `apps/community-bot`: add an app-scoped multi-stage Docker image contract
   covering root `.dockerignore` exclusions, non-root runtime identity, runtime

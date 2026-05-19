@@ -419,23 +419,32 @@ async function findMarkedReview(
   prNumber: number,
   actorLogin: string | undefined,
 ): Promise<GitHubReviewResponse | undefined> {
-  for (let page = 1; ; page += 1) {
-    const response = await octokit.rest.pulls.listReviews({
-      owner: repo.owner,
-      page,
-      per_page: LIST_PAGE_SIZE,
-      pull_number: prNumber,
-      repo: repo.repo,
-    });
+  return findMarkedReviewPage(octokit, repo, prNumber, actorLogin, 1);
+}
 
-    const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
-    if (match !== undefined) {
-      return match;
-    }
-    if (response.data.length < LIST_PAGE_SIZE) {
-      return undefined;
-    }
+async function findMarkedReviewPage(
+  octokit: CommentPosterOctokit,
+  repo: RepositoryRef,
+  prNumber: number,
+  actorLogin: string | undefined,
+  page: number,
+): Promise<GitHubReviewResponse | undefined> {
+  const response = await octokit.rest.pulls.listReviews({
+    owner: repo.owner,
+    page,
+    per_page: LIST_PAGE_SIZE,
+    pull_number: prNumber,
+    repo: repo.repo,
+  });
+
+  const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
+  if (match !== undefined) {
+    return match;
   }
+  if (response.data.length < LIST_PAGE_SIZE) {
+    return undefined;
+  }
+  return findMarkedReviewPage(octokit, repo, prNumber, actorLogin, page + 1);
 }
 
 async function findMarkedIssueComment(
@@ -444,23 +453,32 @@ async function findMarkedIssueComment(
   prNumber: number,
   actorLogin: string | undefined,
 ): Promise<GitHubIssueCommentResponse | undefined> {
-  for (let page = 1; ; page += 1) {
-    const response = await octokit.rest.issues.listComments({
-      issue_number: prNumber,
-      owner: repo.owner,
-      page,
-      per_page: LIST_PAGE_SIZE,
-      repo: repo.repo,
-    });
+  return findMarkedIssueCommentPage(octokit, repo, prNumber, actorLogin, 1);
+}
 
-    const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
-    if (match !== undefined) {
-      return match;
-    }
-    if (response.data.length < LIST_PAGE_SIZE) {
-      return undefined;
-    }
+async function findMarkedIssueCommentPage(
+  octokit: CommentPosterOctokit,
+  repo: RepositoryRef,
+  prNumber: number,
+  actorLogin: string | undefined,
+  page: number,
+): Promise<GitHubIssueCommentResponse | undefined> {
+  const response = await octokit.rest.issues.listComments({
+    issue_number: prNumber,
+    owner: repo.owner,
+    page,
+    per_page: LIST_PAGE_SIZE,
+    repo: repo.repo,
+  });
+
+  const match = response.data.find((item) => hasWalkthroughMarker(item, actorLogin));
+  if (match !== undefined) {
+    return match;
   }
+  if (response.data.length < LIST_PAGE_SIZE) {
+    return undefined;
+  }
+  return findMarkedIssueCommentPage(octokit, repo, prNumber, actorLogin, page + 1);
 }
 
 function hasWalkthroughMarker(
