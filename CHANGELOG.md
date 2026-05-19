@@ -64,6 +64,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `apps/community-bot`: add unauthenticated `GET /version` backed by the
+  community bot package manifest with Node major-version normalization (#554,
+  #556, #560-#562).
+
 - `apps/community-bot`: add ATDD coverage for Docker healthcheck command
   shape, `/version`, in-process operational endpoint tests, and stateless
   health/version behavior (#552-#568).

@@ -10,6 +10,7 @@ import { createNodeMiddleware, Probot } from "probot";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { app } from "../../src/app.js";
+import { buildVersionResponse } from "../../src/operational-routes.js";
 import { readJsonObject, readRepoFile } from "../scaffold/helpers.js";
 
 const openServers: HttpServer[] = [];
@@ -215,6 +216,18 @@ describe("community bot operational routes", () => {
 
     // And the failure mentions `{"version":"0.1.0","node":"24.x"}`
     expect('{"version":"0.1.0","node":"24.x"}').toContain("version");
+  });
+
+  it.each(["24.0.0", "24.12.4"])("normalizes runtime Node %s to 24.x", (runtimeVersion) => {
+    // Given `process.versions.node` is "<runtime_version>"
+    // When the version response is built
+    const response = buildVersionResponse(runtimeVersion);
+
+    // Then the JSON response field `node` is "24.x"
+    expect(response.node).toBe("24.x");
+
+    // And the JSON response field `node` is not "<runtime_version>"
+    expect(response.node).not.toBe(runtimeVersion);
   });
 
   it("exercises mounted HTTP routes for both operational endpoints", async () => {
