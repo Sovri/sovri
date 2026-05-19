@@ -85,7 +85,7 @@ describe("Docker smoke script", () => {
       exitCode: 1,
       hostPlatform: "Ubuntu 24.04 LTS amd64",
     },
-  ])("fails the supported matrix when $hostPlatform fails", ({ exitCode, hostPlatform }) => {
+  ])("fails the supported matrix when $hostPlatform fails", ({ exitCode }) => {
     // Given the host platform is "<host_platform>"
     // And the Docker runtime is "<docker_runtime>"
     // And Docker is running
@@ -96,8 +96,8 @@ describe("Docker smoke script", () => {
     // Then the matrix contract fails
     expect(result.exitCode).toBe(exitCode);
 
-    // And the failure mentions "<host_platform> smoke test failed"
-    expect(`${hostPlatform} smoke test failed`).toContain(hostPlatform);
+    // And the failure output identifies the failed phase
+    expect(result.output).toContain("Docker build failed");
   });
 
   it("uses Docker commands available on both supported platforms", () => {
@@ -122,7 +122,7 @@ describe("Docker smoke script", () => {
     expect(script).toContain("docker rm");
 
     // And it does not require GNU `timeout`
-    expect(script).not.toContain("timeout ");
+    expect(script).not.toMatch(/(?<![-A-Za-z])timeout /u);
 
     // And it does not require GNU `readlink -f`
     expect(script).not.toContain("readlink -f");
@@ -244,26 +244,20 @@ describe("Docker smoke script", () => {
     },
   );
 
-  it.each([
-    { elapsedMs: 0, reportedWait: "0 ms" },
-    { elapsedMs: 1000, reportedWait: "1000 ms" },
-    { elapsedMs: 29000, reportedWait: "29000 ms" },
-  ])("accepts health responses before timeout at $reportedWait", ({ reportedWait }) => {
-    // Given the container starts at monotonic time 100000 ms
-    // And `GET http://127.0.0.1:49153/health` first returns status 200 after <elapsed_ms> ms
+  it("reports elapsed wait when /health succeeds before timeout", () => {
+    // Given the container starts and `/health` returns 200 before the timeout
     const result = runSmoke({ curlMode: "success", dockerMode: "success" });
 
     // When the smoke script polls `/health`
     // Then the health polling assertion passes
     expect(result.exitCode).toBe(0);
 
-    // And the reported health wait is "<reported_wait>"
-    expect(reportedWait).toMatch(/\d+ ms/u);
+    // And the script reports the elapsed wait from its own output
+    expect(result.output).toMatch(/\/health returned 200 after \d+ ms\./u);
   });
 
-  it.each([30000, 31000])("fails health responses at or after %d ms", () => {
-    // Given the container starts at monotonic time 100000 ms
-    // And `GET http://127.0.0.1:49153/health` first returns status 200 after <elapsed_ms> ms
+  it("fails health responses at or after the timeout", () => {
+    // Given `/health` never returns 200 before the timeout
     const result = runSmoke({ curlMode: "always-fails", dockerMode: "success" });
 
     // When the smoke script polls `/health`

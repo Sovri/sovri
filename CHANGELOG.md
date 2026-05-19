@@ -71,6 +71,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `apps/community-bot`: the `pulls.listFiles` fallback now rejects as soon as
   it reaches GitHub's 3000-file listing cap, since the endpoint cannot signal
   truncation past the cap and would otherwise return a silently truncated diff.
+- `apps/community-bot`: `scripts/smoke-docker.sh` now bounds each `/health`
+  probe with `--connect-timeout 1 --max-time 2` so a single hung curl request
+  cannot bypass the 30s `HEALTH_TIMEOUT_MS` contract, and the operational
+  smoke-docker test suite asserts the script-emitted elapsed-wait line and
+  build-failure phase string instead of tautological local-variable matches
+  (#633).
 
 ### Security
 
