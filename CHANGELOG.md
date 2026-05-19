@@ -64,6 +64,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `apps/community-bot`: add the first operational route registrar with
+  unauthenticated `GET /health` plus the root Dockerfile healthcheck targeting
+  the default Community bot port (#551).
+
 - `apps/community-bot`: add ATDD coverage for the operational `/health`
   endpoint and Docker healthcheck contract (#551).
 
