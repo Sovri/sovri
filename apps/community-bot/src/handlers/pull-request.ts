@@ -9,6 +9,7 @@ import type {
   ReviewPullRequestOptions,
 } from "@sovri/review-engine";
 import type { CommentPosterOctokit } from "../github/comment-poster.js";
+import type { DiffFetcherOctokit } from "../github/diff-fetcher.js";
 
 export type PullRequestWebhookContext = {
   readonly id: string;
@@ -23,30 +24,16 @@ export type PullRequestWebhookContext = {
   };
 };
 
-export type PullRequestOctokit = CommentPosterOctokit & {
-  readonly request: (
-    route: "GET /repos/{owner}/{repo}/compare/{basehead}",
-    parameters: PullRequestDiffParameters,
-  ) => Promise<{ readonly data: string }>;
-  readonly rest: {
-    readonly issues: CommentPosterOctokit["rest"]["issues"];
-    readonly pulls: CommentPosterOctokit["rest"]["pulls"];
-    readonly repos: {
-      readonly getContent: (
-        parameters: RepositoryContentParameters,
-      ) => Promise<{ readonly data: unknown }>;
+export type PullRequestOctokit = CommentPosterOctokit &
+  DiffFetcherOctokit & {
+    readonly rest: {
+      readonly repos: {
+        readonly getContent: (
+          parameters: RepositoryContentParameters,
+        ) => Promise<{ readonly data: unknown }>;
+      };
     };
   };
-};
-
-type PullRequestDiffParameters = {
-  readonly basehead: string;
-  readonly mediaType: {
-    readonly format: "diff";
-  };
-  readonly owner: string;
-  readonly repo: string;
-};
 
 type RepositoryContentParameters = {
   readonly mediaType: {
