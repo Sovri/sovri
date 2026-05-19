@@ -340,6 +340,74 @@ $(printf '%s\n' "$stdout" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_action_pinning_moving_refs_case() {
+  local action_ref workflow_file stdout stderr stdout_file stderr_file ec
+
+  for action_ref in \
+    "actions/checkout@v4" \
+    "pnpm/action-setup@v4" \
+    "docker/setup-buildx-action@master" \
+    "actions/upload-artifact@3df4ab1"; do
+    workflow_file=$(mktemp)
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    # Given ".github/workflows/ci.yml" contains the action reference "<action_ref>"
+    {
+      printf 'name: ci\n'
+      printf 'jobs:\n'
+      printf '  backend-checks:\n'
+      printf '    steps:\n'
+      printf '      - uses: %s\n' "$action_ref"
+    } >"$workflow_file"
+
+    # When the workflow action pinning rule is evaluated
+    node "$SCRIPT" action-pinning --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+    stdout=$(cat "$stdout_file" 2>/dev/null || true)
+    stderr=$(cat "$stderr_file" 2>/dev/null || true)
+    rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+
+    # Then the action pinning assertion fails
+    if [ "$ec" -eq 0 ]; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  x action pinning moving ref ${action_ref}: expected non-zero exit
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+      continue
+    fi
+
+    # And the failure mentions "<action_ref>"
+    if ! printf '%s\n%s\n' "$stdout" "$stderr" | grep -Fq "$action_ref"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  x action pinning moving ref ${action_ref}: missing action reference in failure
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+      continue
+    fi
+
+    # And the failure mentions "external actions must be pinned to a full commit SHA"
+    if ! printf '%s\n%s\n' "$stdout" "$stderr" | grep -Fq "external actions must be pinned to a full commit SHA"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  x action pinning moving ref ${action_ref}: missing pinning failure message
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+      continue
+    fi
+
+    PASS=$((PASS + 1))
+  done
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_queue_exclusion_case
@@ -347,6 +415,7 @@ run_duration_cache_miss_case
 run_invalid_cache_state_case
 run_action_pinning_sha_pass_case
 run_action_pinning_no_external_refs_case
+run_action_pinning_moving_refs_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2
