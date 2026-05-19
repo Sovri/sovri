@@ -64,6 +64,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `apps/community-bot`: add ATDD coverage for the operational `/health`
+  endpoint and Docker healthcheck contract (#551).
+
 - `apps/community-bot`: add a GitHub comment poster adapter for marked
   idempotent walkthrough reviews, inline review drafts, audit identifier
   logging, issue-comment fallback, and MSW-backed posting outcomes (#43,
