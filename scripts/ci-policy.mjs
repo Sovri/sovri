@@ -32,6 +32,14 @@ const readInteger = (options, key) => {
   return Number(value);
 };
 
+const readCacheState = (options, key) => {
+  const value = options.get(key);
+  if (value !== "hit" && value !== "miss") {
+    fail(`ERROR: --${key} must be "hit" or "miss".`, 2);
+  }
+  return value;
+};
+
 const formatDuration = (elapsedMs) => {
   if (elapsedMs % 1000 === 0) return `${elapsedMs / 1000} s`;
   return `${(elapsedMs / 1000).toFixed(3)} s`;
@@ -41,12 +49,19 @@ const runDurationBudget = (args) => {
   const options = parseOptions(args);
   const startMs = readInteger(options, "job-start-ms");
   const endMs = readInteger(options, "job-end-ms");
-  const pnpmCache = options.get("pnpm-cache");
-  const turboCache = options.get("turbo-cache");
+  const pnpmCache = readCacheState(options, "pnpm-cache");
+  const turboCache = readCacheState(options, "turbo-cache");
   const elapsedMs = endMs - startMs;
 
   if (elapsedMs < 0) {
     fail("ERROR: --job-end-ms must be greater than or equal to --job-start-ms.", 2);
+  }
+
+  if (pnpmCache !== "hit" || turboCache !== "hit") {
+    stdout.write(
+      `measured_duration_ms=${elapsedMs}\nrun_classification=cache-miss\nr01_evidence=not-accepted\n`,
+    );
+    return;
   }
 
   if (pnpmCache === "hit" && turboCache === "hit" && elapsedMs < DURATION_BUDGET_MS) {
