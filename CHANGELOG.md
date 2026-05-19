@@ -73,10 +73,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   truncation past the cap and would otherwise return a silently truncated diff.
 - `apps/community-bot`: `scripts/smoke-docker.sh` now bounds each `/health`
   probe with `--connect-timeout 1 --max-time 2` so a single hung curl request
-  cannot bypass the 30s `HEALTH_TIMEOUT_MS` contract, and the operational
-  smoke-docker test suite asserts the script-emitted elapsed-wait line and
-  build-failure phase string instead of tautological local-variable matches
-  (#633).
+  cannot bypass the 30s `HEALTH_TIMEOUT_MS` contract, re-checks the elapsed
+  deadline after a 200 response so a probe that starts just under the deadline
+  and returns after it is reported as a timeout failure instead of a smoke
+  pass, and the operational smoke-docker test suite asserts the
+  script-emitted elapsed-wait line and build-failure phase string instead of
+  tautological local-variable matches (#633).
 
 ### Security
 

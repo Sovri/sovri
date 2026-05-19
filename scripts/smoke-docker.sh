@@ -95,6 +95,10 @@ wait_for_health() {
     fi
 
     if curl -fsS --connect-timeout 1 --max-time 2 "$health_url" >/dev/null 2>&1; then
+      elapsed_ms=$(( $(now_ms) - start_ms ))
+      if [ "$elapsed_ms" -ge "$HEALTH_TIMEOUT_MS" ]; then
+        fail "health check failed for ${CONTAINER_NAME}: /health did not return 200 within 30 s"
+      fi
       echo "/health returned 200 after ${elapsed_ms} ms."
       return
     fi
