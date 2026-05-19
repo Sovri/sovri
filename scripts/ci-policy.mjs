@@ -32,6 +32,14 @@ const readInteger = (options, key) => {
   return Number(value);
 };
 
+const readCacheState = (options, key) => {
+  const value = options.get(key);
+  if (value !== "hit" && value !== "miss") {
+    fail(`ERROR: --${key} must be "hit" or "miss".`, 2);
+  }
+  return value;
+};
+
 const formatDuration = (elapsedMs) => {
   if (elapsedMs % 1000 === 0) return `${elapsedMs / 1000} s`;
   return `${(elapsedMs / 1000).toFixed(3)} s`;
@@ -41,8 +49,8 @@ const runDurationBudget = (args) => {
   const options = parseOptions(args);
   const startMs = readInteger(options, "job-start-ms");
   const endMs = readInteger(options, "job-end-ms");
-  const pnpmCache = options.get("pnpm-cache");
-  const turboCache = options.get("turbo-cache");
+  const pnpmCache = readCacheState(options, "pnpm-cache");
+  const turboCache = readCacheState(options, "turbo-cache");
   const elapsedMs = endMs - startMs;
 
   if (elapsedMs < 0) {

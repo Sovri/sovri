@@ -183,10 +183,50 @@ $(printf '%s\n' "$stdout" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_invalid_cache_state_case() {
+  local stdout stderr stdout_file stderr_file ec
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" duration-budget \
+    --job-start-ms 100000 \
+    --job-end-ms 460000 \
+    --pnpm-cache hit \
+    --turbo-cache hti \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 2 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ invalid cache state: expected exit 2, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq -- "--turbo-cache must be \"hit\" or \"miss\""; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ invalid cache state: missing validation message
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_queue_exclusion_case
 run_duration_cache_miss_case
+run_invalid_cache_state_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2
