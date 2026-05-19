@@ -54,6 +54,11 @@ const runDurationBudget = (args) => {
     return;
   }
 
+  if (pnpmCache === "hit" && turboCache === "hit") {
+    stdout.write(`duration_budget=fail\nreported_duration=${formatDuration(elapsedMs)}\n`);
+    fail("backend-checks must finish in under 5 minutes on cache hit", 1);
+  }
+
   stdout.write(`duration_budget=unsupported\nreported_duration=${formatDuration(elapsedMs)}\n`);
   exit(2);
 };
