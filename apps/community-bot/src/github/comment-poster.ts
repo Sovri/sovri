@@ -174,30 +174,30 @@ export async function postReview(
   const actorLogin = options.actorLogin;
 
   const existingReview = await findMarkedReview(octokit, repo, prNumber, actorLogin);
-  if (existingReview !== undefined) {
-    await Promise.all(
-      review.inlineComments.map((draft) =>
-        octokit.rest.pulls.createReviewComment({
-          ...toPullRequestReviewComment(draft),
-          commit_id: review.commitSha,
-          owner: repo.owner,
-          pull_number: prNumber,
-          repo: repo.repo,
-        }),
-      ),
-    );
-    const response = await octokit.rest.pulls.updateReview({
-      body,
-      owner: repo.owner,
-      pull_number: prNumber,
-      repo: repo.repo,
-      review_id: existingReview.id,
-    });
-    logReviewPosted(postLogger, repo, prNumber, response.data.id);
-    return;
-  }
-
   try {
+    if (existingReview !== undefined) {
+      const response = await octokit.rest.pulls.updateReview({
+        body,
+        owner: repo.owner,
+        pull_number: prNumber,
+        repo: repo.repo,
+        review_id: existingReview.id,
+      });
+      logReviewPosted(postLogger, repo, prNumber, response.data.id);
+      await Promise.allSettled(
+        review.inlineComments.map((draft) =>
+          octokit.rest.pulls.createReviewComment({
+            ...toPullRequestReviewComment(draft),
+            commit_id: review.commitSha,
+            owner: repo.owner,
+            pull_number: prNumber,
+            repo: repo.repo,
+          }),
+        ),
+      );
+      return;
+    }
+
     const request = buildPullRequestReviewRequest(repo, prNumber, review, body);
     const response = await octokit.rest.pulls.createReview(request);
     logReviewPosted(postLogger, repo, prNumber, response.data.id);

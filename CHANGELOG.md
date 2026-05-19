@@ -29,6 +29,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `actorLogin` to avoid matching foreign artifacts that contain the marker,
   and re-checks for an existing marked fallback comment before creating a new
   one to close the TOCTOU window on concurrent reruns (#43).
+- `apps/community-bot`: existing-review branch in the comment poster now
+  refreshes the walkthrough body via `pulls.updateReview` first and posts
+  inline drafts via `Promise.allSettled` so a single rejected
+  `pulls.createReviewComment` no longer blocks the marker refresh, and the
+  whole branch runs inside the same `try` as `pulls.createReview` so any
+  failure routes through `postFallbackComment` instead of bubbling out of
+  `postReview` (#43).
 - `apps/community-bot` tests: `waitFor` helper now rejects synchronously when
   the abort signal is already aborted (including the `ms === 0` fast path) and
   removes its abort listener on natural timeout to avoid dangling references.
