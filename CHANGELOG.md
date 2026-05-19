@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `apps/community-bot`: keep comment-poster marker pagination sequential while
+  satisfying the strict `no-await-in-loop` oxlint gate.
+
 - `apps/community-bot` tests: derive exact `/version` endpoint expectations
   from the community bot package manifest instead of repeating the current
   package version literal in assertions (#570).
@@ -77,6 +80,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `apps/community-bot`: add `scripts/smoke-docker.sh` and operational coverage
+  for local Docker build/run smoke testing, `/health` polling, boot-log
+  assertions, supported macOS/Linux behavior, failure exit codes, and smoke
+  container cleanup (#47, #618-#632).
 
 - `apps/community-bot`: add an app-scoped multi-stage Docker image contract
   covering root `.dockerignore` exclusions, non-root runtime identity, runtime
