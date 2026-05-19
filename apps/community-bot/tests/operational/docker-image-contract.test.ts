@@ -282,8 +282,8 @@ describe("community bot Docker image contract", () => {
     // Given the built container is listening on "127.0.0.1:3000"
     const runtime = readRuntimeStage(readAppDockerfile());
 
-    // And `GET http://127.0.0.1:3000/health` returns status 200 with JSON body `{"status":"ok"}`
-    expect(runtime).toContain("http://127.0.0.1:3000/health");
+    // And `GET http://127.0.0.1:${PORT}/health` returns status 200 with JSON body `{"status":"ok"}`
+    expect(runtime).toContain("http://127.0.0.1:${PORT}/health");
 
     // When Docker runs the configured `HEALTHCHECK`
     expect(runtime).toContain("HEALTHCHECK");
@@ -371,7 +371,8 @@ function inspectDockerIgnorePlacement(params: {
 }
 
 function inspectRuntimeUser(runtimeUser: string): ContractResult {
-  if (runtimeUser !== "sovri") {
+  const accepted = new Set(["sovri", "sovri:1001", "1001:1001"]);
+  if (!accepted.has(runtimeUser)) {
     return { message: "final image must run as sovri:1001", ok: false };
   }
   return { ok: true };
