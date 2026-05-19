@@ -258,7 +258,20 @@ async function cleanupStaleFallback(
   actorLogin: string | undefined,
   postLogger: CommentPosterLogger,
 ): Promise<void> {
-  const stale = await findMarkedIssueComment(octokit, repo, prNumber, actorLogin);
+  let stale: GitHubIssueCommentResponse | undefined;
+  try {
+    stale = await findMarkedIssueComment(octokit, repo, prNumber, actorLogin);
+  } catch (lookupError) {
+    postLogger.info(
+      {
+        error_status: statusFrom(lookupError),
+        pr_number: prNumber,
+        repo: `${repo.owner}/${repo.repo}`,
+      },
+      "PR review stale fallback comment lookup failed",
+    );
+    return;
+  }
   if (stale === undefined) {
     return;
   }
