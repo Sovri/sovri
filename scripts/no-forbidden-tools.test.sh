@@ -268,6 +268,139 @@ setup_multiple_forbidden() {
   stage_file biome.json '{}'
 }
 
+setup_any_in_source() {
+  stage_file packages/core/src/types.ts 'export const unsafe = (value: any) => value;'
+}
+
+setup_any_no_space_in_source() {
+  stage_file packages/core/src/types.ts 'export const unsafe = (value:any) => value;'
+}
+
+setup_any_generic_in_source() {
+  stage_file packages/core/src/types.ts 'export const xs: Array<any> = [];'
+}
+
+setup_any_union_in_source() {
+  stage_file packages/core/src/types.ts 'export type T = string|any;'
+}
+
+setup_any_type_alias_in_source() {
+  # ADR-001 explicitly bans `any`. A bare type alias `type T = any` is one of
+  # the most common escape-hatch forms and must be caught. The `=>?` segment
+  # of the pattern keeps `>` optional so both `= any` (type alias) and
+  # `=> any` (arrow return) match.
+  stage_file packages/core/src/types.ts 'export type T = any;'
+}
+
+setup_any_arrow_return_in_source() {
+  stage_file packages/core/src/types.ts 'export type Fn = () => any;'
+}
+
+setup_any_multiline_bypass() {
+  # `value:\nany` spans two physical lines; the per-line scan can't see it,
+  # but the bypass scan strips comments and folds newlines into a single
+  # space before re-running the same regex, so `: any` still matches.
+  stage_file packages/core/src/types.ts 'export const f = (value:
+any) => value;'
+}
+
+setup_any_block_comment_bypass() {
+  # `value:/*x*/any` slips a block comment between the colon and the type.
+  # The bypass scan removes block comments before matching.
+  stage_file packages/core/src/types.ts 'export const f = (value:/*x*/any) => value;'
+}
+
+setup_require_with_space_bypass() {
+  # `require (...)` with whitespace before the opening paren is valid JS that
+  # the strict `require\(` token can't see. The widened COMMONJS_PATTERN now
+  # tolerates whitespace, and the bypass scan handles block-comment splits.
+  stage_file apps/community-bot/src/server.ts 'const fs = require ("node:fs");
+export { fs };'
+}
+
+setup_require_with_block_comment_bypass() {
+  stage_file apps/community-bot/src/server.ts 'const fs = require/*x*/("node:fs");
+export { fs };'
+}
+
+setup_module_exports_with_spaces_bypass() {
+  stage_file packages/config/src/index.ts 'module . exports = {};
+export {};'
+}
+
+setup_url_does_not_hide_cross_line_any() {
+  # A URL string contains `//`, which the naive line-comment strip removes
+  # along with everything after it. Verify that does not hide a real
+  # multiline `: any` violation a few lines below — the surviving `:` from
+  # the truncated URL combined with the next-line `any` still trips the
+  # bypass regex once newlines are folded.
+  stage_file packages/core/src/types.ts 'const url = "https://example.com/";
+const y:
+any = 1;'
+}
+
+setup_any_word_inside_identifier() {
+  # Identifiers containing the substring "any" (manyThings, anyhow, company)
+  # must not trigger the guard. The contextual pattern only fires when "any"
+  # appears in a TS type position (`: any`, `<any>`, `|any`, `as any`, etc.).
+  stage_file packages/core/src/types.ts 'export const manyThings = "anyhow"; export const company = 1;'
+}
+
+setup_any_english_in_line_comment() {
+  # English usage of "any" inside a `//` line comment is prose, not a type
+  # annotation. The pattern must require adjacent TS syntactic context
+  # (`:`, `<`, `|`, `,`, `&`, `as`, `=>`) so prose stays clean.
+  stage_file packages/core/src/foo.ts '// well below what any single LLM call expects
+export const x = 1;'
+}
+
+setup_any_english_in_jsdoc() {
+  # JSDoc continuation lines start with " *" and frequently contain "any of"
+  # as English; must not trigger.
+  stage_file packages/core/src/foo.ts '/**
+ * Filters out findings whose file matches any of the supplied patterns.
+ */
+export const x = 1;'
+}
+
+setup_any_english_after_comma_word() {
+  # Real-world example from llm-providers: "rate limit, transport errors, and
+  # any 5xx" — comma is followed by " and any", which must not match the
+  # `[:|<,&]\s*any` branch because "and" sits between the comma and "any".
+  stage_file packages/core/src/foo.ts '// rate limit, transport errors, and any 5xx
+export const x = 1;'
+}
+
+setup_ts_ignore_in_source() {
+  stage_file packages/core/src/types.ts '// @ts-ignore
+export const ignored = missing;'
+}
+
+setup_ts_expect_error_in_source() {
+  stage_file packages/core/src/types.ts '// @ts-expect-error
+export const expected = missing;'
+}
+
+setup_oxlint_disable_in_source() {
+  stage_file packages/core/src/types.ts '// oxlint-disable-next-line no-console
+console.log("debug");'
+}
+
+setup_require_in_source() {
+  stage_file apps/community-bot/src/server.ts 'const fs = require("node:fs");
+export { fs };'
+}
+
+setup_module_exports_in_source() {
+  stage_file packages/config/src/index.ts 'module.exports = {};
+export {};'
+}
+
+setup_escape_hatch_in_test_file() {
+  stage_file packages/core/src/types.test.ts '// @ts-expect-error test fixture
+export const fixture = missing as any;'
+}
+
 # Cases.
 
 run_case "PASS-1  empty staged set"             setup_empty               0 ""
@@ -310,6 +443,28 @@ run_case "BLOCK-23 .prettierrc.json nested"     setup_prettier_nested     1 "BLO
 
 run_case "BLOCK-24 multiple forbidden at once"  setup_multiple_forbidden  1 "BLOCKED: forbidden tool files" \
   "package-lock.json" ".eslintrc.json" "biome.json"
+run_case "BLOCK-25 any in source references ADR-001" setup_any_in_source 1 "ADR-001"
+run_case "BLOCK-25a value:any (no space) flagged"       setup_any_no_space_in_source       1 "ADR-001"
+run_case "BLOCK-25b Array<any> flagged"                 setup_any_generic_in_source        1 "ADR-001"
+run_case "BLOCK-25c union with any flagged"             setup_any_union_in_source          1 "ADR-001"
+run_case "BLOCK-25d type alias = any flagged"           setup_any_type_alias_in_source     1 "ADR-001"
+run_case "BLOCK-25e arrow return => any flagged"        setup_any_arrow_return_in_source   1 "ADR-001"
+run_case "BLOCK-25f multiline value:\\nany flagged"      setup_any_multiline_bypass         1 "ADR-001"
+run_case "BLOCK-25g comment-split value:/*x*/any"       setup_any_block_comment_bypass     1 "ADR-001"
+run_case "BLOCK-29a require with space flagged"         setup_require_with_space_bypass    1 "ADR-003"
+run_case "BLOCK-29b require/*c*/( flagged"              setup_require_with_block_comment_bypass 1 "ADR-003"
+run_case "BLOCK-30a module . exports flagged"           setup_module_exports_with_spaces_bypass 1 "ADR-003"
+run_case "BLOCK-25h URL on prior line cannot hide any"  setup_url_does_not_hide_cross_line_any 1 "ADR-001"
+run_case "PASS-11a identifiers containing any allowed"  setup_any_word_inside_identifier   0 ""
+run_case "PASS-11b 'any' as English in line comment"    setup_any_english_in_line_comment  0 ""
+run_case "PASS-11c 'any of' in JSDoc continuation"      setup_any_english_in_jsdoc         0 ""
+run_case "PASS-11d ', and any' in line comment"         setup_any_english_after_comma_word 0 ""
+run_case "BLOCK-26 @ts-ignore in source references ADR-001" setup_ts_ignore_in_source 1 "ADR-001"
+run_case "BLOCK-27 @ts-expect-error in source references ADR-001" setup_ts_expect_error_in_source 1 "ADR-001"
+run_case "BLOCK-28 oxlint-disable in source references ADR-011" setup_oxlint_disable_in_source 1 "ADR-011"
+run_case "BLOCK-29 require() in source references ADR-003" setup_require_in_source 1 "ADR-003"
+run_case "BLOCK-30 module.exports in source references ADR-003" setup_module_exports_in_source 1 "ADR-003"
+run_case "PASS-11 test files may carry fixtures" setup_escape_hatch_in_test_file 0 ""
 
 TOTAL=$((PASS + FAIL))
 echo ""

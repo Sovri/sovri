@@ -19,7 +19,27 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Security
+
+- `ci`: pass `persist-credentials: false` to every `actions/checkout` step in
+  the forbidden-tools and forbidden-imports workflows so `GITHUB_TOKEN` is no
+  longer written to local git config and cannot leak into later steps or
+  uploaded artifacts (#724, zizmor `artipacked`).
+
 ### Fixed
+
+- `ci`: broaden the TypeScript escape-hatch detector in
+  `scripts/no-forbidden-tools.sh` so `Array<any>`, `Promise<any>`, union
+  types like `string|any`, and `value:any` (no space) are all caught while
+  identifiers that merely contain the substring `any` (`manyThings`,
+  `anyhow`, `company`) remain allowed (#724).
+
+- `ci`: add a defense-in-depth pass to `scripts/no-forbidden-tools.sh` that
+  strips comments and folds newlines before re-running the ADR-001 and
+  ADR-003 patterns. Closes bypass forms such as multiline `value:\nany`,
+  `value:/*x*/any`, `require ("node:fs")`, `require/*x*/(...)` and
+  `module . exports = ...` that the per-line scan alone could not see
+  (#724).
 
 - `ci`: report a configuration error when the secrets-scan workflow references
   the shared no-secrets guard but the script file is missing or outside the
@@ -146,6 +166,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `ci`: add `forbidden-tools` and `forbidden-imports` workflow jobs with
+  full-tree policy guards for toolchain restrictions and the Community/Cloud
+  import boundary (#51, #709-#723).
 
 - `ci`: add a secrets-scan reuse policy ensuring the workflow calls the shared
   `scripts/no-secrets.sh` guard instead of duplicating secret patterns inline
