@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, statSync, writeSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { argv, exit } from "node:process";
 
 const writeStdout = (chunk) => writeSync(1, chunk);
@@ -179,6 +179,19 @@ const isRegularFile = (path) => {
   } catch {
     return false;
   }
+};
+
+const isPathInsideDirectory = (directory, path) => {
+  const relativePath = relative(directory, path);
+  return relativePath.length === 0 || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
+};
+
+const isRepoRelativeRegularFile = (repoRoot, path) => {
+  if (isAbsolute(path)) return false;
+
+  const resolvedRepoRoot = resolve(repoRoot);
+  const resolvedPath = resolve(resolvedRepoRoot, path);
+  return isPathInsideDirectory(resolvedRepoRoot, resolvedPath) && isRegularFile(resolvedPath);
 };
 
 const extractActionReferences = (workflow) => {
@@ -953,7 +966,7 @@ const runSecretsNoSecretsReuse = (args) => {
   const repoRoot = options.get("repo-root") ?? ".";
   const workflow = readWorkflowFile(workflowPath);
   const stepsBlock = getSecretsScanRawStepsBlock(workflow);
-  const scriptFileExists = isRegularFile(resolve(repoRoot, scriptPath));
+  const scriptFileExists = isRepoRelativeRegularFile(repoRoot, scriptPath);
   const namedSecretGuardStep =
     getTopLevelListItemBlocks(stepsBlock).find(hasSecretFilenameStepName);
   const callsSharedScript =
