@@ -21,6 +21,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: `scripts/ci-policy.mjs` now writes machine-readable output via
+  `fs.writeSync` instead of the buffered `process.stdout`/`stderr` streams so
+  the immediate `process.exit()` on failure paths cannot truncate the payload
+  the acceptance tests and downstream CI consumers rely on (#654).
+- `ci`: drop the unused `--workflow-queue-ms` argument from the
+  `run_duration_queue_exclusion_case` test and clarify in the Gherkin comment
+  that queue time is excluded by anchoring measurement at the runner-start
+  instant (`--job-start-ms`) rather than via a dedicated CLI flag (#654).
+
 - `apps/community-bot`: keep comment-poster marker pagination sequential while
   satisfying the strict `no-await-in-loop` oxlint gate.
 
@@ -88,6 +97,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `ci`: add the first CI policy helper for backend-checks cache-hit duration
+  budget evaluation, measured job-duration reporting, and cache-miss
+  classification, strict 5-minute failure handling, plus workflow action SHA
+  pinning validation (#634-#643).
 
 - `apps/community-bot`: add `scripts/smoke-docker.sh` and operational coverage
   for local Docker build/run smoke testing, `/health` polling, boot-log
