@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: mention the full-history checkout requirement when positive
+  `fetch-depth` values are rejected by the secrets-scan policy (#667).
+
 - `ci`: report named critical severity vulnerabilities from the supply-chain
   audit gate failure output (#657).
 
