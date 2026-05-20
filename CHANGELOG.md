@@ -25,6 +25,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `push: false`, exactly `linux/amd64` and `linux/arm64`, and GitHub Actions
   cache configuration for `build-docker` (#734).
 
+- `ci`: add Docker build action fixture coverage rejecting `push: true` in the
+  `build-docker` verification job (#735).
+
 - `ci`: pass `persist-credentials: false` to every `actions/checkout` step in
   the forbidden-tools and forbidden-imports workflows so `GITHUB_TOKEN` is no
   longer written to local git config and cannot leak into later steps or
