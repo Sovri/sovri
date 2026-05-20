@@ -351,13 +351,41 @@ const parseFlowMapping = (flowMapping) => {
   return parsed;
 };
 
+const getStepPropertyBlockRaw = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return "";
+
+  const stepIndent = getIndent(firstLine);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(?:#.*)?$`);
+
+  for (let index = 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineIndent = getIndent(line);
+    if (lineIndent !== stepIndent + 2 || !propertyPattern.test(line)) continue;
+
+    const block = [line];
+    for (const blockLine of lines.slice(index + 1)) {
+      if (blockLine.trim().length === 0) {
+        block.push(blockLine);
+        continue;
+      }
+      if (getIndent(blockLine) <= lineIndent) break;
+      block.push(blockLine);
+    }
+    return block.join("\n");
+  }
+
+  return "";
+};
+
 const getStepInput = (step, inputName) => {
   const flowWith = getStepPropertyValue(step, "with");
   if (flowWith?.startsWith("{") === true && flowWith.endsWith("}")) {
     return parseFlowMapping(flowWith.slice(1, -1)).get(inputName);
   }
 
-  const withBlock = getIndentedBlockRaw(step, /^\s+with:\s*(?:#.*)?$/);
+  const withBlock = getStepPropertyBlockRaw(step, "with");
   const lines = withBlock.split(/\r?\n/);
   const withIndent = getIndent(lines[0] ?? "");
   const inputPattern = new RegExp(`^\\s*${inputName}:\\s*(.*?)\\s*(?:#.*)?$`);
