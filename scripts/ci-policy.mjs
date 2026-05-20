@@ -16,6 +16,7 @@ const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
 const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?$/;
 const BLOCK_SCALAR_PATTERN = /:\s*[>|](?:[+-]?[1-9]?|[1-9][+-]?)?\s*(?:#.*)?$/;
 const GITLEAKS_ACTION_REPOSITORY = "gitleaks/gitleaks-action";
+const DOCKER_BUILD_ACTION_REPOSITORY = "docker/build-push-action";
 const REQUIRED_BUILD_DOCKER_NEEDS = [
   "backend-checks",
   "supply-chain",
@@ -32,6 +33,8 @@ const forbiddenJobsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs forbidden-jobs-duration-budget --forbidden-tools-ms <ms|missing|unknown> --forbidden-imports-ms <ms|missing|unknown>";
 const buildDockerDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-duration-budget --job-start-ms <ms> --job-end-ms <ms> --github-actions-cache <enabled|missing>";
+const dockerBuildActionUsage =
+  "Usage: node scripts/ci-policy.mjs docker-build-action --workflow <path>";
 const buildDockerNeedsUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-needs --workflow <path>";
 const buildDockerSchedulerUsage =
@@ -47,7 +50,7 @@ const secretsFixtureEvidenceUsage =
   "Usage: node scripts/ci-policy.mjs secrets-fixture-evidence --input <fixture-evidence.json> --false-positive-fixture <path>";
 const secretsNoSecretsReuseUsage =
   "Usage: node scripts/ci-policy.mjs secrets-no-secrets-reuse --workflow <path> --script-path <path> [--repo-root <path>]";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -93,11 +96,13 @@ const readRequiredOption = (options, key, commandUsage) => {
 
 const getIndent = (line) => line.match(/^ */)?.[0].length ?? 0;
 
-const getYamlStructureLines = (workflow) => {
-  const lines = [];
+const getYamlStructureEntries = (workflow) => {
+  const entries = [];
   let blockScalarIndent;
+  const lines = workflow.split(/\r?\n/);
 
-  for (const line of workflow.split(/\r?\n/)) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     if (blockScalarIndent !== undefined) {
       if (line.trim().length === 0) continue;
 
@@ -105,15 +110,18 @@ const getYamlStructureLines = (workflow) => {
       blockScalarIndent = undefined;
     }
 
-    lines.push(line);
+    entries.push({ index, line });
 
     if (BLOCK_SCALAR_PATTERN.test(line)) {
       blockScalarIndent = getIndent(line);
     }
   }
 
-  return lines;
+  return entries;
 };
+
+const getYamlStructureLines = (workflow) =>
+  getYamlStructureEntries(workflow).map((entry) => entry.line);
 
 const formatDuration = (elapsedMs) => {
   if (elapsedMs % 1000 === 0) return `${elapsedMs / 1000} s`;
@@ -276,6 +284,392 @@ const runBuildDockerDurationBudget = (args) => {
     `measured_duration_ms=${elapsedMs}\nduration_budget=fail\nreported_duration=${formatBuildDockerDuration(elapsedMs)}\n`,
   );
   fail("build-docker must finish in under 10 minutes", 1);
+};
+
+const findDirectChildEntry = (entries, parentEntry, childPattern) => {
+  const parentIndent = getIndent(parentEntry.line);
+  let childIndent;
+
+  for (const entry of entries.filter((candidate) => candidate.index > parentEntry.index)) {
+    const trimmedLine = entry.line.trim();
+    if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) continue;
+
+    const indent = getIndent(entry.line);
+    if (indent <= parentIndent) break;
+
+    childIndent ??= indent;
+    if (indent === childIndent && childPattern.test(entry.line)) return entry;
+  }
+
+  return undefined;
+};
+
+const findRootEntry = (entries, rootPattern) => {
+  const rootIndent = entries
+    .filter((entry) => {
+      const trimmedLine = entry.line.trim();
+      return trimmedLine.length > 0 && !trimmedLine.startsWith("#");
+    })
+    .map((entry) => getIndent(entry.line))
+    .reduce((lowestIndent, indent) => Math.min(lowestIndent, indent), Number.POSITIVE_INFINITY);
+
+  if (rootIndent === Number.POSITIVE_INFINITY) return undefined;
+
+  return entries.find(
+    (entry) => getIndent(entry.line) === rootIndent && rootPattern.test(entry.line),
+  );
+};
+
+const getBuildDockerStepsBlockEntry = (workflow) => {
+  const jobsPattern = /^\s*jobs:\s*(?:#.*)?$/;
+  const entries = getYamlStructureEntries(workflow);
+  const jobsEntry = findRootEntry(entries, jobsPattern);
+  if (jobsEntry === undefined) return undefined;
+
+  const buildDockerEntry = findDirectChildEntry(
+    entries,
+    jobsEntry,
+    /^\s+build-docker:\s*(?:&[^\s#]+)?\s*(?:#.*)?$/,
+  );
+  if (buildDockerEntry === undefined) return undefined;
+
+  const stepsEntry = findDirectChildEntry(entries, buildDockerEntry, /^\s+steps:\s*(?:#.*)?$/);
+  if (stepsEntry === undefined) return undefined;
+
+  return {
+    block: getIndentedBlockRawFromIndex(workflow, stepsEntry.index),
+    startIndex: stepsEntry.index,
+  };
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const splitFlowMappingEntries = (flowMapping) => {
+  const entries = [];
+  let current = "";
+  let quote;
+
+  for (const character of flowMapping) {
+    if (quote !== undefined) {
+      current += character;
+      if (character === quote) quote = undefined;
+      continue;
+    }
+
+    if (character === "'" || character === '"') {
+      quote = character;
+      current += character;
+      continue;
+    }
+
+    if (character === ",") {
+      entries.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  if (current.trim().length > 0) entries.push(current.trim());
+  return entries;
+};
+
+const parseFlowMapping = (flowMapping) => {
+  const parsed = new Map();
+
+  for (const entry of splitFlowMappingEntries(flowMapping)) {
+    const separatorIndex = entry.indexOf(":");
+    if (separatorIndex === -1) continue;
+
+    const key = stripYamlQuotes(entry.slice(0, separatorIndex).trim());
+    const value = stripYamlQuotes(entry.slice(separatorIndex + 1).trim());
+    parsed.set(key, value);
+  }
+
+  return parsed;
+};
+
+const getFlowMappingText = (value) => {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed.slice(1, -1);
+
+  const anchoredFlow = trimmed.match(/^&[^\s#]+\s+(\{.*\})$/)?.[1];
+  if (anchoredFlow !== undefined) return anchoredFlow.slice(1, -1);
+
+  return undefined;
+};
+
+const getStepPropertyBlockRaw = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return "";
+
+  const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineIndent = getIndent(line);
+    const isInlineProperty = index === 0 && lineIndent === stepIndent && inlinePattern.test(line);
+    const isBlockProperty =
+      index > 0 && lineIndent === stepIndent + 2 && propertyPattern.test(line);
+    if (!isInlineProperty && !isBlockProperty) continue;
+
+    const block = [line];
+    for (const blockLine of lines.slice(index + 1)) {
+      if (blockLine.trim().length === 0) {
+        block.push(blockLine);
+        continue;
+      }
+      if (getIndent(blockLine) <= lineIndent) break;
+      block.push(blockLine);
+    }
+    return block.join("\n");
+  }
+
+  return "";
+};
+
+const getInputFromWithBlock = (withBlock, inputName) => {
+  const lines = withBlock.split(/\r?\n/);
+  const withIndent = getIndent(lines[0] ?? "");
+  const inputPattern = new RegExp(`^\\s*${inputName}:\\s*(.*?)\\s*(?:#.*)?$`);
+  let childIndent;
+  let activeScalarIndent;
+
+  for (let inputIndex = 1; inputIndex < lines.length; inputIndex += 1) {
+    const inputLine = lines[inputIndex];
+    const trimmedInputLine = inputLine.trim();
+    if (trimmedInputLine.length === 0 || trimmedInputLine.startsWith("#")) continue;
+
+    const indent = getIndent(inputLine);
+    if (activeScalarIndent !== undefined) {
+      if (indent > activeScalarIndent) continue;
+      activeScalarIndent = undefined;
+    }
+    if (indent <= withIndent) break;
+
+    childIndent ??= indent;
+    if (indent !== childIndent) continue;
+
+    const isBlockScalar = BLOCK_SCALAR_PATTERN.test(inputLine);
+    const value = inputLine.match(inputPattern)?.[1]?.trim();
+    if (value === undefined) {
+      if (isBlockScalar) activeScalarIndent = indent;
+      continue;
+    }
+    if (!isBlockScalar) return stripYamlQuotes(value);
+
+    const scalarLines = [];
+    for (const line of lines.slice(inputIndex + 1)) {
+      if (line.trim().length === 0) continue;
+      if (getIndent(line) <= indent) break;
+      scalarLines.push(line.trim());
+    }
+    const scalarSeparator = /:\s*>/.test(inputLine) ? " " : "\n";
+    return scalarLines.join(scalarSeparator);
+  }
+
+  return undefined;
+};
+
+const getIndentedBlockRawFromIndex = (workflow, startIndex) => {
+  const lines = workflow.split(/\r?\n/);
+  const startLine = lines[startIndex];
+  if (startLine === undefined) return "";
+
+  const startIndent = getIndent(startLine);
+  const block = [startLine];
+
+  for (const line of lines.slice(startIndex + 1)) {
+    if (line.trim().length === 0) {
+      block.push(line);
+      continue;
+    }
+
+    const indent = getIndent(line);
+    if (indent <= startIndent) break;
+    block.push(line);
+  }
+
+  return block.join("\n");
+};
+
+const getStepPropertyLineIndex = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return undefined;
+
+  const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*.*$`);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*.*$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (index === 0 && getIndent(line) === stepIndent && inlinePattern.test(line)) return index;
+    if (index > 0 && getIndent(line) === stepIndent + 2 && propertyPattern.test(line)) return index;
+  }
+
+  return undefined;
+};
+
+const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName, stepStartIndex) => {
+  const workflowLines = workflow.split(/\r?\n/);
+  const stepLines = step.split(/\r?\n/);
+  const propertyLineIndex = getStepPropertyLineIndex(step, propertyName);
+  if (propertyLineIndex === undefined) return undefined;
+  if (stepStartIndex !== undefined) return stepStartIndex + propertyLineIndex;
+
+  for (let index = 0; index <= workflowLines.length - stepLines.length; index += 1) {
+    if (stepLines.every((line, offset) => workflowLines[index + offset] === line)) {
+      return index + propertyLineIndex;
+    }
+  }
+
+  return undefined;
+};
+
+const getAnchoredWithInput = (workflow, step, stepStartIndex, anchorName, inputName) => {
+  const anchorPattern = new RegExp(
+    `^\\s+(?:-\\s+)?with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
+  );
+  const aliasLineIndex = getWorkflowLineIndexForStepProperty(
+    workflow,
+    step,
+    "with",
+    stepStartIndex,
+  );
+  const searchLimit = aliasLineIndex ?? Number.POSITIVE_INFINITY;
+  let anchorEntry;
+
+  for (const entry of getYamlStructureEntries(workflow)) {
+    if (entry.index >= searchLimit) break;
+    if (anchorPattern.test(entry.line)) anchorEntry = entry;
+  }
+
+  if (anchorEntry === undefined) return undefined;
+
+  const anchorValue = anchorEntry.line.match(anchorPattern)?.[1]?.trim() ?? "";
+  const flowMappingText = getFlowMappingText(anchorValue);
+  if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
+
+  return getInputFromWithBlock(
+    getIndentedBlockRawFromIndex(workflow, anchorEntry.index),
+    inputName,
+  );
+};
+
+const getStepInput = (step, inputName, workflow = "", stepStartIndex) => {
+  const flowWith = getStepPropertyValue(step, "with");
+  const flowMappingText = flowWith === undefined ? undefined : getFlowMappingText(flowWith);
+  if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
+  if (flowWith?.startsWith("*") === true) {
+    return getAnchoredWithInput(workflow, step, stepStartIndex, flowWith.slice(1), inputName);
+  }
+
+  return getInputFromWithBlock(getStepPropertyBlockRaw(step, "with"), inputName);
+};
+
+const getDockerPlatformBoundary = (platformsValue) => {
+  const platforms = platformsValue
+    .split(/[,\n]/)
+    .map((platform) => platform.trim())
+    .filter((platform) => platform.length > 0);
+  const hasAmd64 = platforms.includes("linux/amd64");
+  const hasArm64 = platforms.includes("linux/arm64");
+
+  if (!hasArm64) {
+    return { outcome: "rejected", reason: "arm64 platform is missing" };
+  }
+  if (!hasAmd64) {
+    return { outcome: "rejected", reason: "amd64 platform is missing" };
+  }
+  if (platforms.length !== 2) {
+    return { outcome: "rejected", reason: "extra platform is outside the v0.1 contract" };
+  }
+  return { outcome: "accepted", reason: "required amd64 and arm64 platforms present" };
+};
+
+const getStepPropertyValue = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return undefined;
+
+  const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*(.*?)\\s*(?:#.*)?$`);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(.*?)\\s*(?:#.*)?$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (index === 0 && getIndent(line) === stepIndent) {
+      const value = line.match(inlinePattern)?.[1]?.trim();
+      if (value !== undefined) return stripYamlQuotes(value);
+      continue;
+    }
+
+    if (getIndent(line) !== stepIndent + 2) continue;
+    const value = line.match(propertyPattern)?.[1]?.trim();
+    if (value !== undefined) return stripYamlQuotes(value);
+  }
+
+  return undefined;
+};
+
+const isDockerBuildActionStep = (step) =>
+  getStepPropertyValue(step, "uses")?.startsWith(`${DOCKER_BUILD_ACTION_REPOSITORY}@`) ?? false;
+
+const runDockerBuildAction = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", dockerBuildActionUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const stepsBlockEntry = getBuildDockerStepsBlockEntry(workflow);
+  const buildSteps =
+    stepsBlockEntry === undefined
+      ? []
+      : getTopLevelListItemBlockEntries(stepsBlockEntry.block, stepsBlockEntry.startIndex).filter(
+          (entry) => isDockerBuildActionStep(entry.block),
+        );
+
+  if (buildSteps.length === 0) {
+    writeStdout("docker_build_action=fail\n");
+    fail(`build-docker must use ${DOCKER_BUILD_ACTION_REPOSITORY}`, 1);
+  }
+
+  let acceptedBoundaryReason = "";
+
+  for (const buildStep of buildSteps) {
+    const push = getStepInput(buildStep.block, "push", workflow, buildStep.startIndex);
+    const platforms =
+      getStepInput(buildStep.block, "platforms", workflow, buildStep.startIndex) ?? "";
+    const cacheFrom = getStepInput(buildStep.block, "cache-from", workflow, buildStep.startIndex);
+    const cacheTo = getStepInput(buildStep.block, "cache-to", workflow, buildStep.startIndex);
+    const platformBoundary = getDockerPlatformBoundary(platforms);
+
+    if (push !== "false") {
+      writeStdout("docker_build_action=fail\n");
+      fail("build-docker must use push: false", 1);
+    }
+
+    if (platformBoundary.outcome === "rejected") {
+      writeStdout(
+        `docker_build_action=fail\nplatform_outcome=rejected\nboundary_reason=${platformBoundary.reason}\n`,
+      );
+      fail(platformBoundary.reason, 1);
+    }
+
+    if (cacheFrom !== "type=gha" || cacheTo !== "type=gha,mode=max") {
+      writeStdout("docker_build_action=fail\n");
+      fail("Docker build must use GitHub Actions cache", 1);
+    }
+
+    acceptedBoundaryReason = platformBoundary.reason;
+  }
+
+  writeStdout(
+    `docker_build_action=pass\nbuild_classification=ci-verification\nplatform_outcome=accepted\nboundary_reason=${acceptedBoundaryReason}\n`,
+  );
 };
 
 const parseYamlScalarListValue = (value) => {
@@ -529,6 +923,36 @@ const getTopLevelListItemBlocks = (workflow) => {
   }
 
   return blocks;
+};
+
+const getTopLevelListItemBlockEntries = (workflow, startIndex) => {
+  const lines = workflow.split(/\r?\n/);
+  const itemIndent = lines.find((line) => /^\s*-\s+/.test(line))?.match(/^ */)?.[0].length;
+  if (itemIndent === undefined) return [];
+
+  const entries = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (getIndent(lines[index]) !== itemIndent || !/^\s*-\s+/.test(lines[index])) continue;
+
+    const block = [lines[index]];
+
+    for (const line of lines.slice(index + 1)) {
+      if (line.trim().length === 0) {
+        block.push(line);
+        continue;
+      }
+
+      const indent = getIndent(line);
+      if (indent < itemIndent) break;
+      if (indent === itemIndent && /^\s*-\s+/.test(line)) break;
+      block.push(line);
+    }
+
+    entries.push({ block: block.join("\n"), startIndex: startIndex + index });
+  }
+
+  return entries;
 };
 
 const hasInlineFullHistoryFetchDepth = (step) => {
@@ -1238,6 +1662,8 @@ if (command === "duration-budget") {
   runForbiddenJobsDurationBudget(args);
 } else if (command === "build-docker-duration-budget") {
   runBuildDockerDurationBudget(args);
+} else if (command === "docker-build-action") {
+  runDockerBuildAction(args);
 } else if (command === "build-docker-needs") {
   runBuildDockerNeeds(args);
 } else if (command === "build-docker-scheduler") {
