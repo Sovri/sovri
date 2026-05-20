@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: report named critical severity vulnerabilities from the supply-chain
+  audit gate failure output (#657).
+
+- `ci`: report named high severity vulnerabilities from the supply-chain audit
+  gate failure output (#656).
+
 - `ci`: `scripts/ci-policy.mjs` now writes machine-readable output via
   `fs.writeSync` instead of the buffered `process.stdout`/`stderr` streams so
   the immediate `process.exit()` on failure paths cannot truncate the payload
@@ -97,6 +103,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   strict base-10 integer contract.
 
 ### Added
+
+- `ci`: add a supply-chain audit shell gate that propagates
+  `pnpm audit --audit-level=high` failures before reporting success (#658).
+
+- `ci`: add the first supply-chain audit gate command for accepting pnpm audit
+  reports that contain no high or critical vulnerabilities (#655).
 
 - `ci`: add the first CI policy helper for backend-checks cache-hit duration
   budget evaluation, measured job-duration reporting, and cache-miss

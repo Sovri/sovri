@@ -14,7 +14,9 @@ const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
 const actionPinningUsage = "Usage: node scripts/ci-policy.mjs action-pinning --workflow <path>";
-const usage = `${durationBudgetUsage}\n${actionPinningUsage}`;
+const auditGateUsage =
+  "Usage: node scripts/ci-policy.mjs audit-gate --input <pnpm-audit-report.json> --audit-level high";
+const usage = `${durationBudgetUsage}\n${actionPinningUsage}\n${auditGateUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -170,6 +172,53 @@ const getFailureMessages = (movingReferences) => {
   return messages;
 };
 
+const readAuditReport = (inputPath) => {
+  try {
+    return JSON.parse(readFileSync(inputPath, "utf8"));
+  } catch {
+    fail(`ERROR: Unable to read audit report file: ${inputPath}.`, 2);
+  }
+};
+
+const getAuditVulnerabilities = (report) => {
+  if (typeof report !== "object" || report === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
+  const metadata = report.metadata;
+  if (typeof metadata !== "object" || metadata === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
+  const vulnerabilities = metadata.vulnerabilities;
+  if (typeof vulnerabilities !== "object" || vulnerabilities === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
+  return vulnerabilities;
+};
+
+const getAuditSeverityCount = (vulnerabilities, severity) => {
+  const count = vulnerabilities[severity];
+  if (!Number.isInteger(count) || count < 0) {
+    fail(
+      `ERROR: audit report metadata.vulnerabilities.${severity} must be a non-negative integer.`,
+      2,
+    );
+  }
+  return count;
+};
+
+const getAuditAdvisoryNames = (report, severity) => {
+  if (typeof report !== "object" || report === null) return [];
+  const advisories = report.advisories;
+  if (typeof advisories !== "object" || advisories === null) return [];
+
+  return Object.entries(advisories)
+    .filter(([, advisory]) => {
+      if (typeof advisory !== "object" || advisory === null) return false;
+      return advisory.severity === severity;
+    })
+    .map(([name]) => name);
+};
+
 const runActionPinning = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", actionPinningUsage);
@@ -191,12 +240,50 @@ const runActionPinning = (args) => {
   fail(getFailureMessages(movingReferences).join("\n"), 1);
 };
 
+const runAuditGate = (args) => {
+  const options = parseOptions(args);
+  const inputPath = readRequiredOption(options, "input", auditGateUsage);
+  const auditLevel = readRequiredOption(options, "audit-level", auditGateUsage);
+  if (auditLevel !== "high") {
+    fail('ERROR: --audit-level must be "high".', 2);
+  }
+
+  const report = readAuditReport(inputPath);
+  const vulnerabilities = getAuditVulnerabilities(report);
+  const highCount = getAuditSeverityCount(vulnerabilities, "high");
+  const criticalCount = getAuditSeverityCount(vulnerabilities, "critical");
+
+  if (criticalCount > 0) {
+    const criticalAdvisories = getAuditAdvisoryNames(report, "critical");
+    const criticalFailureReason =
+      criticalAdvisories.length === 0
+        ? `pnpm audit reported ${criticalCount} critical severity vulnerability`
+        : `critical severity vulnerability ${criticalAdvisories.join(", ")}`;
+    writeStdout("audit_gate=fail\n");
+    fail(criticalFailureReason, 1);
+  }
+
+  if (highCount > 0) {
+    const highAdvisories = getAuditAdvisoryNames(report, "high");
+    const highFailureReason =
+      highAdvisories.length === 0
+        ? `pnpm audit reported ${highCount} high severity vulnerability`
+        : `high severity vulnerability ${highAdvisories.join(", ")}`;
+    writeStdout("audit_gate=fail\n");
+    fail(highFailureReason, 1);
+  }
+
+  writeStdout("audit_gate=pass\n");
+};
+
 const [command, ...args] = argv.slice(2);
 
 if (command === "duration-budget") {
   runDurationBudget(args);
 } else if (command === "action-pinning") {
   runActionPinning(args);
+} else if (command === "audit-gate") {
+  runAuditGate(args);
 } else {
   fail(usage, 2);
 }

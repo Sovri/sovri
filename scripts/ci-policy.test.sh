@@ -664,6 +664,352 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_audit_gate_no_high_or_critical_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given the pnpm audit report contains 2 low vulnerabilities and 1 moderate vulnerability
+  # And the pnpm audit report contains 0 high vulnerabilities
+  # And the pnpm audit report contains 0 critical vulnerabilities
+  cat >"$audit_file" <<'JSON'
+{
+  "metadata": {
+    "vulnerabilities": {
+      "low": 2,
+      "moderate": 1,
+      "high": 0,
+      "critical": 0
+    }
+  }
+}
+JSON
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+
+  # When the supply-chain audit gate evaluates the report with audit level "high"
+  # Then the supply-chain audit gate passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate no high or critical: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "audit_gate=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate no high or critical: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_audit_gate_missing_vulnerability_metadata_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  printf '{}\n' >"$audit_file"
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 2 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate missing vulnerability metadata: expected exit 2, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "metadata.vulnerabilities"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate missing vulnerability metadata: missing validation message
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_audit_gate_high_vulnerability_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec combined
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given the pnpm audit report contains 1 high vulnerability named "GHSA-high-0001"
+  # And the pnpm audit report contains 0 critical vulnerabilities
+  cat >"$audit_file" <<'JSON'
+{
+  "metadata": {
+    "vulnerabilities": {
+      "low": 0,
+      "moderate": 0,
+      "high": 1,
+      "critical": 0
+    }
+  },
+  "advisories": {
+    "GHSA-high-0001": {
+      "severity": "high"
+    }
+  }
+}
+JSON
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # When the supply-chain audit gate evaluates the report with audit level "high"
+  # Then the supply-chain audit gate fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate high vulnerability: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "audit_gate=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate high vulnerability: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure reason mentions the high severity vulnerability "GHSA-high-0001"
+  if ! printf '%s\n' "$combined" | grep -Fq "high severity vulnerability GHSA-high-0001"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate high vulnerability: missing named high vulnerability
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_audit_gate_high_without_advisory_name_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec combined
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$audit_file" <<'JSON'
+{
+  "metadata": {
+    "vulnerabilities": {
+      "low": 0,
+      "moderate": 0,
+      "high": 1,
+      "critical": 0
+    }
+  },
+  "advisories": {}
+}
+JSON
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate high without advisory name: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "pnpm audit reported 1 high severity vulnerability"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate high without advisory name: missing fallback failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_audit_gate_mixed_high_and_critical_prioritizes_critical_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec combined
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$audit_file" <<'JSON'
+{
+  "metadata": {
+    "vulnerabilities": {
+      "low": 0,
+      "moderate": 0,
+      "high": 1,
+      "critical": 1
+    }
+  },
+  "advisories": {
+    "GHSA-high-0001": {
+      "severity": "high"
+    }
+  }
+}
+JSON
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate mixed high and critical: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "critical severity vulnerability"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate mixed high and critical: missing critical failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_audit_gate_critical_vulnerability_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec combined
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given the pnpm audit report contains 0 high vulnerabilities
+  # And the pnpm audit report contains 1 critical vulnerability named "GHSA-critical-0001"
+  cat >"$audit_file" <<'JSON'
+{
+  "metadata": {
+    "vulnerabilities": {
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 1
+    }
+  },
+  "advisories": {
+    "GHSA-critical-0001": {
+      "severity": "critical"
+    }
+  }
+}
+JSON
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # When the supply-chain audit gate evaluates the report with audit level "high"
+  # Then the supply-chain audit gate fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate critical vulnerability: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "audit_gate=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate critical vulnerability: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure reason mentions the critical severity vulnerability "GHSA-critical-0001"
+  if ! printf '%s\n' "$combined" | grep -Fq "critical severity vulnerability GHSA-critical-0001"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate critical vulnerability: missing named critical vulnerability
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_fail_case 300000
@@ -677,6 +1023,12 @@ run_action_pinning_moving_refs_case
 run_action_pinning_sha_boundary_case
 run_action_pinning_local_action_exempt_case
 run_action_pinning_github_maintained_external_case
+run_audit_gate_no_high_or_critical_case
+run_audit_gate_missing_vulnerability_metadata_case
+run_audit_gate_high_vulnerability_case
+run_audit_gate_high_without_advisory_name_case
+run_audit_gate_mixed_high_and_critical_prioritizes_critical_case
+run_audit_gate_critical_vulnerability_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2
