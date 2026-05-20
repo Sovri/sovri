@@ -1299,7 +1299,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - run: >-1
           secrets-scan:
             runs-on: ubuntu-latest
             steps:
@@ -1360,7 +1360,7 @@ jobs:
   secrets-scan:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - run: |2
           - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
             with:
               fetch-depth: 0

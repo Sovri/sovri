@@ -10,7 +10,7 @@ const FULL_COMMIT_SHA_LENGTH = 40;
 const PINNED_EXTERNAL_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
 const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?$/;
-const BLOCK_SCALAR_PATTERN = /:\s*[>|][+-]?\s*(?:#.*)?$/;
+const BLOCK_SCALAR_PATTERN = /:\s*[>|](?:[+-]?[1-9]?|[1-9][+-]?)?\s*(?:#.*)?$/;
 
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
