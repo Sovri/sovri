@@ -1247,6 +1247,443 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_no_secrets_reuse_masked_failure_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: scripts/no-secrets.sh || true
+YAML
+
+  # Given the shared guard failure would be masked by the shell command
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails because secrets-scan would not fail
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse masked failure: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse masked failure: missing failure propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "CI must fail when scripts/no-secrets.sh fails"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse masked failure: missing propagation failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_compact_masked_failure_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: scripts/no-secrets.sh ||true
+YAML
+
+  # Given the shared guard failure would be masked by a compact shell operator
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails because secrets-scan would not fail
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse compact masked failure: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse compact masked failure: missing failure propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_continue_on_error_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        continue-on-error: true
+        run: scripts/no-secrets.sh
+YAML
+
+  # Given the shared guard step allows GitHub Actions to continue after failure
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails because secrets-scan would not fail
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error: missing failure propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "CI must fail when scripts/no-secrets.sh fails"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error: missing propagation failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_rethrow_failure_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: scripts/no-secrets.sh || exit 1
+YAML
+
+  # Given the shared guard failure is explicitly re-thrown by the shell command
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion passes because secrets-scan still fails
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse rethrow failure: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse rethrow failure: missing pass propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_quoted_status_rethrow_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: scripts/no-secrets.sh || exit "$?"
+YAML
+
+  # Given the shared guard failure is re-thrown with a quoted shell status
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion passes because secrets-scan still fails
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse quoted status rethrow: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse quoted status rethrow: missing pass propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_continue_on_error_expression_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        continue-on-error: ${{ true }}
+        run: scripts/no-secrets.sh
+YAML
+
+  # Given the shared guard step uses an expression that enables continue-on-error
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails because secrets-scan would not fail
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error expression: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error expression: missing failure propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_continue_on_error_false_expression_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        continue-on-error: ${{false}}
+        run: scripts/no-secrets.sh
+YAML
+
+  # Given the shared guard step explicitly disables continue-on-error with a compact expression
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion passes because secrets-scan still fails
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error false expression: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse continue-on-error false expression: missing pass propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_inline_patterns_with_script_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: |
+          scripts/no-secrets.sh
+          rg -n "OPENAI_API_KEY|ANTHROPIC_API_KEY" .
+YAML
+
+  # Given the shared guard failure propagates but the workflow still duplicates patterns inline
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion reports the known propagation status
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse inline patterns with script: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "script_failure_propagation=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse inline patterns with script: missing pass propagation marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "inline_pattern_list=present"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse inline patterns with script: missing inline pattern marker
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_secrets_no_secrets_reuse_fake_step_in_run_block_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -3393,6 +3830,14 @@ run_secrets_no_secrets_reuse_direct_call_case
 run_secrets_no_secrets_reuse_block_scalar_case
 run_secrets_no_secrets_reuse_comment_bypass_case
 run_secrets_no_secrets_reuse_inline_patterns_case
+run_secrets_no_secrets_reuse_masked_failure_case
+run_secrets_no_secrets_reuse_compact_masked_failure_case
+run_secrets_no_secrets_reuse_continue_on_error_case
+run_secrets_no_secrets_reuse_rethrow_failure_case
+run_secrets_no_secrets_reuse_quoted_status_rethrow_case
+run_secrets_no_secrets_reuse_continue_on_error_expression_case
+run_secrets_no_secrets_reuse_continue_on_error_false_expression_case
+run_secrets_no_secrets_reuse_inline_patterns_with_script_case
 run_secrets_no_secrets_reuse_fake_step_in_run_block_case
 run_secrets_no_secrets_reuse_folded_scalar_bypass_case
 run_secrets_no_secrets_reuse_nested_run_field_case
