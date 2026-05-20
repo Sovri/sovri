@@ -230,12 +230,13 @@ const runForbiddenJobsDurationBudget = (args) => {
 
 const parseYamlScalarListValue = (value) => {
   const trimmedValue = value.trim();
-  if (!trimmedValue.startsWith("[") || !trimmedValue.endsWith("]")) {
+  if (!trimmedValue.startsWith("[")) {
     return [stripYamlQuotes(trimmedValue)];
   }
 
   return trimmedValue
-    .slice(1, -1)
+    .slice(1)
+    .replace(/\]$/, "")
     .split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
@@ -243,13 +244,22 @@ const parseYamlScalarListValue = (value) => {
 };
 
 const readYamlNeedsValues = (needsBlock) => {
-  const inlineValue = needsBlock.match(/^[ \t]*needs:[ \t]*(.*?)[ \t]*(?:#.*)?$/m)?.[1]?.trim();
+  const needsLines = needsBlock.split(/\r?\n/);
+  const inlineValue = needsLines
+    .find((line) => /^[ \t]*needs:/.test(line))
+    ?.match(/^[ \t]*needs:[ \t]*(.*?)[ \t]*(?:#.*)?$/)?.[1]
+    ?.trim();
   if (inlineValue !== undefined && inlineValue.length > 0) {
-    return parseYamlScalarListValue(inlineValue);
+    const scalarValue =
+      inlineValue.startsWith("[") && !inlineValue.endsWith("]")
+        ? [inlineValue, ...needsLines.slice(1).map((line) => line.replace(/[ \t]+#.*$/, "").trim())]
+            .join(" ")
+            .trim()
+        : inlineValue;
+    return parseYamlScalarListValue(scalarValue);
   }
 
-  return needsBlock
-    .split(/\r?\n/)
+  return needsLines
     .map((line) => line.match(/^\s*-\s+(.+?)\s*(?:#.*)?$/)?.[1])
     .filter((value) => value !== undefined)
     .map((value) => stripYamlQuotes(value));
