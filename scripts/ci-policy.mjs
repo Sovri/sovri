@@ -9,6 +9,7 @@ const writeStderr = (chunk) => writeSync(2, chunk);
 const DURATION_BUDGET_MS = 300000;
 const SECRETS_SCAN_DURATION_BUDGET_MS = 60000;
 const FORBIDDEN_JOB_DURATION_BUDGET_MS = 30000;
+const BUILD_DOCKER_DURATION_BUDGET_MS = 600000;
 const FULL_COMMIT_SHA_LENGTH = 40;
 const PINNED_EXTERNAL_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
@@ -29,6 +30,8 @@ const secretsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs secrets-duration-budget --job-start-ms <ms> --job-end-ms <ms>";
 const forbiddenJobsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs forbidden-jobs-duration-budget --forbidden-tools-ms <ms|missing|unknown> --forbidden-imports-ms <ms|missing|unknown>";
+const buildDockerDurationBudgetUsage =
+  "Usage: node scripts/ci-policy.mjs build-docker-duration-budget --job-start-ms <ms> --job-end-ms <ms> --github-actions-cache <enabled|missing>";
 const buildDockerNeedsUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-needs --workflow <path>";
 const buildDockerSchedulerUsage =
@@ -44,7 +47,7 @@ const secretsFixtureEvidenceUsage =
   "Usage: node scripts/ci-policy.mjs secrets-fixture-evidence --input <fixture-evidence.json> --false-positive-fixture <path>";
 const secretsNoSecretsReuseUsage =
   "Usage: node scripts/ci-policy.mjs secrets-no-secrets-reuse --workflow <path> --script-path <path> [--repo-root <path>]";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -115,6 +118,14 @@ const getYamlStructureLines = (workflow) => {
 const formatDuration = (elapsedMs) => {
   if (elapsedMs % 1000 === 0) return `${elapsedMs / 1000} s`;
   return `${(elapsedMs / 1000).toFixed(3)} s`;
+};
+
+const formatBuildDockerDuration = (elapsedMs) => {
+  const minutes = Math.floor(elapsedMs / 60000);
+  const remainingMs = elapsedMs % 60000;
+  if (remainingMs === 0) return `${minutes} min`;
+  if (minutes === 0) return formatDuration(remainingMs);
+  return `${minutes} min ${formatDuration(remainingMs)}`;
 };
 
 const runDurationBudget = (args) => {
@@ -228,6 +239,43 @@ const runForbiddenJobsDurationBudget = (args) => {
       )
       .join("")}`,
   );
+};
+
+const readBuildDockerCacheState = (options) => {
+  const value = options.get("github-actions-cache");
+  if (value !== "enabled" && value !== "missing") {
+    fail('ERROR: --github-actions-cache must be "enabled" or "missing".', 2);
+  }
+  return value;
+};
+
+const runBuildDockerDurationBudget = (args) => {
+  const options = parseOptions(args);
+  const startMs = readInteger(options, "job-start-ms");
+  const endMs = readInteger(options, "job-end-ms");
+  const cacheState = readBuildDockerCacheState(options);
+  const elapsedMs = endMs - startMs;
+
+  if (elapsedMs < 0) {
+    fail("ERROR: --job-end-ms must be greater than or equal to --job-start-ms.", 2);
+  }
+
+  if (cacheState !== "enabled") {
+    writeStdout(`duration_budget=fail\nmeasured_duration_ms=${elapsedMs}\n`);
+    fail("GitHub Actions cache must be enabled for build-docker", 1);
+  }
+
+  if (elapsedMs < BUILD_DOCKER_DURATION_BUDGET_MS) {
+    writeStdout(
+      `measured_duration_ms=${elapsedMs}\nduration_budget=pass\nreported_duration=${formatBuildDockerDuration(elapsedMs)}\n`,
+    );
+    return;
+  }
+
+  writeStdout(
+    `measured_duration_ms=${elapsedMs}\nduration_budget=fail\nreported_duration=${formatBuildDockerDuration(elapsedMs)}\n`,
+  );
+  fail("build-docker must finish in under 10 minutes", 1);
 };
 
 const parseYamlScalarListValue = (value) => {
@@ -1188,6 +1236,8 @@ if (command === "duration-budget") {
   runSecretsDurationBudget(args);
 } else if (command === "forbidden-jobs-duration-budget") {
   runForbiddenJobsDurationBudget(args);
+} else if (command === "build-docker-duration-budget") {
+  runBuildDockerDurationBudget(args);
 } else if (command === "build-docker-needs") {
   runBuildDockerNeeds(args);
 } else if (command === "build-docker-scheduler") {
