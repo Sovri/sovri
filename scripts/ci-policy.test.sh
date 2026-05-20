@@ -1236,6 +1236,77 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_build_action_uses_current_alias_step_occurrence_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Define shared inputs
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with: &docker_inputs
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: *docker_inputs
+
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redefine shared inputs
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with: &docker_inputs
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: *docker_inputs
+YAML
+
+  # Given an identical alias Docker step exists before the build-docker job
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action current alias step occurrence: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the build-docker alias is resolved
+  # Then it uses the current step occurrence rather than the earlier identical step
+  if ! printf '%s\n' "$combined" | grep -Fq "build-docker must use push: false"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action current alias step occurrence: missing current-anchor failure reason
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_docker_build_action_multiline_platforms_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -6104,6 +6175,7 @@ run_docker_build_action_with_block_anchor_case
 run_docker_build_action_anchored_flow_with_mapping_case
 run_docker_build_action_with_alias_case
 run_docker_build_action_with_redefined_alias_case
+run_docker_build_action_uses_current_alias_step_occurrence_case
 run_docker_build_action_multiline_platforms_case
 run_docker_build_action_rejects_folded_platforms_case
 run_docker_build_action_ignores_run_block_fake_step_case

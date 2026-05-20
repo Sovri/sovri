@@ -286,49 +286,47 @@ const runBuildDockerDurationBudget = (args) => {
   fail("build-docker must finish in under 10 minutes", 1);
 };
 
-const findDirectChildLine = (block, parentLine, childPattern) => {
-  const parentIndent = getIndent(parentLine);
-  const lines = block.split(/\r?\n/);
-  const childIndent = lines
-    .slice(1)
-    .filter((line) => line.trim().length > 0 && !line.trim().startsWith("#"))
-    .map(getIndent)
-    .find((indent) => indent > parentIndent);
-  if (childIndent === undefined) return undefined;
+const findDirectChildEntry = (entries, parentEntry, childPattern) => {
+  const parentIndent = getIndent(parentEntry.line);
+  let childIndent;
 
-  return lines.find((line) => getIndent(line) === childIndent && childPattern.test(line));
+  for (const entry of entries.filter((candidate) => candidate.index > parentEntry.index)) {
+    const trimmedLine = entry.line.trim();
+    if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) continue;
+
+    const indent = getIndent(entry.line);
+    if (indent <= parentIndent) break;
+
+    childIndent ??= indent;
+    if (indent === childIndent && childPattern.test(entry.line)) return entry;
+  }
+
+  return undefined;
 };
 
-const getBuildDockerStepsBlock = (workflow) => {
+const getBuildDockerStepsBlockEntry = (workflow) => {
   const jobsPattern = /^jobs:\s*(?:#.*)?$/;
-  const jobsStructure = getIndentedBlock(workflow, jobsPattern);
-  const jobsBlock = getIndentedBlockRaw(workflow, jobsPattern);
-  const jobsHeader = jobsStructure.split(/\r?\n/)[0];
-  if (jobsHeader === undefined) return "";
+  const entries = getYamlStructureEntries(workflow);
+  const jobsEntry = entries.find((entry) => jobsPattern.test(entry.line));
+  if (jobsEntry === undefined) return undefined;
 
-  const buildDockerHeader = findDirectChildLine(
-    jobsStructure,
-    jobsHeader,
+  const buildDockerEntry = findDirectChildEntry(
+    entries,
+    jobsEntry,
     /^\s+build-docker:\s*(?:&[^\s#]+)?\s*(?:#.*)?$/,
   );
-  if (buildDockerHeader === undefined) return "";
+  if (buildDockerEntry === undefined) return undefined;
 
-  const buildDockerPattern = exactLinePattern(buildDockerHeader);
-  const buildDockerStructure = getIndentedBlock(jobsStructure, buildDockerPattern);
-  const buildDockerJob = getIndentedBlockRaw(jobsBlock, buildDockerPattern);
-  const stepsHeader = findDirectChildLine(
-    buildDockerStructure,
-    buildDockerHeader,
-    /^\s+steps:\s*(?:#.*)?$/,
-  );
-  if (stepsHeader === undefined) return "";
+  const stepsEntry = findDirectChildEntry(entries, buildDockerEntry, /^\s+steps:\s*(?:#.*)?$/);
+  if (stepsEntry === undefined) return undefined;
 
-  return getIndentedBlockRaw(buildDockerJob, exactLinePattern(stepsHeader));
+  return {
+    block: getIndentedBlockRawFromIndex(workflow, stepsEntry.index),
+    startIndex: stepsEntry.index,
+  };
 };
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const exactLinePattern = (line) => new RegExp(`^${escapeRegExp(line)}$`);
 
 const splitFlowMappingEntries = (flowMapping) => {
   const entries = [];
@@ -501,11 +499,12 @@ const getStepPropertyLineIndex = (step, propertyName) => {
   return undefined;
 };
 
-const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName) => {
+const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName, stepStartIndex) => {
   const workflowLines = workflow.split(/\r?\n/);
   const stepLines = step.split(/\r?\n/);
   const propertyLineIndex = getStepPropertyLineIndex(step, propertyName);
   if (propertyLineIndex === undefined) return undefined;
+  if (stepStartIndex !== undefined) return stepStartIndex + propertyLineIndex;
 
   for (let index = 0; index <= workflowLines.length - stepLines.length; index += 1) {
     if (stepLines.every((line, offset) => workflowLines[index + offset] === line)) {
@@ -516,11 +515,16 @@ const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName) => {
   return undefined;
 };
 
-const getAnchoredWithInput = (workflow, step, anchorName, inputName) => {
+const getAnchoredWithInput = (workflow, step, stepStartIndex, anchorName, inputName) => {
   const anchorPattern = new RegExp(
     `^\\s+(?:-\\s+)?with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
   );
-  const aliasLineIndex = getWorkflowLineIndexForStepProperty(workflow, step, "with");
+  const aliasLineIndex = getWorkflowLineIndexForStepProperty(
+    workflow,
+    step,
+    "with",
+    stepStartIndex,
+  );
   const searchLimit = aliasLineIndex ?? Number.POSITIVE_INFINITY;
   let anchorEntry;
 
@@ -541,12 +545,12 @@ const getAnchoredWithInput = (workflow, step, anchorName, inputName) => {
   );
 };
 
-const getStepInput = (step, inputName, workflow = "") => {
+const getStepInput = (step, inputName, workflow = "", stepStartIndex) => {
   const flowWith = getStepPropertyValue(step, "with");
   const flowMappingText = flowWith === undefined ? undefined : getFlowMappingText(flowWith);
   if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
   if (flowWith?.startsWith("*") === true) {
-    return getAnchoredWithInput(workflow, step, flowWith.slice(1), inputName);
+    return getAnchoredWithInput(workflow, step, stepStartIndex, flowWith.slice(1), inputName);
   }
 
   return getInputFromWithBlock(getStepPropertyBlockRaw(step, "with"), inputName);
@@ -604,8 +608,13 @@ const runDockerBuildAction = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", dockerBuildActionUsage);
   const workflow = readWorkflowFile(workflowPath);
-  const stepsBlock = getBuildDockerStepsBlock(workflow);
-  const buildSteps = getTopLevelListItemBlocks(stepsBlock).filter(isDockerBuildActionStep);
+  const stepsBlockEntry = getBuildDockerStepsBlockEntry(workflow);
+  const buildSteps =
+    stepsBlockEntry === undefined
+      ? []
+      : getTopLevelListItemBlockEntries(stepsBlockEntry.block, stepsBlockEntry.startIndex).filter(
+          (entry) => isDockerBuildActionStep(entry.block),
+        );
 
   if (buildSteps.length === 0) {
     writeStdout("docker_build_action=fail\n");
@@ -615,10 +624,11 @@ const runDockerBuildAction = (args) => {
   let acceptedBoundaryReason = "";
 
   for (const buildStep of buildSteps) {
-    const push = getStepInput(buildStep, "push", workflow);
-    const platforms = getStepInput(buildStep, "platforms", workflow) ?? "";
-    const cacheFrom = getStepInput(buildStep, "cache-from", workflow);
-    const cacheTo = getStepInput(buildStep, "cache-to", workflow);
+    const push = getStepInput(buildStep.block, "push", workflow, buildStep.startIndex);
+    const platforms =
+      getStepInput(buildStep.block, "platforms", workflow, buildStep.startIndex) ?? "";
+    const cacheFrom = getStepInput(buildStep.block, "cache-from", workflow, buildStep.startIndex);
+    const cacheTo = getStepInput(buildStep.block, "cache-to", workflow, buildStep.startIndex);
     const platformBoundary = getDockerPlatformBoundary(platforms);
 
     if (push !== "false") {
@@ -897,6 +907,36 @@ const getTopLevelListItemBlocks = (workflow) => {
   }
 
   return blocks;
+};
+
+const getTopLevelListItemBlockEntries = (workflow, startIndex) => {
+  const lines = workflow.split(/\r?\n/);
+  const itemIndent = lines.find((line) => /^\s*-\s+/.test(line))?.match(/^ */)?.[0].length;
+  if (itemIndent === undefined) return [];
+
+  const entries = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (getIndent(lines[index]) !== itemIndent || !/^\s*-\s+/.test(lines[index])) continue;
+
+    const block = [lines[index]];
+
+    for (const line of lines.slice(index + 1)) {
+      if (line.trim().length === 0) {
+        block.push(line);
+        continue;
+      }
+
+      const indent = getIndent(line);
+      if (indent < itemIndent) break;
+      if (indent === itemIndent && /^\s*-\s+/.test(line)) break;
+      block.push(line);
+    }
+
+    entries.push({ block: block.join("\n"), startIndex: startIndex + index });
+  }
+
+  return entries;
 };
 
 const hasInlineFullHistoryFetchDepth = (step) => {
