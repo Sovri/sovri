@@ -1402,10 +1402,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Secret filename and API key patterns
-        run: bash -eu scripts/no-secrets.sh
+        run: bash -euo pipefail scripts/no-secrets.sh
 YAML
 
-  # Given the guard step runs the shared script through bash with shell options
+  # Given the guard step runs the shared script through bash with grouped shell options
   node "$SCRIPT" secrets-no-secrets-reuse \
     --workflow "$workflow_file" \
     --script-path scripts/no-secrets.sh \

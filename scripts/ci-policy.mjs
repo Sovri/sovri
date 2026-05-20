@@ -398,6 +398,8 @@ const getRunCommandLines = (step) => {
   return commands;
 };
 
+const consumesShellOptionValue = (token) => /[oO]/.test(token.slice(1));
+
 const isSharedScriptRunCommand = (command, scriptPath) => {
   const commandWithoutComment = command.replace(/\s+#.*$/, "").trim();
   const tokens = commandWithoutComment.split(/\s+/).filter(Boolean);
@@ -421,7 +423,7 @@ const isSharedScriptRunCommand = (command, scriptPath) => {
     }
 
     if (/^[+-][A-Za-z]+$/.test(token)) {
-      scriptIndex += 1;
+      scriptIndex += consumesShellOptionValue(token) ? 2 : 1;
       continue;
     }
 
