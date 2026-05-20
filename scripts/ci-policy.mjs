@@ -357,6 +357,32 @@ const foldYamlScalarLines = (scalarLines) => {
   return commands;
 };
 
+const getHereDocumentDelimiter = (command) => {
+  const match = command.match(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1(?:\s|$)/);
+  return match?.[2];
+};
+
+const getLiteralScalarCommands = (scalarLines) => {
+  const commands = [];
+  const hereDocumentDelimiters = [];
+
+  for (const scalarLine of scalarLines) {
+    if (scalarLine.length === 0) continue;
+
+    const activeDelimiter = hereDocumentDelimiters.at(-1);
+    if (activeDelimiter !== undefined) {
+      if (scalarLine === activeDelimiter) hereDocumentDelimiters.pop();
+      continue;
+    }
+
+    commands.push(scalarLine);
+    const delimiter = getHereDocumentDelimiter(scalarLine);
+    if (delimiter !== undefined) hereDocumentDelimiters.push(delimiter);
+  }
+
+  return commands;
+};
+
 const getRunCommandLines = (step) => {
   const lines = step.split(/\r?\n/);
   const commands = [];
@@ -390,7 +416,7 @@ const getRunCommandLines = (step) => {
     if (isFoldedScalar) {
       commands.push(...foldYamlScalarLines(scalarLines));
     } else {
-      commands.push(...scalarLines.filter((scalarLine) => scalarLine.length > 0));
+      commands.push(...getLiteralScalarCommands(scalarLines));
     }
     index = blockEndIndex - 1;
   }
