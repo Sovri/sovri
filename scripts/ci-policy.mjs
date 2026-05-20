@@ -392,12 +392,16 @@ const getStepPropertyBlockRaw = (step, propertyName) => {
   if (firstLine === undefined) return "";
 
   const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
   const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
 
-  for (let index = 1; index < lines.length; index += 1) {
+  for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const lineIndent = getIndent(line);
-    if (lineIndent !== stepIndent + 2 || !propertyPattern.test(line)) continue;
+    const isInlineProperty = index === 0 && lineIndent === stepIndent && inlinePattern.test(line);
+    const isBlockProperty =
+      index > 0 && lineIndent === stepIndent + 2 && propertyPattern.test(line);
+    if (!isInlineProperty && !isBlockProperty) continue;
 
     const block = [line];
     for (const blockLine of lines.slice(index + 1)) {
