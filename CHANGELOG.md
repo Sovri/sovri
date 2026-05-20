@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: report named critical severity vulnerabilities from the supply-chain
+  audit gate failure output (#657).
+
 - `ci`: report named high severity vulnerabilities from the supply-chain audit
   gate failure output (#656).
 
