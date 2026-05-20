@@ -328,6 +328,17 @@ setup_module_exports_with_spaces_bypass() {
 export {};'
 }
 
+setup_url_does_not_hide_cross_line_any() {
+  # A URL string contains `//`, which the naive line-comment strip removes
+  # along with everything after it. Verify that does not hide a real
+  # multiline `: any` violation a few lines below — the surviving `:` from
+  # the truncated URL combined with the next-line `any` still trips the
+  # bypass regex once newlines are folded.
+  stage_file packages/core/src/types.ts 'const url = "https://example.com/";
+const y:
+any = 1;'
+}
+
 setup_any_word_inside_identifier() {
   # Identifiers containing the substring "any" (manyThings, anyhow, company)
   # must not trigger the guard. The contextual pattern only fires when "any"
@@ -443,6 +454,7 @@ run_case "BLOCK-25g comment-split value:/*x*/any"       setup_any_block_comment_
 run_case "BLOCK-29a require with space flagged"         setup_require_with_space_bypass    1 "ADR-003"
 run_case "BLOCK-29b require/*c*/( flagged"              setup_require_with_block_comment_bypass 1 "ADR-003"
 run_case "BLOCK-30a module . exports flagged"           setup_module_exports_with_spaces_bypass 1 "ADR-003"
+run_case "BLOCK-25h URL on prior line cannot hide any"  setup_url_does_not_hide_cross_line_any 1 "ADR-001"
 run_case "PASS-11a identifiers containing any allowed"  setup_any_word_inside_identifier   0 ""
 run_case "PASS-11b 'any' as English in line comment"    setup_any_english_in_line_comment  0 ""
 run_case "PASS-11c 'any of' in JSDoc continuation"      setup_any_english_in_jsdoc         0 ""
