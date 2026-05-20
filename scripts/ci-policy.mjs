@@ -176,6 +176,22 @@ const getListItemBlocks = (workflow) => {
   return blocks;
 };
 
+const hasInlineFullHistoryFetchDepth = (step) => {
+  const inlineWith = step.match(/^\s*with:\s*\{([^}]*)\}\s*(?:#.*)?$/m)?.[1];
+  if (inlineWith === undefined) return false;
+
+  return inlineWith
+    .split(",")
+    .some((entry) => /^\s*fetch-depth\s*:\s*(?:0|["']0["'])\s*$/.test(entry));
+};
+
+const hasFullHistoryFetchDepthInput = (step) => {
+  if (hasInlineFullHistoryFetchDepth(step)) return true;
+
+  const withBlock = getIndentedBlock(step, /^\s+with:\s*(?:#.*)?$/);
+  return /^\s*fetch-depth:\s*(?:0|["']0["'])\s*(?:#.*)?$/m.test(withBlock);
+};
+
 const isExternalActionReference = (actionReference) => !actionReference.startsWith("./");
 
 const isGitHubMaintainedActionReference = (actionReference) =>
@@ -336,12 +352,11 @@ const runSecretsCheckoutDepth = (args) => {
   const stepsBlock = getIndentedBlock(secretsJob, /^\s+steps:\s*(?:#.*)?$/);
   const checkoutUsesPattern =
     /^\s*(?:-\s*)?uses:\s*['"]?actions\/checkout@[^\s'"]+['"]?\s*(?:#.*)?$/m;
-  const fullHistoryDepthPattern = /^\s*fetch-depth:\s*(?:0|["']0["'])\s*(?:#.*)?$/m;
   const checkoutSteps = getListItemBlocks(stepsBlock).filter((step) =>
     checkoutUsesPattern.test(step),
   );
   const allCheckoutStepsUseFullHistory =
-    checkoutSteps.length > 0 && checkoutSteps.every((step) => fullHistoryDepthPattern.test(step));
+    checkoutSteps.length > 0 && checkoutSteps.every(hasFullHistoryFetchDepthInput);
 
   if (allCheckoutStepsUseFullHistory) {
     writeStdout("checkout_depth=pass\nhistory_scope=full\n");
