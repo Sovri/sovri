@@ -351,6 +351,16 @@ const parseFlowMapping = (flowMapping) => {
   return parsed;
 };
 
+const getFlowMappingText = (value) => {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed.slice(1, -1);
+
+  const anchoredFlow = trimmed.match(/^&[^\s#]+\s+(\{.*\})$/)?.[1];
+  if (anchoredFlow !== undefined) return anchoredFlow.slice(1, -1);
+
+  return undefined;
+};
+
 const getStepPropertyBlockRaw = (step, propertyName) => {
   const lines = step.split(/\r?\n/);
   const firstLine = lines[0];
@@ -379,13 +389,7 @@ const getStepPropertyBlockRaw = (step, propertyName) => {
   return "";
 };
 
-const getStepInput = (step, inputName) => {
-  const flowWith = getStepPropertyValue(step, "with");
-  if (flowWith?.startsWith("{") === true && flowWith.endsWith("}")) {
-    return parseFlowMapping(flowWith.slice(1, -1)).get(inputName);
-  }
-
-  const withBlock = getStepPropertyBlockRaw(step, "with");
+const getInputFromWithBlock = (withBlock, inputName) => {
   const lines = withBlock.split(/\r?\n/);
   const withIndent = getIndent(lines[0] ?? "");
   const inputPattern = new RegExp(`^\\s*${inputName}:\\s*(.*?)\\s*(?:#.*)?$`);
@@ -425,6 +429,34 @@ const getStepInput = (step, inputName) => {
   }
 
   return undefined;
+};
+
+const getAnchoredWithInput = (workflow, anchorName, inputName) => {
+  const anchorPattern = new RegExp(
+    `^\\s+with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
+  );
+  const anchorLine = getYamlStructureLines(workflow).find((line) => anchorPattern.test(line));
+  if (anchorLine === undefined) return undefined;
+
+  const anchorValue = anchorLine.match(anchorPattern)?.[1]?.trim() ?? "";
+  const flowMappingText = getFlowMappingText(anchorValue);
+  if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
+
+  return getInputFromWithBlock(
+    getIndentedBlockRaw(workflow, exactLinePattern(anchorLine)),
+    inputName,
+  );
+};
+
+const getStepInput = (step, inputName, workflow = "") => {
+  const flowWith = getStepPropertyValue(step, "with");
+  const flowMappingText = flowWith === undefined ? undefined : getFlowMappingText(flowWith);
+  if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
+  if (flowWith?.startsWith("*") === true) {
+    return getAnchoredWithInput(workflow, flowWith.slice(1), inputName);
+  }
+
+  return getInputFromWithBlock(getStepPropertyBlockRaw(step, "with"), inputName);
 };
 
 const getDockerPlatformBoundary = (platformsValue) => {
@@ -490,10 +522,10 @@ const runDockerBuildAction = (args) => {
   let acceptedBoundaryReason = "";
 
   for (const buildStep of buildSteps) {
-    const push = getStepInput(buildStep, "push");
-    const platforms = getStepInput(buildStep, "platforms") ?? "";
-    const cacheFrom = getStepInput(buildStep, "cache-from");
-    const cacheTo = getStepInput(buildStep, "cache-to");
+    const push = getStepInput(buildStep, "push", workflow);
+    const platforms = getStepInput(buildStep, "platforms", workflow) ?? "";
+    const cacheFrom = getStepInput(buildStep, "cache-from", workflow);
+    const cacheTo = getStepInput(buildStep, "cache-to", workflow);
     const platformBoundary = getDockerPlatformBoundary(platforms);
 
     if (push !== "false") {

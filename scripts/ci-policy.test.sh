@@ -1065,6 +1065,113 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_build_action_anchored_flow_with_mapping_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: &docker_inputs { push: false, platforms: "linux/amd64,linux/arm64", cache-from: type=gha, cache-to: "type=gha,mode=max" }
+YAML
+
+  # Given the Docker build action declares a flow-style `with` mapping with an anchor
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action anchored flow with mapping: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker build action configuration is evaluated
+  # Then the anchored flow-style `with` inputs are accepted
+  if ! printf '%s\n' "$stdout" | grep -Fq "docker_build_action=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action anchored flow with mapping: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_docker_build_action_with_alias_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build first Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: &docker_inputs
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build second Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: *docker_inputs
+YAML
+
+  # Given a later Docker build action reuses an anchored `with` mapping
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action with alias: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When every Docker build action step is evaluated
+  # Then aliased `with` inputs are resolved and accepted
+  if ! printf '%s\n' "$stdout" | grep -Fq "docker_build_action=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action with alias: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_docker_build_action_multiline_platforms_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -5583,6 +5690,8 @@ run_docker_build_action_ignores_env_inputs_case
 run_docker_build_action_flow_with_mapping_case
 run_docker_build_action_build_job_anchor_case
 run_docker_build_action_with_block_anchor_case
+run_docker_build_action_anchored_flow_with_mapping_case
+run_docker_build_action_with_alias_case
 run_docker_build_action_multiline_platforms_case
 run_docker_build_action_rejects_folded_platforms_case
 run_docker_build_action_ignores_run_block_fake_step_case
