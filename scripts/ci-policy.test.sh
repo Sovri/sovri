@@ -1010,6 +1010,396 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_checkout_depth_zero_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs: # workflow jobs
+    secrets-scan: # secrets policy job
+      runs-on: ubuntu-latest
+      steps: # scan steps
+        - name: Checkout repository
+          uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # pinned checkout
+          with:
+            fetch-depth: "0" # full history
+YAML
+
+  # Given the secrets-scan job contains a checkout step using "actions/checkout"
+  # And that checkout step has input "fetch-depth" set to 0
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # When the checkout depth rule is evaluated
+  # Then the checkout depth assertion passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the secrets-scan job is classified as scanning full history
+  if ! printf '%s\n' "$combined" | grep -Fq "history_scope=full"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: missing full-history classification
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_requires_steps_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+            fetch-depth: 0
+    steps:
+      - run: echo scan
+YAML
+
+  # Given the secrets-scan job has checkout-like data outside the steps list
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the checkout depth assertion fails instead of accepting matrix data
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout requires steps: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout requires steps: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_rejects_shallow_checkout_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Full checkout
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+        with:
+          fetch-depth: 0
+      - name: Shallow checkout
+        uses: actions/checkout@fedcba9876543210fedcba9876543210fedcba98
+        with:
+          fetch-depth: 1
+YAML
+
+  # Given one checkout step is full-history and another checkout step is shallow
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the checkout depth assertion fails because every checkout must scan full history
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout rejects shallow checkout: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout rejects shallow checkout: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_requires_with_fetch_depth_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+        env:
+          fetch-depth: 0
+YAML
+
+  # Given a checkout step has fetch-depth-like data outside checkout inputs
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the checkout depth assertion fails because fetch-depth must be under with
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout requires with fetch-depth: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout requires with fetch-depth: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_inline_with_mapping_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+        with: { fetch-depth: 0 }
+YAML
+
+  # Given a checkout step declares fetch-depth through an inline with mapping
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the checkout depth assertion passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout inline with mapping: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout inline with mapping: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_ignores_scalar_job_key_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - run: >-1
+          secrets-scan:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+                with:
+                  fetch-depth: 0
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fedcba9876543210fedcba9876543210fedcba98
+        with:
+          fetch-depth: 1
+YAML
+
+  # Given another job emits YAML-like secrets-scan text in a script block
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the real secrets-scan job controls the policy result
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout ignores scalar job key: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout ignores scalar job key: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_checkout_ignores_scalar_step_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |2
+          - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+            with:
+              fetch-depth: 0
+      - run: echo scan
+YAML
+
+  # Given the secrets-scan job has checkout-like text inside a script block
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then script text is not accepted as a checkout step
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout ignores scalar step: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout ignores scalar step: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_fail_case 300000
@@ -1029,6 +1419,13 @@ run_audit_gate_high_vulnerability_case
 run_audit_gate_high_without_advisory_name_case
 run_audit_gate_mixed_high_and_critical_prioritizes_critical_case
 run_audit_gate_critical_vulnerability_case
+run_secrets_checkout_depth_zero_case
+run_secrets_checkout_requires_steps_case
+run_secrets_checkout_rejects_shallow_checkout_case
+run_secrets_checkout_requires_with_fetch_depth_case
+run_secrets_checkout_inline_with_mapping_case
+run_secrets_checkout_ignores_scalar_job_key_case
+run_secrets_checkout_ignores_scalar_step_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2

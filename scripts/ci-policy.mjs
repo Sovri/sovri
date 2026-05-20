@@ -10,13 +10,16 @@ const FULL_COMMIT_SHA_LENGTH = 40;
 const PINNED_EXTERNAL_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
 const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?$/;
+const BLOCK_SCALAR_PATTERN = /:\s*[>|](?:[+-]?[1-9]?|[1-9][+-]?)?\s*(?:#.*)?$/;
 
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
 const actionPinningUsage = "Usage: node scripts/ci-policy.mjs action-pinning --workflow <path>";
 const auditGateUsage =
   "Usage: node scripts/ci-policy.mjs audit-gate --input <pnpm-audit-report.json> --audit-level high";
-const usage = `${durationBudgetUsage}\n${actionPinningUsage}\n${auditGateUsage}`;
+const secretsCheckoutDepthUsage =
+  "Usage: node scripts/ci-policy.mjs secrets-checkout-depth --workflow <path>";
+const usage = `${durationBudgetUsage}\n${actionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -58,6 +61,30 @@ const readRequiredOption = (options, key, commandUsage) => {
     fail(`ERROR: --${key} is required.\n${commandUsage}`, 2);
   }
   return value;
+};
+
+const getIndent = (line) => line.match(/^ */)?.[0].length ?? 0;
+
+const getYamlStructureLines = (workflow) => {
+  const lines = [];
+  let blockScalarIndent;
+
+  for (const line of workflow.split(/\r?\n/)) {
+    if (blockScalarIndent !== undefined) {
+      if (line.trim().length === 0) continue;
+
+      if (getIndent(line) > blockScalarIndent) continue;
+      blockScalarIndent = undefined;
+    }
+
+    lines.push(line);
+
+    if (BLOCK_SCALAR_PATTERN.test(line)) {
+      blockScalarIndent = getIndent(line);
+    }
+  }
+
+  return lines;
 };
 
 const formatDuration = (elapsedMs) => {
@@ -123,6 +150,71 @@ const extractActionReferences = (workflow) => {
   }
 
   return actionReferences;
+};
+
+const getIndentedBlock = (workflow, parentPattern) => {
+  const lines = getYamlStructureLines(workflow);
+  const startIndex = lines.findIndex((line) => parentPattern.test(line));
+  if (startIndex === -1) return "";
+
+  const startIndent = getIndent(lines[startIndex]);
+  const block = [lines[startIndex]];
+
+  for (const line of lines.slice(startIndex + 1)) {
+    if (line.trim().length === 0) {
+      block.push(line);
+      continue;
+    }
+
+    const indent = getIndent(line);
+    if (indent <= startIndent) break;
+    block.push(line);
+  }
+
+  return block.join("\n");
+};
+
+const getListItemBlocks = (workflow) => {
+  const lines = getYamlStructureLines(workflow);
+  const blocks = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/^\s*-\s+/.test(lines[index])) continue;
+
+    const startIndent = getIndent(lines[index]);
+    const block = [lines[index]];
+
+    for (const line of lines.slice(index + 1)) {
+      if (line.trim().length === 0) {
+        block.push(line);
+        continue;
+      }
+
+      const indent = getIndent(line);
+      if (indent <= startIndent) break;
+      block.push(line);
+    }
+
+    blocks.push(block.join("\n"));
+  }
+
+  return blocks;
+};
+
+const hasInlineFullHistoryFetchDepth = (step) => {
+  const inlineWith = step.match(/^\s*with:\s*\{([^}]*)\}\s*(?:#.*)?$/m)?.[1];
+  if (inlineWith === undefined) return false;
+
+  return inlineWith
+    .split(",")
+    .some((entry) => /^\s*fetch-depth\s*:\s*(?:0|["']0["'])\s*$/.test(entry));
+};
+
+const hasFullHistoryFetchDepthInput = (step) => {
+  if (hasInlineFullHistoryFetchDepth(step)) return true;
+
+  const withBlock = getIndentedBlock(step, /^\s+with:\s*(?:#.*)?$/);
+  return /^\s*fetch-depth:\s*(?:0|["']0["'])\s*(?:#.*)?$/m.test(withBlock);
 };
 
 const isExternalActionReference = (actionReference) => !actionReference.startsWith("./");
@@ -276,6 +368,30 @@ const runAuditGate = (args) => {
   writeStdout("audit_gate=pass\n");
 };
 
+const runSecretsCheckoutDepth = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", secretsCheckoutDepthUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const jobsBlock = getIndentedBlock(workflow, /^\s*jobs:\s*(?:#.*)?$/);
+  const secretsJob = getIndentedBlock(jobsBlock, /^\s+secrets-scan:\s*(?:#.*)?$/);
+  const stepsBlock = getIndentedBlock(secretsJob, /^\s+steps:\s*(?:#.*)?$/);
+  const checkoutUsesPattern =
+    /^\s*(?:-\s*)?uses:\s*['"]?actions\/checkout@[^\s'"]+['"]?\s*(?:#.*)?$/m;
+  const checkoutSteps = getListItemBlocks(stepsBlock).filter((step) =>
+    checkoutUsesPattern.test(step),
+  );
+  const allCheckoutStepsUseFullHistory =
+    checkoutSteps.length > 0 && checkoutSteps.every(hasFullHistoryFetchDepthInput);
+
+  if (allCheckoutStepsUseFullHistory) {
+    writeStdout("checkout_depth=pass\nhistory_scope=full\n");
+    return;
+  }
+
+  writeStdout("checkout_depth=fail\n");
+  fail("secrets-scan must use actions/checkout with fetch-depth: 0", 1);
+};
+
 const [command, ...args] = argv.slice(2);
 
 if (command === "duration-budget") {
@@ -284,6 +400,8 @@ if (command === "duration-budget") {
   runActionPinning(args);
 } else if (command === "audit-gate") {
   runAuditGate(args);
+} else if (command === "secrets-checkout-depth") {
+  runSecretsCheckoutDepth(args);
 } else {
   fail(usage, 2);
 }
