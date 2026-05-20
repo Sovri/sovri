@@ -209,8 +209,29 @@ const getIndentedBlock = (workflow, parentPattern) => {
   return block.join("\n");
 };
 
-const getListItemBlocks = (workflow) => {
-  const lines = getYamlStructureLines(workflow);
+const getIndentedBlockRaw = (workflow, parentPattern) => {
+  const lines = workflow.split(/\r?\n/);
+  const startIndex = lines.findIndex((line) => parentPattern.test(line));
+  if (startIndex === -1) return "";
+
+  const startIndent = getIndent(lines[startIndex]);
+  const block = [lines[startIndex]];
+
+  for (const line of lines.slice(startIndex + 1)) {
+    if (line.trim().length === 0) {
+      block.push(line);
+      continue;
+    }
+
+    const indent = getIndent(line);
+    if (indent <= startIndent) break;
+    block.push(line);
+  }
+
+  return block.join("\n");
+};
+
+const getListItemBlocksFromLines = (lines) => {
   const blocks = [];
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -236,6 +257,10 @@ const getListItemBlocks = (workflow) => {
   return blocks;
 };
 
+const getListItemBlocks = (workflow) => getListItemBlocksFromLines(getYamlStructureLines(workflow));
+
+const getRawListItemBlocks = (workflow) => getListItemBlocksFromLines(workflow.split(/\r?\n/));
+
 const hasInlineFullHistoryFetchDepth = (step) => {
   const inlineWith = step.match(/^\s*with:\s*\{([^}]*)\}\s*(?:#.*)?$/m)?.[1];
   if (inlineWith === undefined) return false;
@@ -258,13 +283,19 @@ const getSecretsScanStepsBlock = (workflow) => {
   return getIndentedBlock(secretsJob, /^\s+steps:\s*(?:#.*)?$/);
 };
 
+const getSecretsScanRawStepsBlock = (workflow) => {
+  const jobsBlock = getIndentedBlockRaw(workflow, /^\s*jobs:\s*(?:#.*)?$/);
+  const secretsJob = getIndentedBlockRaw(jobsBlock, /^\s+secrets-scan:\s*(?:#.*)?$/);
+  return getIndentedBlockRaw(secretsJob, /^\s+steps:\s*(?:#.*)?$/);
+};
+
 const hasSecretFilenameStepName = (step) =>
   /^\s*(?:-\s*)?name:\s*["']?Secret filename and API key patterns["']?\s*(?:#.*)?$/m.test(step);
 
 const hasRunCommand = (step, scriptPath) => {
   const escapedPath = escapeRegExp(scriptPath);
   const runPattern = new RegExp(
-    `^\\s*(?:-\\s*)?run:\\s*["']?(?:\\./)?${escapedPath}["']?\\s*(?:#.*)?$`,
+    `(?:^|\\s)(?:bash\\s+|sh\\s+)?(?:\\./)?${escapedPath}(?:\\s|$|["'])`,
     "m",
   );
   return runPattern.test(step);
@@ -657,8 +688,8 @@ const runSecretsNoSecretsReuse = (args) => {
   const workflowPath = readRequiredOption(options, "workflow", secretsNoSecretsReuseUsage);
   const scriptPath = readRequiredOption(options, "script-path", secretsNoSecretsReuseUsage);
   const workflow = readWorkflowFile(workflowPath);
-  const stepsBlock = getSecretsScanStepsBlock(workflow);
-  const namedSecretGuardStep = getListItemBlocks(stepsBlock).find(hasSecretFilenameStepName);
+  const stepsBlock = getSecretsScanRawStepsBlock(workflow);
+  const namedSecretGuardStep = getRawListItemBlocks(stepsBlock).find(hasSecretFilenameStepName);
   const callsSharedScript =
     namedSecretGuardStep !== undefined && hasRunCommand(namedSecretGuardStep, scriptPath);
   const duplicatesPatternsInline = hasInlineSecretPatternList(stepsBlock);
