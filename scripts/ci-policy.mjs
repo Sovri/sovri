@@ -287,10 +287,16 @@ const runBuildDockerDurationBudget = (args) => {
 };
 
 const findDirectChildLine = (block, parentLine, childPattern) => {
-  const childIndent = getIndent(parentLine) + 2;
-  return block
-    .split(/\r?\n/)
-    .find((line) => getIndent(line) === childIndent && childPattern.test(line));
+  const parentIndent = getIndent(parentLine);
+  const lines = block.split(/\r?\n/);
+  const childIndent = lines
+    .slice(1)
+    .filter((line) => line.trim().length > 0 && !line.trim().startsWith("#"))
+    .map(getIndent)
+    .find((indent) => indent > parentIndent);
+  if (childIndent === undefined) return undefined;
+
+  return lines.find((line) => getIndent(line) === childIndent && childPattern.test(line));
 };
 
 const getBuildDockerStepsBlock = (workflow) => {
