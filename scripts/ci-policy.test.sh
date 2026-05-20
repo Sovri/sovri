@@ -553,6 +553,100 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_gitleaks_action_pinning_sha_boundary_example() {
+  local sha_ref="$1"
+  local outcome="$2"
+  local reason="$3"
+  local action_ref workflow_file metadata_file stdout stderr stdout_file stderr_file ec combined
+
+  action_ref="gitleaks/gitleaks-action@${sha_ref}"
+  workflow_file=$(mktemp)
+  metadata_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<YAML
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ${action_ref}
+YAML
+
+  cat >"$metadata_file" <<JSON
+{
+  "pins": [
+    {
+      "action_ref": "${action_ref}",
+      "source_release_line": "v2"
+    }
+  ]
+}
+JSON
+
+  # Given the secrets-scan job contains the Gitleaks action reference with SHA boundary length
+  # And the action pin metadata records source release line "v2"
+  node "$SCRIPT" gitleaks-action-pinning \
+    --workflow "$workflow_file" \
+    --metadata "$metadata_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$metadata_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the Gitleaks action assertion outcome is "<outcome>"
+  if [ "$outcome" = "accepted" ] && [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning SHA boundary ${sha_ref}: expected accepted exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if [ "$outcome" = "rejected" ] && [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning SHA boundary ${sha_ref}: expected rejected non-zero exit
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the boundary reason is "<reason>"
+  if ! printf '%s\n' "$combined" | grep -Fq "$reason"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning SHA boundary ${sha_ref}: missing boundary reason ${reason}
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_gitleaks_action_pinning_sha_boundary_case() {
+  run_gitleaks_action_pinning_sha_boundary_example \
+    "123456789012345678901234567890123456789" \
+    "rejected" \
+    "39 hexadecimal characters is too short"
+  run_gitleaks_action_pinning_sha_boundary_example \
+    "1234567890123456789012345678901234567890" \
+    "accepted" \
+    "40 hexadecimal characters is exactly valid"
+  run_gitleaks_action_pinning_sha_boundary_example \
+    "12345678901234567890123456789012345678901" \
+    "rejected" \
+    "41 hexadecimal characters is too long"
+}
+
 run_action_pinning_no_external_refs_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec
 
@@ -2205,6 +2299,7 @@ run_action_pinning_sha_pass_case
 run_gitleaks_action_pinning_sha_pass_case
 run_gitleaks_action_pinning_missing_action_case
 run_gitleaks_action_pinning_moving_v2_case
+run_gitleaks_action_pinning_sha_boundary_case
 run_action_pinning_no_external_refs_case
 run_action_pinning_moving_refs_case
 run_action_pinning_sha_boundary_case

@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: add fixture coverage for 39/40/41-character SHA boundary handling in
+  the secrets-scan Gitleaks action policy (#675).
+
 - `ci`: add fixture coverage rejecting the moving `gitleaks/gitleaks-action@v2`
   tag in the secrets-scan Gitleaks action policy (#674).
 
