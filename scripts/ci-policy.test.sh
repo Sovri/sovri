@@ -929,7 +929,7 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
     return
   fi
 
-  if ! printf '%s\n' "$combined" | grep -Fq "critical vulnerabilities"; then
+  if ! printf '%s\n' "$combined" | grep -Fq "critical severity vulnerability"; then
     FAIL=$((FAIL + 1))
     FAILURES="${FAILURES}
   x audit gate mixed high and critical: missing critical failure message
