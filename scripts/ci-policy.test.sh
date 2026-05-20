@@ -418,6 +418,74 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_gitleaks_action_pinning_missing_action_case() {
+  local workflow_file metadata_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  metadata_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac
+        with:
+          fetch-depth: 0
+YAML
+
+  cat >"$metadata_file" <<'JSON'
+{
+  "pins": []
+}
+JSON
+
+  # Given the secrets-scan job contains no Gitleaks action reference
+  node "$SCRIPT" gitleaks-action-pinning \
+    --workflow "$workflow_file" \
+    --metadata "$metadata_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$metadata_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the Gitleaks action assertion fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning missing action: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "gitleaks_action=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning missing action: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure mentions the required Gitleaks action repository
+  if ! printf '%s\n' "$combined" | grep -Fq "secrets-scan must run gitleaks/gitleaks-action"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x gitleaks action pinning missing action: missing failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_action_pinning_no_external_refs_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec
 
@@ -2068,6 +2136,7 @@ run_duration_cache_miss_case
 run_invalid_cache_state_case
 run_action_pinning_sha_pass_case
 run_gitleaks_action_pinning_sha_pass_case
+run_gitleaks_action_pinning_missing_action_case
 run_action_pinning_no_external_refs_case
 run_action_pinning_moving_refs_case
 run_action_pinning_sha_boundary_case

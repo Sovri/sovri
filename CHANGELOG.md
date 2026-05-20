@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: add fixture coverage ensuring the secrets-scan Gitleaks action is
+  rejected when it is missing from the workflow (#673).
+
 - `ci`: add fixture evidence coverage ensuring resolved false-positive fixtures
   do not suppress unresolved real leak fixtures in the secrets-scan gate (#671).
 
