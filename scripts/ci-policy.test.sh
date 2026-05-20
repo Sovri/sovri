@@ -1019,10 +1019,10 @@ run_secrets_checkout_depth_zero_case() {
 
   cat >"$workflow_file" <<'YAML'
 name: ci
-jobs:
-    secrets-scan:
+jobs: # workflow jobs
+    secrets-scan: # secrets policy job
       runs-on: ubuntu-latest
-      steps:
+      steps: # scan steps
         - name: Checkout repository
           uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # pinned checkout
           with:
