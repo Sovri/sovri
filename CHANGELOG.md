@@ -19,7 +19,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Security
+
+- `ci`: pass `persist-credentials: false` to every `actions/checkout` step in
+  the forbidden-tools and forbidden-imports workflows so `GITHUB_TOKEN` is no
+  longer written to local git config and cannot leak into later steps or
+  uploaded artifacts (#724, zizmor `artipacked`).
+
 ### Fixed
+
+- `ci`: broaden the TypeScript escape-hatch detector in
+  `scripts/no-forbidden-tools.sh` so `Array<any>`, `Promise<any>`, union
+  types like `string|any`, and `value:any` (no space) are all caught while
+  identifiers that merely contain the substring `any` (`manyThings`,
+  `anyhow`, `company`) remain allowed (#724).
 
 - `ci`: report a configuration error when the secrets-scan workflow references
   the shared no-secrets guard but the script file is missing or outside the

@@ -272,6 +272,25 @@ setup_any_in_source() {
   stage_file packages/core/src/types.ts 'export const unsafe = (value: any) => value;'
 }
 
+setup_any_no_space_in_source() {
+  stage_file packages/core/src/types.ts 'export const unsafe = (value:any) => value;'
+}
+
+setup_any_generic_in_source() {
+  stage_file packages/core/src/types.ts 'export const xs: Array<any> = [];'
+}
+
+setup_any_union_in_source() {
+  stage_file packages/core/src/types.ts 'export type T = string|any;'
+}
+
+setup_any_word_inside_identifier() {
+  # Identifiers containing the substring "any" (manyThings, anyhow, company)
+  # must not trigger the guard. The "(^|[^[:alnum:]_])any([^[:alnum:]_]|$)"
+  # boundary protects against false positives on user-defined names.
+  stage_file packages/core/src/types.ts 'export const manyThings = "anyhow"; export const company = 1;'
+}
+
 setup_ts_ignore_in_source() {
   stage_file packages/core/src/types.ts '// @ts-ignore
 export const ignored = missing;'
@@ -345,6 +364,10 @@ run_case "BLOCK-23 .prettierrc.json nested"     setup_prettier_nested     1 "BLO
 run_case "BLOCK-24 multiple forbidden at once"  setup_multiple_forbidden  1 "BLOCKED: forbidden tool files" \
   "package-lock.json" ".eslintrc.json" "biome.json"
 run_case "BLOCK-25 any in source references ADR-001" setup_any_in_source 1 "ADR-001"
+run_case "BLOCK-25a value:any (no space) flagged"       setup_any_no_space_in_source       1 "ADR-001"
+run_case "BLOCK-25b Array<any> flagged"                 setup_any_generic_in_source        1 "ADR-001"
+run_case "BLOCK-25c union with any flagged"             setup_any_union_in_source          1 "ADR-001"
+run_case "PASS-11a identifiers containing any allowed"  setup_any_word_inside_identifier   0 ""
 run_case "BLOCK-26 @ts-ignore in source references ADR-001" setup_ts_ignore_in_source 1 "ADR-001"
 run_case "BLOCK-27 @ts-expect-error in source references ADR-001" setup_ts_expect_error_in_source 1 "ADR-001"
 run_case "BLOCK-28 oxlint-disable in source references ADR-011" setup_oxlint_disable_in_source 1 "ADR-011"
