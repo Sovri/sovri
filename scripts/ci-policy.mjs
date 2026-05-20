@@ -14,7 +14,9 @@ const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
 const actionPinningUsage = "Usage: node scripts/ci-policy.mjs action-pinning --workflow <path>";
-const usage = `${durationBudgetUsage}\n${actionPinningUsage}`;
+const auditGateUsage =
+  "Usage: node scripts/ci-policy.mjs audit-gate --input <pnpm-audit-report.json> --audit-level high";
+const usage = `${durationBudgetUsage}\n${actionPinningUsage}\n${auditGateUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -170,6 +172,24 @@ const getFailureMessages = (movingReferences) => {
   return messages;
 };
 
+const readAuditReport = (inputPath) => {
+  try {
+    return JSON.parse(readFileSync(inputPath, "utf8"));
+  } catch {
+    fail(`ERROR: Unable to read audit report file: ${inputPath}.`, 2);
+  }
+};
+
+const getAuditSeverityCount = (report, severity) => {
+  if (typeof report !== "object" || report === null) return 0;
+  const metadata = report.metadata;
+  if (typeof metadata !== "object" || metadata === null) return 0;
+  const vulnerabilities = metadata.vulnerabilities;
+  if (typeof vulnerabilities !== "object" || vulnerabilities === null) return 0;
+  const count = vulnerabilities[severity];
+  return typeof count === "number" ? count : 0;
+};
+
 const runActionPinning = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", actionPinningUsage);
@@ -191,12 +211,33 @@ const runActionPinning = (args) => {
   fail(getFailureMessages(movingReferences).join("\n"), 1);
 };
 
+const runAuditGate = (args) => {
+  const options = parseOptions(args);
+  const inputPath = readRequiredOption(options, "input", auditGateUsage);
+  const auditLevel = readRequiredOption(options, "audit-level", auditGateUsage);
+  if (auditLevel !== "high") {
+    fail('ERROR: --audit-level must be "high".', 2);
+  }
+
+  const report = readAuditReport(inputPath);
+  const highCount = getAuditSeverityCount(report, "high");
+  const criticalCount = getAuditSeverityCount(report, "critical");
+
+  if (highCount > 0 || criticalCount > 0) {
+    fail("pnpm audit reported high or critical vulnerabilities", 1);
+  }
+
+  writeStdout("audit_gate=pass\n");
+};
+
 const [command, ...args] = argv.slice(2);
 
 if (command === "duration-budget") {
   runDurationBudget(args);
 } else if (command === "action-pinning") {
   runActionPinning(args);
+} else if (command === "audit-gate") {
+  runAuditGate(args);
 } else {
   fail(usage, 2);
 }
