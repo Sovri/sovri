@@ -292,14 +292,46 @@ const getSecretsScanRawStepsBlock = (workflow) => {
 const hasSecretFilenameStepName = (step) =>
   /^\s*(?:-\s*)?name:\s*["']?Secret filename and API key patterns["']?\s*(?:#.*)?$/m.test(step);
 
-const hasRunCommand = (step, scriptPath) => {
-  const escapedPath = escapeRegExp(scriptPath);
-  const runPattern = new RegExp(
-    `(?:^|\\s)(?:bash\\s+|sh\\s+)?(?:\\./)?${escapedPath}(?:\\s|$|["'])`,
-    "m",
-  );
-  return runPattern.test(step);
+const stripYamlQuotes = (value) => {
+  const match = value.match(/^(['"])(.*)\1$/);
+  return match?.[2] ?? value;
 };
+
+const getRunCommandLines = (step) => {
+  const lines = step.split(/\r?\n/);
+  const commands = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const match = line.match(/^\s*(?:-\s*)?run:\s*(.*)$/);
+    if (match?.[1] === undefined) continue;
+
+    const runValue = match[1].trim();
+    if (!/^[>|]/.test(runValue)) {
+      commands.push(stripYamlQuotes(runValue));
+      continue;
+    }
+
+    const runIndent = getIndent(line);
+    for (const blockLine of lines.slice(index + 1)) {
+      if (blockLine.trim().length === 0) continue;
+      if (getIndent(blockLine) <= runIndent) break;
+      commands.push(blockLine.trim());
+    }
+  }
+
+  return commands;
+};
+
+const isSharedScriptRunCommand = (command, scriptPath) => {
+  const commandWithoutComment = command.replace(/\s+#.*$/, "").trim();
+  const escapedPath = escapeRegExp(scriptPath);
+  const runPattern = new RegExp(`^(?:bash\\s+|sh\\s+)?(?:\\./)?${escapedPath}(?:\\s|$)`);
+  return runPattern.test(commandWithoutComment);
+};
+
+const hasRunCommand = (step, scriptPath) =>
+  getRunCommandLines(step).some((command) => isSharedScriptRunCommand(command, scriptPath));
 
 const hasInlineSecretPatternList = (stepsBlock) =>
   /OPENAI_API_KEY|ANTHROPIC_API_KEY|SECRET_PATTERNS|aws_secret_access_key/.test(stepsBlock);
