@@ -1191,6 +1191,69 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_checkout_positive_fetch_depth_case() {
+  local fetch_depth workflow_file stdout stderr stdout_file stderr_file ec combined
+  fetch_depth="$1"
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<YAML
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+        with:
+          fetch-depth: ${fetch_depth}
+YAML
+
+  # Given the secrets-scan job contains a checkout step using "actions/checkout"
+  # And that checkout step has input "fetch-depth" set to a positive value
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the checkout depth assertion fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout positive fetch-depth ${fetch_depth}: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout positive fetch-depth ${fetch_depth}: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure mentions that secrets-scan must checkout full history
+  if ! printf '%s\n' "$combined" | grep -Fq "secrets-scan must checkout full history"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout positive fetch-depth ${fetch_depth}: missing full-history failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_secrets_checkout_requires_steps_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -1540,6 +1603,9 @@ run_audit_gate_critical_vulnerability_case
 run_secrets_checkout_depth_zero_case
 run_secrets_checkout_missing_step_case
 run_secrets_checkout_missing_fetch_depth_case
+run_secrets_checkout_positive_fetch_depth_case 1
+run_secrets_checkout_positive_fetch_depth_case 2
+run_secrets_checkout_positive_fetch_depth_case 50
 run_secrets_checkout_requires_steps_case
 run_secrets_checkout_rejects_shallow_checkout_case
 run_secrets_checkout_requires_with_fetch_depth_case

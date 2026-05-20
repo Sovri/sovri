@@ -389,7 +389,10 @@ const runSecretsCheckoutDepth = (args) => {
   }
 
   writeStdout("checkout_depth=fail\n");
-  fail("secrets-scan must use actions/checkout with fetch-depth: 0", 1);
+  fail(
+    "secrets-scan must checkout full history; secrets-scan must use actions/checkout with fetch-depth: 0",
+    1,
+  );
 };
 
 const [command, ...args] = argv.slice(2);
