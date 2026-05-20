@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `ci`: add fixture coverage rejecting inline duplicated API-key pattern scans
+  when secrets-scan does not run the shared no-secrets guard (#683).
+
 - `ci`: add fixture coverage ensuring the secrets-scan duration budget ignores
   faster sibling jobs such as backend-checks (#681).
 
