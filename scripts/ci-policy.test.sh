@@ -405,8 +405,8 @@ run_secrets_duration_counts_only_secrets_job_case() {
   # Given the backend-checks job completes after 45000 ms
   # And the secrets-scan job completes after 75000 ms
   node "$SCRIPT" secrets-duration-budget \
-    --backend-job-start-ms 100000 \
-    --backend-job-end-ms 145000 \
+    --backend-job-start-ms 200000 \
+    --backend-job-end-ms 245000 \
     --job-start-ms 100000 \
     --job-end-ms 175000 \
     >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
