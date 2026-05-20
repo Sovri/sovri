@@ -15,6 +15,13 @@ const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
 const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?$/;
 const BLOCK_SCALAR_PATTERN = /:\s*[>|](?:[+-]?[1-9]?|[1-9][+-]?)?\s*(?:#.*)?$/;
 const GITLEAKS_ACTION_REPOSITORY = "gitleaks/gitleaks-action";
+const REQUIRED_BUILD_DOCKER_NEEDS = [
+  "backend-checks",
+  "supply-chain",
+  "secrets-scan",
+  "forbidden-tools",
+  "forbidden-imports",
+];
 
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
@@ -22,6 +29,8 @@ const secretsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs secrets-duration-budget --job-start-ms <ms> --job-end-ms <ms>";
 const forbiddenJobsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs forbidden-jobs-duration-budget --forbidden-tools-ms <ms|missing|unknown> --forbidden-imports-ms <ms|missing|unknown>";
+const buildDockerNeedsUsage =
+  "Usage: node scripts/ci-policy.mjs build-docker-needs --workflow <path>";
 const actionPinningUsage = "Usage: node scripts/ci-policy.mjs action-pinning --workflow <path>";
 const gitleaksActionPinningUsage =
   "Usage: node scripts/ci-policy.mjs gitleaks-action-pinning --workflow <path> --metadata <gitleaks-pin-metadata.json>";
@@ -33,7 +42,7 @@ const secretsFixtureEvidenceUsage =
   "Usage: node scripts/ci-policy.mjs secrets-fixture-evidence --input <fixture-evidence.json> --false-positive-fixture <path>";
 const secretsNoSecretsReuseUsage =
   "Usage: node scripts/ci-policy.mjs secrets-no-secrets-reuse --workflow <path> --script-path <path> [--repo-root <path>]";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerNeedsUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -217,6 +226,64 @@ const runForbiddenJobsDurationBudget = (args) => {
       )
       .join("")}`,
   );
+};
+
+const parseYamlScalarListValue = (value) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue.startsWith("[")) {
+    return [stripYamlQuotes(trimmedValue)];
+  }
+
+  return trimmedValue
+    .slice(1)
+    .replace(/\]$/, "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => stripYamlQuotes(entry));
+};
+
+const readYamlNeedsValues = (needsBlock) => {
+  const needsLines = needsBlock.split(/\r?\n/);
+  const inlineValue = needsLines
+    .find((line) => /^[ \t]*needs:/.test(line))
+    ?.match(/^[ \t]*needs:[ \t]*(.*?)[ \t]*(?:#.*)?$/)?.[1]
+    ?.trim();
+  if (inlineValue !== undefined && inlineValue.length > 0) {
+    const scalarValue =
+      inlineValue.startsWith("[") && !inlineValue.endsWith("]")
+        ? [inlineValue, ...needsLines.slice(1).map((line) => line.replace(/[ \t]+#.*$/, "").trim())]
+            .join(" ")
+            .trim()
+        : inlineValue;
+    return parseYamlScalarListValue(scalarValue);
+  }
+
+  return needsLines
+    .map((line) => line.match(/^\s*-\s+(.+?)\s*(?:#.*)?$/)?.[1])
+    .filter((value) => value !== undefined)
+    .map((value) => stripYamlQuotes(value));
+};
+
+const runBuildDockerNeeds = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", buildDockerNeedsUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const jobsBlock = getIndentedBlock(workflow, /^\s*jobs:\s*(?:#.*)?$/);
+  const buildDockerJob = getIndentedBlock(jobsBlock, /^\s+build-docker:\s*(?:#.*)?$/);
+  const needsBlock = getIndentedBlock(buildDockerJob, /^\s+needs:\s*(?:.*)?$/);
+  const needs = new Set(readYamlNeedsValues(needsBlock));
+  const missingNeeds = REQUIRED_BUILD_DOCKER_NEEDS.filter((job) => !needs.has(job));
+
+  if (missingNeeds.length === 0) {
+    writeStdout("build_docker_needs=pass\n");
+    return;
+  }
+
+  writeStdout(
+    `build_docker_needs=fail\n${missingNeeds.map((job) => `missing_required_job=${job}\n`).join("")}`,
+  );
+  fail(`build-docker must need ${missingNeeds.join(", ")}`, 1);
 };
 
 const readWorkflowFile = (workflowPath) => {
@@ -1086,6 +1153,8 @@ if (command === "duration-budget") {
   runSecretsDurationBudget(args);
 } else if (command === "forbidden-jobs-duration-budget") {
   runForbiddenJobsDurationBudget(args);
+} else if (command === "build-docker-needs") {
+  runBuildDockerNeeds(args);
 } else if (command === "action-pinning") {
   runActionPinning(args);
 } else if (command === "gitleaks-action-pinning") {
