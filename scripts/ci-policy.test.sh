@@ -720,6 +720,46 @@ $(printf '%s\n' "$stdout" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_audit_gate_missing_vulnerability_metadata_case() {
+  local audit_file stdout stderr stdout_file stderr_file ec
+
+  audit_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  printf '{}\n' >"$audit_file"
+
+  node "$SCRIPT" audit-gate \
+    --input "$audit_file" \
+    --audit-level high \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$audit_file" "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 2 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate missing vulnerability metadata: expected exit 2, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "metadata.vulnerabilities"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x audit gate missing vulnerability metadata: missing validation message
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_fail_case 300000
@@ -734,6 +774,7 @@ run_action_pinning_sha_boundary_case
 run_action_pinning_local_action_exempt_case
 run_action_pinning_github_maintained_external_case
 run_audit_gate_no_high_or_critical_case
+run_audit_gate_missing_vulnerability_metadata_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2

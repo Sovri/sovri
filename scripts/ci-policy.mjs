@@ -180,14 +180,30 @@ const readAuditReport = (inputPath) => {
   }
 };
 
-const getAuditSeverityCount = (report, severity) => {
-  if (typeof report !== "object" || report === null) return 0;
+const getAuditVulnerabilities = (report) => {
+  if (typeof report !== "object" || report === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
   const metadata = report.metadata;
-  if (typeof metadata !== "object" || metadata === null) return 0;
+  if (typeof metadata !== "object" || metadata === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
   const vulnerabilities = metadata.vulnerabilities;
-  if (typeof vulnerabilities !== "object" || vulnerabilities === null) return 0;
+  if (typeof vulnerabilities !== "object" || vulnerabilities === null) {
+    fail("ERROR: audit report must contain metadata.vulnerabilities.", 2);
+  }
+  return vulnerabilities;
+};
+
+const getAuditSeverityCount = (vulnerabilities, severity) => {
   const count = vulnerabilities[severity];
-  return typeof count === "number" ? count : 0;
+  if (!Number.isInteger(count) || count < 0) {
+    fail(
+      `ERROR: audit report metadata.vulnerabilities.${severity} must be a non-negative integer.`,
+      2,
+    );
+  }
+  return count;
 };
 
 const runActionPinning = (args) => {
@@ -220,8 +236,9 @@ const runAuditGate = (args) => {
   }
 
   const report = readAuditReport(inputPath);
-  const highCount = getAuditSeverityCount(report, "high");
-  const criticalCount = getAuditSeverityCount(report, "critical");
+  const vulnerabilities = getAuditVulnerabilities(report);
+  const highCount = getAuditSeverityCount(vulnerabilities, "high");
+  const criticalCount = getAuditSeverityCount(vulnerabilities, "critical");
 
   if (highCount > 0 || criticalCount > 0) {
     fail("pnpm audit reported high or critical vulnerabilities", 1);
