@@ -287,7 +287,58 @@ const getBuildDockerStepsBlock = (workflow) => {
   return getIndentedBlockRaw(buildDockerJob, /^\s+steps:\s*(?:#.*)?$/);
 };
 
+const splitFlowMappingEntries = (flowMapping) => {
+  const entries = [];
+  let current = "";
+  let quote;
+
+  for (const character of flowMapping) {
+    if (quote !== undefined) {
+      current += character;
+      if (character === quote) quote = undefined;
+      continue;
+    }
+
+    if (character === "'" || character === '"') {
+      quote = character;
+      current += character;
+      continue;
+    }
+
+    if (character === ",") {
+      entries.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  if (current.trim().length > 0) entries.push(current.trim());
+  return entries;
+};
+
+const parseFlowMapping = (flowMapping) => {
+  const parsed = new Map();
+
+  for (const entry of splitFlowMappingEntries(flowMapping)) {
+    const separatorIndex = entry.indexOf(":");
+    if (separatorIndex === -1) continue;
+
+    const key = stripYamlQuotes(entry.slice(0, separatorIndex).trim());
+    const value = stripYamlQuotes(entry.slice(separatorIndex + 1).trim());
+    parsed.set(key, value);
+  }
+
+  return parsed;
+};
+
 const getStepInput = (step, inputName) => {
+  const flowWith = getStepPropertyValue(step, "with");
+  if (flowWith?.startsWith("{") === true && flowWith.endsWith("}")) {
+    return parseFlowMapping(flowWith.slice(1, -1)).get(inputName);
+  }
+
   const withBlock = getIndentedBlockRaw(step, /^\s+with:\s*(?:#.*)?$/);
   const lines = withBlock.split(/\r?\n/);
   const withIndent = getIndent(lines[0] ?? "");
