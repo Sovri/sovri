@@ -524,12 +524,12 @@ const masksSharedScriptFailure = (command, scriptPath) => {
     ...trailingTokens.slice(orOperatorIndex + 1),
   ];
   const fallbackCommand = fallbackTokens.join(" ");
-  return !/^exit\s+(?:[1-9]\d*|\$\?)$/.test(fallbackCommand);
+  return !/^exit\s+(?:[1-9]\d*|["']?\$\?["']?)$/.test(fallbackCommand);
 };
 
 const isContinueOnErrorEnabled = (value) => {
   const normalizedValue = stripYamlQuotes(value.trim());
-  return normalizedValue !== "false" && normalizedValue !== "${{ false }}";
+  return normalizedValue !== "false" && !/^\$\{\{\s*false\s*\}\}$/.test(normalizedValue);
 };
 
 const hasStepContinueOnError = (step) => {
