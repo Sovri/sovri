@@ -104,6 +104,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `ci`: add a supply-chain audit shell gate that propagates
+  `pnpm audit --audit-level=high` failures before reporting success (#658).
+
 - `ci`: add the first supply-chain audit gate command for accepting pnpm audit
   reports that contain no high or critical vulnerabilities (#655).
 
