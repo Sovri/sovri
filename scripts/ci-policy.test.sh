@@ -1010,6 +1010,68 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_checkout_depth_zero_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@0123456789abcdef0123456789abcdef01234567
+        with:
+          fetch-depth: 0
+YAML
+
+  # Given the secrets-scan job contains a checkout step using "actions/checkout"
+  # And that checkout step has input "fetch-depth" set to 0
+  node "$SCRIPT" secrets-checkout-depth \
+    --workflow "$workflow_file" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # When the checkout depth rule is evaluated
+  # Then the checkout depth assertion passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "checkout_depth=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the secrets-scan job is classified as scanning full history
+  if ! printf '%s\n' "$combined" | grep -Fq "history_scope=full"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets checkout depth zero: missing full-history classification
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_duration_pass_case 180000 "180 s"
 run_duration_pass_case 299999 "299.999 s"
 run_duration_fail_case 300000
@@ -1029,6 +1091,7 @@ run_audit_gate_high_vulnerability_case
 run_audit_gate_high_without_advisory_name_case
 run_audit_gate_mixed_high_and_critical_prioritizes_critical_case
 run_audit_gate_critical_vulnerability_case
+run_secrets_checkout_depth_zero_case
 
 if [ "$FAIL" -ne 0 ]; then
   printf 'ci-policy tests: %s passed, %s failed\n%s\n' "$PASS" "$FAIL" "$FAILURES" >&2
