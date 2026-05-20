@@ -73,8 +73,6 @@ const readRequiredOption = (options, key, commandUsage) => {
   return value;
 };
 
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 const getIndent = (line) => line.match(/^ */)?.[0].length ?? 0;
 
 const getYamlStructureLines = (workflow) => {
@@ -339,6 +337,26 @@ const stripYamlQuotes = (value) => {
   return match?.[2] ?? value;
 };
 
+const foldYamlScalarLines = (scalarLines) => {
+  const commands = [];
+  let foldedLine = [];
+
+  for (const scalarLine of scalarLines) {
+    if (scalarLine.length === 0) {
+      if (foldedLine.length > 0) {
+        commands.push(foldedLine.join(" "));
+        foldedLine = [];
+      }
+      continue;
+    }
+
+    foldedLine.push(scalarLine);
+  }
+
+  if (foldedLine.length > 0) commands.push(foldedLine.join(" "));
+  return commands;
+};
+
 const getRunCommandLines = (step) => {
   const lines = step.split(/\r?\n/);
   const commands = [];
@@ -361,15 +379,18 @@ const getRunCommandLines = (step) => {
     let blockEndIndex = index + 1;
     for (; blockEndIndex < lines.length; blockEndIndex += 1) {
       const blockLine = lines[blockEndIndex];
-      if (blockLine.trim().length === 0) continue;
+      if (blockLine.trim().length === 0) {
+        scalarLines.push("");
+        continue;
+      }
       if (getIndent(blockLine) <= runIndent) break;
       scalarLines.push(blockLine.trim());
     }
 
     if (isFoldedScalar) {
-      commands.push(scalarLines.join(" "));
+      commands.push(...foldYamlScalarLines(scalarLines));
     } else {
-      commands.push(...scalarLines);
+      commands.push(...scalarLines.filter((scalarLine) => scalarLine.length > 0));
     }
     index = blockEndIndex - 1;
   }
@@ -379,9 +400,36 @@ const getRunCommandLines = (step) => {
 
 const isSharedScriptRunCommand = (command, scriptPath) => {
   const commandWithoutComment = command.replace(/\s+#.*$/, "").trim();
-  const escapedPath = escapeRegExp(scriptPath);
-  const runPattern = new RegExp(`^(?:bash\\s+|sh\\s+)?(?:\\./)?${escapedPath}(?:\\s|$)`);
-  return runPattern.test(commandWithoutComment);
+  const tokens = commandWithoutComment.split(/\s+/).filter(Boolean);
+  const firstToken = tokens[0];
+  if (firstToken === undefined) return false;
+
+  const isScriptPathToken = (token) => {
+    const strippedToken = stripYamlQuotes(token);
+    return strippedToken === scriptPath || strippedToken === `./${scriptPath}`;
+  };
+
+  if (isScriptPathToken(firstToken)) return true;
+  if (firstToken !== "bash" && firstToken !== "sh") return false;
+
+  let scriptIndex = 1;
+  while (scriptIndex < tokens.length) {
+    const token = tokens[scriptIndex];
+    if (token === "-o" || token === "+o") {
+      scriptIndex += 2;
+      continue;
+    }
+
+    if (/^[+-][A-Za-z]+$/.test(token)) {
+      scriptIndex += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  const scriptToken = tokens[scriptIndex];
+  return scriptToken !== undefined && isScriptPathToken(scriptToken);
 };
 
 const hasRunCommand = (step, scriptPath) =>

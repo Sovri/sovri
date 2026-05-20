@@ -1334,6 +1334,111 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_no_secrets_reuse_folded_scalar_paragraph_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: >
+          echo ok
+
+          scripts/no-secrets.sh
+YAML
+
+  # Given a folded run scalar preserves a blank line before the shared script command
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse folded scalar paragraph: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "no_secrets_reuse=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse folded scalar paragraph: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_shell_option_wrapper_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: bash -eu scripts/no-secrets.sh
+YAML
+
+  # Given the guard step runs the shared script through bash with shell options
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion passes
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse shell option wrapper: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "no_secrets_reuse=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse shell option wrapper: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_action_pinning_no_external_refs_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec
 
@@ -3001,6 +3106,8 @@ run_secrets_no_secrets_reuse_comment_bypass_case
 run_secrets_no_secrets_reuse_fake_step_in_run_block_case
 run_secrets_no_secrets_reuse_folded_scalar_bypass_case
 run_secrets_no_secrets_reuse_run_field_in_block_body_case
+run_secrets_no_secrets_reuse_folded_scalar_paragraph_case
+run_secrets_no_secrets_reuse_shell_option_wrapper_case
 run_action_pinning_no_external_refs_case
 run_action_pinning_moving_refs_case
 run_action_pinning_sha_boundary_case
