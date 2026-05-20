@@ -358,7 +358,9 @@ const getRunCommandLines = (step) => {
 
     const runIndent = getIndent(line);
     const scalarLines = [];
-    for (const blockLine of lines.slice(index + 1)) {
+    let blockEndIndex = index + 1;
+    for (; blockEndIndex < lines.length; blockEndIndex += 1) {
+      const blockLine = lines[blockEndIndex];
       if (blockLine.trim().length === 0) continue;
       if (getIndent(blockLine) <= runIndent) break;
       scalarLines.push(blockLine.trim());
@@ -369,6 +371,7 @@ const getRunCommandLines = (step) => {
     } else {
       commands.push(...scalarLines);
     }
+    index = blockEndIndex - 1;
   }
 
   return commands;
