@@ -358,8 +358,28 @@ const foldYamlScalarLines = (scalarLines) => {
 };
 
 const getHereDocumentDelimiter = (command) => {
-  const match = command.match(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1(?:\s|$)/);
-  return match?.[2];
+  const match = command.match(/<<-?\s*(?:"([^"]+)"|'([^']+)'|(\\?\S+))/);
+  return match?.[1] ?? match?.[2] ?? match?.[3]?.replaceAll("\\", "");
+};
+
+const joinLineContinuedCommands = (commands) => {
+  const joinedCommands = [];
+  let continuedCommand = "";
+
+  for (const command of commands) {
+    const commandPart =
+      continuedCommand.length > 0 ? `${continuedCommand} ${command}`.trim() : command;
+    if (/\\\s*$/.test(commandPart)) {
+      continuedCommand = commandPart.replace(/\\\s*$/, "").trimEnd();
+      continue;
+    }
+
+    joinedCommands.push(commandPart);
+    continuedCommand = "";
+  }
+
+  if (continuedCommand.length > 0) joinedCommands.push(continuedCommand);
+  return joinedCommands;
 };
 
 const getLiteralScalarCommands = (scalarLines) => {
@@ -380,7 +400,7 @@ const getLiteralScalarCommands = (scalarLines) => {
     if (delimiter !== undefined) hereDocumentDelimiters.push(delimiter);
   }
 
-  return commands;
+  return joinLineContinuedCommands(commands);
 };
 
 const getRunCommandLines = (step) => {

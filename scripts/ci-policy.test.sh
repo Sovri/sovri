@@ -1388,6 +1388,113 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_secrets_no_secrets_reuse_special_heredoc_delimiter_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: |
+          cat <<'EOF!'
+          scripts/no-secrets.sh
+          EOF!
+YAML
+
+  # Given a heredoc uses a shell delimiter containing punctuation
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse special heredoc delimiter: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "no_secrets_reuse=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse special heredoc delimiter: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_secrets_no_secrets_reuse_line_continuation_bypass_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Secret filename and API key patterns
+        run: |
+          echo ok \
+          scripts/no-secrets.sh
+YAML
+
+  # Given the shared script path appears only on a line-continued shell argument
+  node "$SCRIPT" secrets-no-secrets-reuse \
+    --workflow "$workflow_file" \
+    --script-path scripts/no-secrets.sh \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  # Then the no-secrets reuse assertion fails
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse line continuation bypass: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$combined" | grep -Fq "no_secrets_reuse=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x secrets no-secrets reuse line continuation bypass: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_secrets_no_secrets_reuse_folded_scalar_paragraph_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -3161,6 +3268,8 @@ run_secrets_no_secrets_reuse_fake_step_in_run_block_case
 run_secrets_no_secrets_reuse_folded_scalar_bypass_case
 run_secrets_no_secrets_reuse_run_field_in_block_body_case
 run_secrets_no_secrets_reuse_script_path_in_heredoc_body_case
+run_secrets_no_secrets_reuse_special_heredoc_delimiter_case
+run_secrets_no_secrets_reuse_line_continuation_bypass_case
 run_secrets_no_secrets_reuse_folded_scalar_paragraph_case
 run_secrets_no_secrets_reuse_shell_option_wrapper_case
 run_action_pinning_no_external_refs_case
