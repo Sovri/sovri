@@ -1037,6 +1037,182 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_build_action_ignores_run_block_fake_step_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mention Docker action in shell text
+        run: |
+          cat <<'EOF'
+          - uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+            with:
+              push: false
+              platforms: linux/amd64,linux/arm64
+              cache-from: type=gha
+              cache-to: type=gha,mode=max
+          EOF
+YAML
+
+  # Given the Docker action only appears inside a run block
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action fake run step: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker build action configuration is evaluated
+  # Then shell text is not treated as a workflow step
+  if ! printf '%s\n' "$combined" | grep -Fq "build-docker must use docker/build-push-action"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action fake run step: missing real-step failure reason
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_docker_build_action_rejects_later_push_step_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compliant image build
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Later image push
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+YAML
+
+  # Given a later Docker build action step attempts to push
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action later push step: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When every Docker build action step is evaluated
+  # Then the later push step is rejected
+  if ! printf '%s\n' "$combined" | grep -Fq "build-docker must use push: false"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action later push step: missing push failure reason
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_docker_build_action_ignores_nested_with_scalar_inputs_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Spoof inputs inside another input scalar
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: |
+            push: false
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+YAML
+
+  # Given matching input names appear inside another input's block scalar
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action nested with scalar inputs: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker build action inputs are evaluated
+  # Then nested scalar text is not treated as a direct `with` input
+  if ! printf '%s\n' "$combined" | grep -Fq "build-docker must use push: false"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action nested with scalar inputs: missing direct-input failure reason
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_build_docker_needs_required_gates_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -5120,6 +5296,9 @@ run_docker_build_action_verification_case
 run_docker_build_action_ignores_env_inputs_case
 run_docker_build_action_multiline_platforms_case
 run_docker_build_action_rejects_folded_platforms_case
+run_docker_build_action_ignores_run_block_fake_step_case
+run_docker_build_action_rejects_later_push_step_case
+run_docker_build_action_ignores_nested_with_scalar_inputs_case
 run_build_docker_needs_required_gates_case
 run_build_docker_needs_inline_gates_case
 run_build_docker_needs_multiline_flow_gates_case

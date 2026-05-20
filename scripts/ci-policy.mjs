@@ -290,24 +290,44 @@ const getBuildDockerStepsBlock = (workflow) => {
 const getStepInput = (step, inputName) => {
   const withBlock = getIndentedBlockRaw(step, /^\s+with:\s*(?:#.*)?$/);
   const lines = withBlock.split(/\r?\n/);
+  const withIndent = getIndent(lines[0] ?? "");
   const inputPattern = new RegExp(`^\\s*${inputName}:\\s*(.*?)\\s*(?:#.*)?$`);
-  const inputIndex = lines.findIndex((line) => inputPattern.test(line));
-  if (inputIndex === -1) return undefined;
+  let childIndent;
+  let activeScalarIndent;
 
-  const inputLine = lines[inputIndex];
-  const value = inputLine.match(inputPattern)?.[1]?.trim();
-  if (value === undefined) return undefined;
-  if (!BLOCK_SCALAR_PATTERN.test(inputLine)) return stripYamlQuotes(value);
+  for (let inputIndex = 1; inputIndex < lines.length; inputIndex += 1) {
+    const inputLine = lines[inputIndex];
+    if (inputLine.trim().length === 0) continue;
 
-  const inputIndent = getIndent(inputLine);
-  const scalarLines = [];
-  for (const line of lines.slice(inputIndex + 1)) {
-    if (line.trim().length === 0) continue;
-    if (getIndent(line) <= inputIndent) break;
-    scalarLines.push(line.trim());
+    const indent = getIndent(inputLine);
+    if (activeScalarIndent !== undefined) {
+      if (indent > activeScalarIndent) continue;
+      activeScalarIndent = undefined;
+    }
+    if (indent <= withIndent) break;
+
+    childIndent ??= indent;
+    if (indent !== childIndent) continue;
+
+    const isBlockScalar = BLOCK_SCALAR_PATTERN.test(inputLine);
+    const value = inputLine.match(inputPattern)?.[1]?.trim();
+    if (value === undefined) {
+      if (isBlockScalar) activeScalarIndent = indent;
+      continue;
+    }
+    if (!isBlockScalar) return stripYamlQuotes(value);
+
+    const scalarLines = [];
+    for (const line of lines.slice(inputIndex + 1)) {
+      if (line.trim().length === 0) continue;
+      if (getIndent(line) <= indent) break;
+      scalarLines.push(line.trim());
+    }
+    const scalarSeparator = /:\s*>/.test(inputLine) ? " " : "\n";
+    return scalarLines.join(scalarSeparator);
   }
-  const scalarSeparator = /:\s*>/.test(inputLine) ? " " : "\n";
-  return scalarLines.join(scalarSeparator);
+
+  return undefined;
 };
 
 const getDockerPlatformBoundary = (platformsValue) => {
@@ -330,45 +350,77 @@ const getDockerPlatformBoundary = (platformsValue) => {
   return { outcome: "accepted", reason: "required amd64 and arm64 platforms present" };
 };
 
+const getStepPropertyValue = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return undefined;
+
+  const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*(.*?)\\s*(?:#.*)?$`);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(.*?)\\s*(?:#.*)?$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (index === 0 && getIndent(line) === stepIndent) {
+      const value = line.match(inlinePattern)?.[1]?.trim();
+      if (value !== undefined) return stripYamlQuotes(value);
+      continue;
+    }
+
+    if (getIndent(line) !== stepIndent + 2) continue;
+    const value = line.match(propertyPattern)?.[1]?.trim();
+    if (value !== undefined) return stripYamlQuotes(value);
+  }
+
+  return undefined;
+};
+
+const isDockerBuildActionStep = (step) =>
+  getStepPropertyValue(step, "uses")?.startsWith(`${DOCKER_BUILD_ACTION_REPOSITORY}@`) ?? false;
+
 const runDockerBuildAction = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", dockerBuildActionUsage);
   const workflow = readWorkflowFile(workflowPath);
   const stepsBlock = getBuildDockerStepsBlock(workflow);
-  const buildStep = getRawListItemBlocks(stepsBlock).find((step) =>
-    new RegExp(`^\\s*(?:-\\s*)?uses:\\s*['"]?${DOCKER_BUILD_ACTION_REPOSITORY}@`, "m").test(step),
-  );
+  const buildSteps = getTopLevelListItemBlocks(stepsBlock).filter(isDockerBuildActionStep);
 
-  if (buildStep === undefined) {
+  if (buildSteps.length === 0) {
     writeStdout("docker_build_action=fail\n");
     fail(`build-docker must use ${DOCKER_BUILD_ACTION_REPOSITORY}`, 1);
   }
 
-  const push = getStepInput(buildStep, "push");
-  const platforms = getStepInput(buildStep, "platforms") ?? "";
-  const cacheFrom = getStepInput(buildStep, "cache-from");
-  const cacheTo = getStepInput(buildStep, "cache-to");
-  const platformBoundary = getDockerPlatformBoundary(platforms);
+  let acceptedBoundaryReason = "";
 
-  if (push !== "false") {
-    writeStdout("docker_build_action=fail\n");
-    fail("build-docker must use push: false", 1);
-  }
+  for (const buildStep of buildSteps) {
+    const push = getStepInput(buildStep, "push");
+    const platforms = getStepInput(buildStep, "platforms") ?? "";
+    const cacheFrom = getStepInput(buildStep, "cache-from");
+    const cacheTo = getStepInput(buildStep, "cache-to");
+    const platformBoundary = getDockerPlatformBoundary(platforms);
 
-  if (platformBoundary.outcome === "rejected") {
-    writeStdout(
-      `docker_build_action=fail\nplatform_outcome=rejected\nboundary_reason=${platformBoundary.reason}\n`,
-    );
-    fail(platformBoundary.reason, 1);
-  }
+    if (push !== "false") {
+      writeStdout("docker_build_action=fail\n");
+      fail("build-docker must use push: false", 1);
+    }
 
-  if (cacheFrom !== "type=gha" || cacheTo !== "type=gha,mode=max") {
-    writeStdout("docker_build_action=fail\n");
-    fail("Docker build must use GitHub Actions cache", 1);
+    if (platformBoundary.outcome === "rejected") {
+      writeStdout(
+        `docker_build_action=fail\nplatform_outcome=rejected\nboundary_reason=${platformBoundary.reason}\n`,
+      );
+      fail(platformBoundary.reason, 1);
+    }
+
+    if (cacheFrom !== "type=gha" || cacheTo !== "type=gha,mode=max") {
+      writeStdout("docker_build_action=fail\n");
+      fail("Docker build must use GitHub Actions cache", 1);
+    }
+
+    acceptedBoundaryReason = platformBoundary.reason;
   }
 
   writeStdout(
-    `docker_build_action=pass\nbuild_classification=ci-verification\nplatform_outcome=accepted\nboundary_reason=${platformBoundary.reason}\n`,
+    `docker_build_action=pass\nbuild_classification=ci-verification\nplatform_outcome=accepted\nboundary_reason=${acceptedBoundaryReason}\n`,
   );
 };
 
@@ -594,8 +646,6 @@ const getListItemBlocksFromLines = (lines) => {
 };
 
 const getListItemBlocks = (workflow) => getListItemBlocksFromLines(getYamlStructureLines(workflow));
-
-const getRawListItemBlocks = (workflow) => getListItemBlocksFromLines(workflow.split(/\r?\n/));
 
 const getTopLevelListItemBlocks = (workflow) => {
   const lines = workflow.split(/\r?\n/);
