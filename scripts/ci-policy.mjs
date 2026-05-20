@@ -513,7 +513,7 @@ const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName) => {
 
 const getAnchoredWithInput = (workflow, step, anchorName, inputName) => {
   const anchorPattern = new RegExp(
-    `^\\s+with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
+    `^\\s+(?:-\\s+)?with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
   );
   const aliasLineIndex = getWorkflowLineIndexForStepProperty(workflow, step, "with");
   const searchLimit = aliasLineIndex ?? Number.POSITIVE_INFINITY;

@@ -1673,6 +1673,61 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_build_action_inline_with_anchor_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - with: &docker_inputs
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with: *docker_inputs
+YAML
+
+  # Given the anchored `with` mapping is declared on an inline list item
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action inline with anchor: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When every Docker build action step is evaluated
+  # Then the inline anchored `with` mapping is resolved
+  if ! printf '%s\n' "$stdout" | grep -Fq "docker_build_action=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action inline with anchor: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_docker_build_action_rejects_later_push_step_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -5947,6 +6002,7 @@ run_docker_build_action_ignores_fake_job_markers_case
 run_docker_build_action_ignores_nested_build_job_key_case
 run_docker_build_action_ignores_nested_steps_key_case
 run_docker_build_action_variable_indent_case
+run_docker_build_action_inline_with_anchor_case
 run_docker_build_action_rejects_later_push_step_case
 run_docker_build_action_ignores_nested_with_scalar_inputs_case
 run_docker_build_action_ignores_nested_with_block_case
