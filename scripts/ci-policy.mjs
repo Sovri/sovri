@@ -96,11 +96,13 @@ const readRequiredOption = (options, key, commandUsage) => {
 
 const getIndent = (line) => line.match(/^ */)?.[0].length ?? 0;
 
-const getYamlStructureLines = (workflow) => {
-  const lines = [];
+const getYamlStructureEntries = (workflow) => {
+  const entries = [];
   let blockScalarIndent;
+  const lines = workflow.split(/\r?\n/);
 
-  for (const line of workflow.split(/\r?\n/)) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     if (blockScalarIndent !== undefined) {
       if (line.trim().length === 0) continue;
 
@@ -108,15 +110,18 @@ const getYamlStructureLines = (workflow) => {
       blockScalarIndent = undefined;
     }
 
-    lines.push(line);
+    entries.push({ index, line });
 
     if (BLOCK_SCALAR_PATTERN.test(line)) {
       blockScalarIndent = getIndent(line);
     }
   }
 
-  return lines;
+  return entries;
 };
+
+const getYamlStructureLines = (workflow) =>
+  getYamlStructureEntries(workflow).map((entry) => entry.line);
 
 const formatDuration = (elapsedMs) => {
   if (elapsedMs % 1000 === 0) return `${elapsedMs / 1000} s`;
@@ -431,19 +436,82 @@ const getInputFromWithBlock = (withBlock, inputName) => {
   return undefined;
 };
 
-const getAnchoredWithInput = (workflow, anchorName, inputName) => {
+const getIndentedBlockRawFromIndex = (workflow, startIndex) => {
+  const lines = workflow.split(/\r?\n/);
+  const startLine = lines[startIndex];
+  if (startLine === undefined) return "";
+
+  const startIndent = getIndent(startLine);
+  const block = [startLine];
+
+  for (const line of lines.slice(startIndex + 1)) {
+    if (line.trim().length === 0) {
+      block.push(line);
+      continue;
+    }
+
+    const indent = getIndent(line);
+    if (indent <= startIndent) break;
+    block.push(line);
+  }
+
+  return block.join("\n");
+};
+
+const getStepPropertyLineIndex = (step, propertyName) => {
+  const lines = step.split(/\r?\n/);
+  const firstLine = lines[0];
+  if (firstLine === undefined) return undefined;
+
+  const stepIndent = getIndent(firstLine);
+  const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*.*$`);
+  const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*.*$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (index === 0 && getIndent(line) === stepIndent && inlinePattern.test(line)) return index;
+    if (index > 0 && getIndent(line) === stepIndent + 2 && propertyPattern.test(line)) return index;
+  }
+
+  return undefined;
+};
+
+const getWorkflowLineIndexForStepProperty = (workflow, step, propertyName) => {
+  const workflowLines = workflow.split(/\r?\n/);
+  const stepLines = step.split(/\r?\n/);
+  const propertyLineIndex = getStepPropertyLineIndex(step, propertyName);
+  if (propertyLineIndex === undefined) return undefined;
+
+  for (let index = 0; index <= workflowLines.length - stepLines.length; index += 1) {
+    if (stepLines.every((line, offset) => workflowLines[index + offset] === line)) {
+      return index + propertyLineIndex;
+    }
+  }
+
+  return undefined;
+};
+
+const getAnchoredWithInput = (workflow, step, anchorName, inputName) => {
   const anchorPattern = new RegExp(
     `^\\s+with:\\s*&${escapeRegExp(anchorName)}\\s*(.*?)\\s*(?:#.*)?$`,
   );
-  const anchorLine = getYamlStructureLines(workflow).find((line) => anchorPattern.test(line));
-  if (anchorLine === undefined) return undefined;
+  const aliasLineIndex = getWorkflowLineIndexForStepProperty(workflow, step, "with");
+  const searchLimit = aliasLineIndex ?? Number.POSITIVE_INFINITY;
+  let anchorEntry;
 
-  const anchorValue = anchorLine.match(anchorPattern)?.[1]?.trim() ?? "";
+  for (const entry of getYamlStructureEntries(workflow)) {
+    if (entry.index >= searchLimit) break;
+    if (anchorPattern.test(entry.line)) anchorEntry = entry;
+  }
+
+  if (anchorEntry === undefined) return undefined;
+
+  const anchorValue = anchorEntry.line.match(anchorPattern)?.[1]?.trim() ?? "";
   const flowMappingText = getFlowMappingText(anchorValue);
   if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
 
   return getInputFromWithBlock(
-    getIndentedBlockRaw(workflow, exactLinePattern(anchorLine)),
+    getIndentedBlockRawFromIndex(workflow, anchorEntry.index),
     inputName,
   );
 };
@@ -453,7 +521,7 @@ const getStepInput = (step, inputName, workflow = "") => {
   const flowMappingText = flowWith === undefined ? undefined : getFlowMappingText(flowWith);
   if (flowMappingText !== undefined) return parseFlowMapping(flowMappingText).get(inputName);
   if (flowWith?.startsWith("*") === true) {
-    return getAnchoredWithInput(workflow, flowWith.slice(1), inputName);
+    return getAnchoredWithInput(workflow, step, flowWith.slice(1), inputName);
   }
 
   return getInputFromWithBlock(getStepPropertyBlockRaw(step, "with"), inputName);
