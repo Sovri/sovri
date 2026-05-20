@@ -98,6 +98,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `ci`: add the first supply-chain audit gate command for accepting pnpm audit
+  reports that contain no high or critical vulnerabilities (#655).
+
 - `ci`: add the first CI policy helper for backend-checks cache-hit duration
   budget evaluation, measured job-duration reporting, and cache-miss
   classification, strict 5-minute failure handling, plus workflow action SHA
