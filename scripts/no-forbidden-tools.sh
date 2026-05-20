@@ -92,15 +92,62 @@ $(printf '%s\n' "$matched" | sed 's/^/  /')
   printf '%s' "$hits"
 }
 
-TS_ESCAPE_HATCHES=$(find_source_hits '@ts-ignore|@ts-expect-error|[:|<,&][[:space:]]*any([^[:alnum:]_]|$)|(^|[^[:alnum:]_])any[[:space:]]*[>|,&]|(^|[^[:alnum:]_])as[[:space:]]+any([^[:alnum:]_]|$)|=>?[[:space:]]*any([^[:alnum:]_]|$)')
+# Defense-in-depth: a second scan over each source file with comments stripped
+# and newlines folded to single spaces. Closes bypass forms that the per-line
+# scan can't see, e.g. `value:\nany`, `value:/*x*/any`, `require ("node:fs")`.
+# Line numbers are dropped because the offsets no longer reflect the original
+# file once it has been normalised; reporting the file path is enough for the
+# developer to locate the bypass.
+normalize_source() {
+  printf '%s' "$1" \
+    | sed -E 's@//.*@@' \
+    | tr '\n' ' ' \
+    | sed -E 's@/\*([^*]|\*[^/])*\*/@ @g' \
+    | tr -s '[:space:]' ' '
+}
+
+find_source_bypass() {
+  local pattern="$1"
+  local hits=""
+  local file content flat
+
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    content=$(read_target "$file")
+    flat=$(normalize_source "$content")
+    if printf '%s' "$flat" | grep -qE "$pattern"; then
+      hits="${hits}${file}
+  (bypass detected after comment-stripping and line-folding)
+"
+    fi
+  done <<< "$SOURCE_FILES"
+
+  printf '%s' "$hits"
+}
+
+TS_PATTERN='@ts-ignore|@ts-expect-error|[:|<,&][[:space:]]*any([^[:alnum:]_]|$)|(^|[^[:alnum:]_])any[[:space:]]*[>|,&]|(^|[^[:alnum:]_])as[[:space:]]+any([^[:alnum:]_]|$)|=>?[[:space:]]*any([^[:alnum:]_]|$)'
+COMMONJS_PATTERN='require[[:space:]]*\(|module[[:space:]]*\.[[:space:]]*exports'
+
+TS_ESCAPE_HATCHES=$(find_source_hits "$TS_PATTERN")
+TS_ESCAPE_BYPASS=$(find_source_bypass "$TS_PATTERN")
 OXLINT_DISABLES=$(find_source_hits 'oxlint-disable')
-COMMONJS=$(find_source_hits 'require\(|module\.exports')
+COMMONJS=$(find_source_hits "$COMMONJS_PATTERN")
+COMMONJS_BYPASS=$(find_source_bypass "$COMMONJS_PATTERN")
 
 if [ -n "$TS_ESCAPE_HATCHES" ]; then
   echo "BLOCKED: forbidden TypeScript escape hatches (ADR-001):"
   printf '%s' "$TS_ESCAPE_HATCHES"
   echo ""
   echo "Remove any, @ts-ignore, and @ts-expect-error from production TypeScript sources."
+fi
+
+if [ -n "$TS_ESCAPE_BYPASS" ]; then
+  echo "BLOCKED: forbidden TypeScript escape hatches (ADR-001) — bypass form:"
+  printf '%s' "$TS_ESCAPE_BYPASS"
+  echo ""
+  echo "Detected only after stripping comments and folding newlines. Reformat the"
+  echo "file (oxfmt will normalise it) so the violation is visible to the"
+  echo "per-line scan, then remove the offending any/@ts-ignore/@ts-expect-error."
 fi
 
 if [ -n "$OXLINT_DISABLES" ]; then
@@ -117,7 +164,15 @@ if [ -n "$COMMONJS" ]; then
   echo "Use ESM import/export syntax in TypeScript sources."
 fi
 
-if [ -n "$FORBIDDEN$TS_ESCAPE_HATCHES$OXLINT_DISABLES$COMMONJS" ]; then
+if [ -n "$COMMONJS_BYPASS" ]; then
+  echo "BLOCKED: CommonJS detected (ADR-003 ESM only) — bypass form:"
+  printf '%s' "$COMMONJS_BYPASS"
+  echo ""
+  echo "Detected only after stripping comments and folding newlines. Use ESM"
+  echo "import/export syntax instead of require()/module.exports."
+fi
+
+if [ -n "$FORBIDDEN$TS_ESCAPE_HATCHES$TS_ESCAPE_BYPASS$OXLINT_DISABLES$COMMONJS$COMMONJS_BYPASS" ]; then
   exit 1
 fi
 

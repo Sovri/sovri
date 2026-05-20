@@ -296,6 +296,38 @@ setup_any_arrow_return_in_source() {
   stage_file packages/core/src/types.ts 'export type Fn = () => any;'
 }
 
+setup_any_multiline_bypass() {
+  # `value:\nany` spans two physical lines; the per-line scan can't see it,
+  # but the bypass scan strips comments and folds newlines into a single
+  # space before re-running the same regex, so `: any` still matches.
+  stage_file packages/core/src/types.ts 'export const f = (value:
+any) => value;'
+}
+
+setup_any_block_comment_bypass() {
+  # `value:/*x*/any` slips a block comment between the colon and the type.
+  # The bypass scan removes block comments before matching.
+  stage_file packages/core/src/types.ts 'export const f = (value:/*x*/any) => value;'
+}
+
+setup_require_with_space_bypass() {
+  # `require (...)` with whitespace before the opening paren is valid JS that
+  # the strict `require\(` token can't see. The widened COMMONJS_PATTERN now
+  # tolerates whitespace, and the bypass scan handles block-comment splits.
+  stage_file apps/community-bot/src/server.ts 'const fs = require ("node:fs");
+export { fs };'
+}
+
+setup_require_with_block_comment_bypass() {
+  stage_file apps/community-bot/src/server.ts 'const fs = require/*x*/("node:fs");
+export { fs };'
+}
+
+setup_module_exports_with_spaces_bypass() {
+  stage_file packages/config/src/index.ts 'module . exports = {};
+export {};'
+}
+
 setup_any_word_inside_identifier() {
   # Identifiers containing the substring "any" (manyThings, anyhow, company)
   # must not trigger the guard. The contextual pattern only fires when "any"
@@ -406,6 +438,11 @@ run_case "BLOCK-25b Array<any> flagged"                 setup_any_generic_in_sou
 run_case "BLOCK-25c union with any flagged"             setup_any_union_in_source          1 "ADR-001"
 run_case "BLOCK-25d type alias = any flagged"           setup_any_type_alias_in_source     1 "ADR-001"
 run_case "BLOCK-25e arrow return => any flagged"        setup_any_arrow_return_in_source   1 "ADR-001"
+run_case "BLOCK-25f multiline value:\\nany flagged"      setup_any_multiline_bypass         1 "ADR-001"
+run_case "BLOCK-25g comment-split value:/*x*/any"       setup_any_block_comment_bypass     1 "ADR-001"
+run_case "BLOCK-29a require with space flagged"         setup_require_with_space_bypass    1 "ADR-003"
+run_case "BLOCK-29b require/*c*/( flagged"              setup_require_with_block_comment_bypass 1 "ADR-003"
+run_case "BLOCK-30a module . exports flagged"           setup_module_exports_with_spaces_bypass 1 "ADR-003"
 run_case "PASS-11a identifiers containing any allowed"  setup_any_word_inside_identifier   0 ""
 run_case "PASS-11b 'any' as English in line comment"    setup_any_english_in_line_comment  0 ""
 run_case "PASS-11c 'any of' in JSDoc continuation"      setup_any_english_in_jsdoc         0 ""

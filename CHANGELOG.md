@@ -34,6 +34,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   identifiers that merely contain the substring `any` (`manyThings`,
   `anyhow`, `company`) remain allowed (#724).
 
+- `ci`: add a defense-in-depth pass to `scripts/no-forbidden-tools.sh` that
+  strips comments and folds newlines before re-running the ADR-001 and
+  ADR-003 patterns. Closes bypass forms such as multiline `value:\nany`,
+  `value:/*x*/any`, `require ("node:fs")`, `require/*x*/(...)` and
+  `module . exports = ...` that the per-line scan alone could not see
+  (#724).
+
 - `ci`: report a configuration error when the secrets-scan workflow references
   the shared no-secrets guard but the script file is missing or outside the
   repository root, including symlink targets (#685).
