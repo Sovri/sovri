@@ -31,6 +31,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `ci`: add Docker build action fixture coverage rejecting a `build-docker` job
   that omits `docker/build-push-action` (#736).
 
+- `ci`: add Docker build action platform boundary fixture coverage for the exact
+  `linux/amd64` and `linux/arm64` contract (#737).
+
 - `ci`: pass `persist-credentials: false` to every `actions/checkout` step in
   the forbidden-tools and forbidden-imports workflows so `GITHUB_TOKEN` is no
   longer written to local git config and cannot leak into later steps or
