@@ -7,12 +7,18 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { evaluateVitestApiStyle } from "./vitest-api-style-policy.js";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 type ExplicitImportExample = {
   readonly calledApis: readonly string[];
   readonly file: string;
   readonly importedApis: readonly string[];
+};
+
+type ExplicitImportViolationExample = ExplicitImportExample & {
+  readonly reason: string;
 };
 
 const explicitImportExamples: readonly ExplicitImportExample[] = [
@@ -38,12 +44,43 @@ const explicitImportExamples: readonly ExplicitImportExample[] = [
   },
 ];
 
+const explicitImportViolationExamples: readonly ExplicitImportViolationExample[] = [
+  {
+    calledApis: ["describe", "expect", "it"],
+    file: "packages/core/src/index.test.ts",
+    importedApis: [],
+    reason: "test files must import Vitest APIs explicitly",
+  },
+  {
+    calledApis: ["describe", "expect", "it", "vi"],
+    file: "apps/community-bot/tests/handlers/pull-request.delegation.test.ts",
+    importedApis: ["describe", "expect", "it"],
+    reason: "missing Vitest import: vi",
+  },
+  {
+    calledApis: ["afterAll", "afterEach", "beforeAll", "describe", "expect", "it", "vi"],
+    file: "packages/llm-providers/src/providers/AnthropicProvider.test.ts",
+    importedApis: ["describe", "expect", "it", "vi"],
+    reason: "missing Vitest imports: afterAll, afterEach, beforeAll",
+  },
+];
+
 function readRepoFile(relativePath: string): string {
   return readFileSync(resolve(repoRoot, relativePath), "utf8");
 }
 
 function readVitestConfig(): string {
   return readRepoFile("vitest.config.ts");
+}
+
+function buildVitestSource(example: ExplicitImportExample): string {
+  const importLine =
+    example.importedApis.length === 0
+      ? ""
+      : `import { ${example.importedApis.join(", ")} } from "vitest";\n`;
+  const calls = example.calledApis.map((api) => `${api}();`).join("\n");
+
+  return `${importLine}${calls}\n`;
 }
 
 function extractVitestImports(source: string): Set<string> {
@@ -85,4 +122,32 @@ describe("Vitest root config explicit import policy", () => {
       expect(imports.has(api)).toBe(true);
     }
   });
+
+  it.each(explicitImportViolationExamples)(
+    "rejects missing explicit imports in $file",
+    (example) => {
+      // Given "vitest.config.ts" sets "test.globals" to false
+      const config = readVitestConfig();
+      expect(config).toContain("globals: false");
+      // And "vitest.config.ts" documents "Vitest globals stay disabled; tests import APIs from vitest"
+      expect(config).toContain("Vitest globals stay disabled; tests import APIs from vitest");
+      // And "<file>" calls "<called_apis>"
+      const source = buildVitestSource(example);
+      for (const api of example.calledApis) {
+        expect(source).toContain(`${api}(`);
+      }
+      // And "<file>" imports "<imported_apis>" from "vitest"
+      const imports = extractVitestImports(source);
+      expect([...imports].toSorted()).toEqual([...example.importedApis].toSorted());
+      // When the Vitest API style rule is evaluated
+      const result = evaluateVitestApiStyle({
+        configSource: config,
+        files: [{ path: example.file, source }],
+      });
+      // Then the Vitest API style assertion fails
+      expect(result.passed).toBe(false);
+      // And the failure mentions "<reason>"
+      expect(result.messages.join("\n")).toContain(example.reason);
+    },
+  );
 });
