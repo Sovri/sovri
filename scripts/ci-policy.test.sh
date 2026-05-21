@@ -2414,6 +2414,67 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_setup_action_pinning_sha_pass_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@0123456789abcdef0123456789abcdef01234567
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@89abcdef0123456789abcdef0123456789abcdef
+YAML
+
+  # Given the build-docker job contains the action reference "docker/setup-qemu-action@0123456789abcdef0123456789abcdef01234567"
+  # And the build-docker job contains the action reference "docker/setup-buildx-action@89abcdef0123456789abcdef0123456789abcdef"
+  node "$SCRIPT" docker-setup-action-pinning --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action pinning SHA pass: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker setup action pinning rule is evaluated
+  # Then the Docker setup action pinning assertion passes
+  if ! printf '%s\n' "$stdout" | grep -Fq "docker_setup_action_pinning=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action pinning SHA pass: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And no moving Docker setup action reference is reported
+  if printf '%s\n' "$stdout" | grep -Fq "moving_reference="; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action pinning SHA pass: unexpected moving reference
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_build_docker_needs_required_gates_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -6524,6 +6585,7 @@ run_docker_build_action_first_line_with_block_case
 run_docker_build_action_rejects_later_push_step_case
 run_docker_build_action_ignores_nested_with_scalar_inputs_case
 run_docker_build_action_ignores_nested_with_block_case
+run_docker_setup_action_pinning_sha_pass_case
 run_build_docker_needs_required_gates_case
 run_build_docker_needs_inline_gates_case
 run_build_docker_needs_multiline_flow_gates_case

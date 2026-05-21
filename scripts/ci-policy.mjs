@@ -17,6 +17,7 @@ const USES_LINE_PATTERN = /^\s*(?:-\s*)?uses:\s*['"]?([^'"\s#]+)['"]?\s*(?:#.*)?
 const BLOCK_SCALAR_PATTERN = /:\s*[>|](?:[+-]?[1-9]?|[1-9][+-]?)?\s*(?:#.*)?$/;
 const GITLEAKS_ACTION_REPOSITORY = "gitleaks/gitleaks-action";
 const DOCKER_BUILD_ACTION_REPOSITORY = "docker/build-push-action";
+const DOCKER_SETUP_ACTION_REPOSITORIES = ["docker/setup-qemu-action", "docker/setup-buildx-action"];
 const REQUIRED_BUILD_DOCKER_NEEDS = [
   "backend-checks",
   "supply-chain",
@@ -35,6 +36,8 @@ const buildDockerDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-duration-budget --job-start-ms <ms> --job-end-ms <ms> --github-actions-cache <enabled|missing>";
 const dockerBuildActionUsage =
   "Usage: node scripts/ci-policy.mjs docker-build-action --workflow <path>";
+const dockerSetupActionPinningUsage =
+  "Usage: node scripts/ci-policy.mjs docker-setup-action-pinning --workflow <path>";
 const buildDockerNeedsUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-needs --workflow <path>";
 const buildDockerSchedulerUsage =
@@ -50,7 +53,7 @@ const secretsFixtureEvidenceUsage =
   "Usage: node scripts/ci-policy.mjs secrets-fixture-evidence --input <fixture-evidence.json> --false-positive-fixture <path>";
 const secretsNoSecretsReuseUsage =
   "Usage: node scripts/ci-policy.mjs secrets-no-secrets-reuse --workflow <path> --script-path <path> [--repo-root <path>]";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -619,6 +622,75 @@ const getStepPropertyValue = (step, propertyName) => {
 
 const isDockerBuildActionStep = (step) =>
   getStepPropertyValue(step, "uses")?.startsWith(`${DOCKER_BUILD_ACTION_REPOSITORY}@`) ?? false;
+
+const getBuildDockerActionReferences = (workflow) => {
+  const stepsBlockEntry = getBuildDockerStepsBlockEntry(workflow);
+  if (stepsBlockEntry === undefined) return [];
+
+  return getTopLevelListItemBlockEntries(stepsBlockEntry.block, stepsBlockEntry.startIndex)
+    .map((entry) => getStepPropertyValue(entry.block, "uses"))
+    .filter((actionReference) => actionReference !== undefined);
+};
+
+const isDockerSetupActionReference = (actionReference) =>
+  DOCKER_SETUP_ACTION_REPOSITORIES.some((repository) =>
+    actionReference.startsWith(`${repository}@`),
+  );
+
+const getDockerSetupActionPinFailure = (actionReference) => {
+  const repository = DOCKER_SETUP_ACTION_REPOSITORIES.find((setupRepository) =>
+    actionReference.startsWith(`${setupRepository}@`),
+  );
+  if (repository === undefined) return undefined;
+
+  const ref = actionReference.slice(`${repository}@`.length);
+  const boundaryReason = getShaBoundaryReason(actionReference);
+  if (/^[0-9a-f]{40}$/.test(ref)) return undefined;
+  if (boundaryReason !== undefined) return boundaryReason;
+  if (ref.length === FULL_COMMIT_SHA_LENGTH) return "SHA must use lowercase hexadecimal characters";
+  return "Docker setup actions must be pinned to a full commit SHA";
+};
+
+const getMissingDockerSetupActionRepositories = (actionReferences) =>
+  DOCKER_SETUP_ACTION_REPOSITORIES.filter(
+    (repository) =>
+      !actionReferences.some((actionReference) => actionReference.startsWith(`${repository}@`)),
+  );
+
+const runDockerSetupActionPinning = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", dockerSetupActionPinningUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const actionReferences = getBuildDockerActionReferences(workflow).filter(
+    isDockerSetupActionReference,
+  );
+  const missingRepositories = getMissingDockerSetupActionRepositories(actionReferences);
+  const pinFailures = actionReferences
+    .map((actionReference) => ({
+      actionReference,
+      reason: getDockerSetupActionPinFailure(actionReference),
+    }))
+    .filter((pinFailure) => pinFailure.reason !== undefined);
+  const boundaryReasons = getBoundaryReasons(actionReferences);
+
+  if (missingRepositories.length === 0 && pinFailures.length === 0) {
+    writeStdout(
+      `docker_setup_action_pinning=pass\npinning_outcome=accepted\n${boundaryReasons.map((reason) => `boundary_reason=${reason}\n`).join("")}`,
+    );
+    return;
+  }
+
+  writeStdout(
+    `docker_setup_action_pinning=fail\npinning_outcome=rejected\n${missingRepositories.map((repository) => `missing_action=${repository}\n`).join("")}${pinFailures.map((pinFailure) => `moving_reference=${pinFailure.actionReference}\n`).join("")}${boundaryReasons.map((reason) => `boundary_reason=${reason}\n`).join("")}`,
+  );
+  fail(
+    [
+      ...missingRepositories.map((repository) => `build-docker must use ${repository}`),
+      ...pinFailures.map((pinFailure) => `${pinFailure.actionReference}: ${pinFailure.reason}`),
+    ].join("\n"),
+    1,
+  );
+};
 
 const runDockerBuildAction = (args) => {
   const options = parseOptions(args);
@@ -1664,6 +1736,8 @@ if (command === "duration-budget") {
   runBuildDockerDurationBudget(args);
 } else if (command === "docker-build-action") {
   runDockerBuildAction(args);
+} else if (command === "docker-setup-action-pinning") {
+  runDockerSetupActionPinning(args);
 } else if (command === "build-docker-needs") {
   runBuildDockerNeeds(args);
 } else if (command === "build-docker-scheduler") {
