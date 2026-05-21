@@ -44,6 +44,5 @@ export default defineConfig({
     environment: "node",
     // Vitest globals stay disabled; tests import APIs from vitest.
     globals: false,
-    projects: ["packages/*", "apps/*"],
   },
 });
