@@ -921,6 +921,11 @@ const runChangelogTrigger = (args) => {
   }
 
   const hasPullRequestEvent = readWorkflowEventNames(workflow).includes("pull_request");
+  if (!hasPullRequestEvent) {
+    writeStdout("changelog_trigger=fail\njob=changelog-check\n");
+    fail("missing pull_request trigger", 1);
+  }
+
   const condition = getStepPropertyValue(changelogJob, "if");
   const jobEligibleForPullRequest =
     condition !== undefined && isPullRequestEventCondition(condition);
