@@ -9605,9 +9605,9 @@ write_standard_codeql_workflow() {
     "$(codeql_standard_trigger_body)" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9661,9 +9661,9 @@ run_codeql_workflow_missing_trigger_case() {
     "$trigger_body" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9691,9 +9691,9 @@ run_codeql_workflow_cron_boundary_case() {
     - cron: \"${cron_value}\"" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9721,9 +9721,9 @@ run_codeql_workflow_permission_case() {
     "$(codeql_standard_trigger_body)" \
     "$permissions_body" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9747,7 +9747,7 @@ run_codeql_workflow_language_case() {
     "8" \
     "$language" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9769,9 +9769,9 @@ run_codeql_workflow_queries_case() {
     "$(codeql_standard_trigger_body)" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "$queries" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9793,7 +9793,7 @@ run_codeql_workflow_category_case() {
     "$(codeql_standard_trigger_body)" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
     "$category" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
@@ -9816,9 +9816,9 @@ run_codeql_workflow_timeout_case() {
     "$(codeql_standard_trigger_body)" \
     "$(codeql_standard_permissions_body)" \
     "$timeout_minutes" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$CODEQL_TEST_CHECKOUT_SHA" \
     "$CODEQL_TEST_ACTION_SHA" \
     "$CODEQL_TEST_ACTION_SHA"
@@ -9843,9 +9843,9 @@ run_codeql_workflow_pinning_case() {
     "$(codeql_standard_trigger_body)" \
     "$(codeql_standard_permissions_body)" \
     "8" \
-    "javascript-typescript" \
+    "javascript" \
     "+security-extended,security-and-quality" \
-    "/language:javascript-typescript" \
+    "/language:javascript" \
     "$checkout_ref" \
     "$init_ref" \
     "$analyze_ref"
@@ -10401,9 +10401,9 @@ run_codeql_workflow_permission_case "extra pull requests" "$(printf '%s\n' \
   "  contents: read" \
   "  security-events: write" \
   "  pull-requests: write")" "permission pull-requests is outside CodeQL least-privilege scope"
-run_codeql_workflow_language_case "python" "CodeQL must analyze javascript-typescript"
+run_codeql_workflow_language_case "python" "CodeQL must analyze javascript"
 run_codeql_workflow_queries_case "security-extended" "CodeQL queries must include security-extended and security-and-quality"
-run_codeql_workflow_category_case "javascript" "CodeQL analyze category must be /language:javascript-typescript"
+run_codeql_workflow_category_case "javascript" "CodeQL analyze category must be /language:javascript"
 run_codeql_workflow_timeout_case 10
 run_codeql_workflow_pinning_case "moving checkout" "v4" "$CODEQL_TEST_ACTION_SHA" "$CODEQL_TEST_ACTION_SHA" "CodeQL workflow actions must be pinned to a full commit SHA"
 run_codeql_workflow_pinning_case "uppercase codeql" "$CODEQL_TEST_CHECKOUT_SHA" "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD" "$CODEQL_TEST_ACTION_SHA" "SHA must use lowercase hexadecimal characters"
