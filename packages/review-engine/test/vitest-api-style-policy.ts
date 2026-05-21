@@ -29,6 +29,8 @@ const trackedVitestApis: readonly string[] = [
   "vi",
 ];
 
+const requiredApiStyleDocumentation = "Vitest globals stay disabled; tests import APIs from vitest";
+
 export function evaluateVitestApiStyle(input: VitestApiStyleInput): VitestApiStyleEvaluation {
   const messages = [
     ...evaluateConfig(input.configSource),
@@ -42,11 +44,17 @@ export function evaluateVitestApiStyle(input: VitestApiStyleInput): VitestApiSty
 }
 
 function evaluateConfig(configSource: string): readonly string[] {
+  const messages: string[] = [];
+
   if (/globals\s*:\s*true/u.test(configSource)) {
-    return ["Vitest globals must stay disabled"];
+    messages.push("Vitest globals must stay disabled");
   }
 
-  return [];
+  if (!configSource.includes(requiredApiStyleDocumentation)) {
+    messages.push("document the Vitest API style choice");
+  }
+
+  return messages;
 }
 
 function evaluateFile(file: VitestApiStyleFile): readonly string[] {
