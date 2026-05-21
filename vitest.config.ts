@@ -26,6 +26,7 @@ export default defineConfig({
     alias: workspaceSourceAliases,
   },
   test: {
+    alias: workspaceSourceAliases,
     coverage: {
       exclude: [
         "**/*.test.ts",

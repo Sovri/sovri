@@ -25,7 +25,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   Vitest explicit-import violations (#930).
 
 - `test`: add the root Vitest config with disabled globals, repo-root project
-  resolution, workspace source aliases, and v8 coverage summary output (#929).
+  resolution, project-level workspace source aliases, and v8 coverage summary
+  output (#929).
 
 - `test`: add ATDD coverage for the root Vitest explicit-import policy (#929).
 
