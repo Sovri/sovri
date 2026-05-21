@@ -9651,6 +9651,21 @@ run_release_trigger_tag_pattern_boundary_case() {
   rm -f "$workflow_file"
 }
 
+run_release_trigger_extra_tag_pattern_case() {
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_release_trigger_workflow "$workflow_file" "  push:
+    tags:
+      - \"v*\"
+      - \"release-*\""
+
+  run_ci_policy_failure_case "release trigger extra tag pattern" "release workflow must only run on push tags v*" \
+    release-trigger --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
 write_release_metadata_fixture() {
   local root="$1"
   local core_version="$2"
@@ -10098,6 +10113,7 @@ run_release_trigger_extra_event_case pull_request
 run_release_trigger_extra_event_case workflow_dispatch
 run_release_trigger_extra_event_case schedule
 run_release_trigger_tag_pattern_boundary_case "v*" accepted "required v prefix is present"
+run_release_trigger_extra_tag_pattern_case
 run_release_trigger_tag_pattern_boundary_case "*" rejected "non-release tags can trigger"
 run_release_trigger_tag_pattern_boundary_case "v0.*" rejected "future v1 tags would not trigger"
 run_release_trigger_tag_pattern_boundary_case "release-*" rejected "v prefix contract is missing"

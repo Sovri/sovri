@@ -1171,7 +1171,8 @@ const readWorkflowRootEventNames = (workflow) => {
 
 const getReleaseTagPatternFailure = (tagPatterns) => {
   if (tagPatterns.length === 0) return "push.tags must include v*";
-  if (tagPatterns.includes("v*")) return undefined;
+  if (tagPatterns.length === 1 && tagPatterns[0] === "v*") return undefined;
+  if (tagPatterns.includes("v*")) return "release workflow must only run on push tags v*";
   if (tagPatterns.includes("*")) return "non-release tags can trigger";
   if (tagPatterns.some((pattern) => pattern.startsWith("v0."))) {
     return "future v1 tags would not trigger";
