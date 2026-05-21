@@ -809,6 +809,65 @@ $(printf '%s\n' "$stdout" | sed 's/^/      /')"
   PASS=$((PASS + 1))
 }
 
+run_changelog_diff_failure_message_case() {
+  local stdout stderr stdout_file stderr_file ec combined
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given pull request 53 changes these files:
+  #   | path                                      |
+  #   | packages/review-engine/src/orchestrator.ts |
+  # And pull request 53 does not change "CHANGELOG.md"
+  node "$SCRIPT" changelog-diff \
+    --changed-files "packages/review-engine/src/orchestrator.ts" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  combined="${stdout}
+${stderr}"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff failure message: expected non-zero exit
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  # When the changelog-check gate builds the failure message
+  # Then the failure message mentions "CHANGELOG.md"
+  if ! printf '%s\n' "$combined" | grep -Fq "CHANGELOG.md"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff failure message: missing CHANGELOG.md
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  # And the failure message mentions ".ts/.tsx"
+  if ! printf '%s\n' "$combined" | grep -Fq ".ts/.tsx"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff failure message: missing .ts/.tsx
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  # And the failure message mentions "add a changelog entry"
+  if ! printf '%s\n' "$combined" | grep -Fq "add a changelog entry"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff failure message: missing remediation
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_secrets_duration_pass_case() {
   local elapsed_ms="$1"
   local reported_duration="$2"
@@ -8716,6 +8775,7 @@ run_changelog_trigger_pull_request_target_case
 run_changelog_diff_ci_only_pass_case
 run_changelog_ci_only_failure_assertion_case
 run_changelog_diff_workflow_classification_case
+run_changelog_diff_failure_message_case
 run_invalid_cache_state_case
 run_action_pinning_sha_pass_case
 run_gitleaks_action_pinning_sha_pass_case
