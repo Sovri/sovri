@@ -646,6 +646,57 @@ $(printf '%s\n' "$combined" | sed 's/^/      /')"
   PASS=$((PASS + 1))
 }
 
+run_changelog_diff_ci_only_pass_case() {
+  local stdout stderr stdout_file stderr_file ec combined
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given pull request 53 changes these files:
+  #   | path                     |
+  #   | .github/workflows/ci.yml |
+  #   | .github/dependabot.yml   |
+  # And pull request 53 does not change "CHANGELOG.md"
+  node "$SCRIPT" changelog-diff \
+    --changed-files ".github/workflows/ci.yml,.github/dependabot.yml" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  combined="${stdout}
+${stderr}"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff CI-only pass: expected exit 0, got ${ec}
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  # When the changelog-check gate evaluates the pull request diff
+  # Then the changelog-check gate passes
+  if ! printf '%s\n' "$stdout" | grep -Fq "changelog_gate=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff CI-only pass: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/      /')"
+    return
+  fi
+
+  # And the gate result is "success"
+  if ! printf '%s\n' "$stdout" | grep -Fq "gate_result=success"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff CI-only pass: missing success result
+$(printf '%s\n' "$stdout" | sed 's/^/      /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_secrets_duration_pass_case() {
   local elapsed_ms="$1"
   local reported_duration="$2"
@@ -8550,6 +8601,7 @@ run_changelog_trigger_missing_job_case
 run_changelog_trigger_non_pull_request_eligibility_case
 run_changelog_trigger_other_workflow_events_case
 run_changelog_trigger_pull_request_target_case
+run_changelog_diff_ci_only_pass_case
 run_invalid_cache_state_case
 run_action_pinning_sha_pass_case
 run_gitleaks_action_pinning_sha_pass_case
