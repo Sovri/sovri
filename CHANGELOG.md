@@ -54,6 +54,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `ci`: add changelog-check remediation coverage proving passing TypeScript PRs
   with `CHANGELOG.md` do not emit remediation failures (#801).
 
+- `ci`: add changelog-check remediation coverage including an example changed
+  TypeScript path in failure messages (#802).
+
 - `ci`: add Docker setup action pinning policy coverage requiring the
   `build-docker` QEMU and Buildx setup actions to use full commit SHAs (#739).
 
