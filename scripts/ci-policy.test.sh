@@ -9905,11 +9905,15 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - name: Dependency Review
+      - name: Dependency Review allowed licenses
         uses: actions/dependency-review-action@${action_ref}
         with:
           fail-on-severity: ${fail_on_severity}
           allow-licenses: ${allow_licenses}
+      - name: Dependency Review denied licenses
+        uses: actions/dependency-review-action@${action_ref}
+        with:
+          fail-on-severity: ${fail_on_severity}
           deny-licenses: ${deny_licenses}
 YAML
   fi
@@ -10083,10 +10087,13 @@ run_dependency_review_missing_severity_input_case() {
     "" \
     "$DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES" \
     "$DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES" \
-    "      - name: Dependency Review
+    "      - name: Dependency Review allowed licenses
         uses: actions/dependency-review-action@${DEPENDENCY_REVIEW_TEST_ACTION_SHA}
         with:
           allow-licenses: ${DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES}
+      - name: Dependency Review denied licenses
+        uses: actions/dependency-review-action@${DEPENDENCY_REVIEW_TEST_ACTION_SHA}
+        with:
           deny-licenses: ${DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES}"
 
   run_ci_policy_failure_case "dependency review missing severity input" "fail-on-severity: high is required" \
@@ -10108,10 +10115,13 @@ run_dependency_review_wrong_step_severity_case() {
     "$DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES" \
     "      - name: Shell severity
         run: echo 'fail-on-severity: high'
-      - name: Dependency Review
+      - name: Dependency Review allowed licenses
         uses: actions/dependency-review-action@${DEPENDENCY_REVIEW_TEST_ACTION_SHA}
         with:
           allow-licenses: ${DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES}
+      - name: Dependency Review denied licenses
+        uses: actions/dependency-review-action@${DEPENDENCY_REVIEW_TEST_ACTION_SHA}
+        with:
           deny-licenses: ${DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES}"
 
   run_ci_policy_failure_case "dependency review wrong severity step" "fail-on-severity must be configured on actions/dependency-review-action" \
@@ -10178,6 +10188,30 @@ run_dependency_review_deny_whitespace_case() {
     standard
 
   run_ci_policy_success_case "dependency review deny whitespace" "deny_licenses=exact" \
+    dependency-review-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_dependency_review_combined_license_inputs_case() {
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_dependency_review_workflow_fixture \
+    "$workflow_file" \
+    "$(dependency_review_standard_trigger_body)" \
+    "$DEPENDENCY_REVIEW_TEST_ACTION_SHA" \
+    "high" \
+    "$DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES" \
+    "$DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES" \
+    "      - name: Dependency Review
+        uses: actions/dependency-review-action@${DEPENDENCY_REVIEW_TEST_ACTION_SHA}
+        with:
+          fail-on-severity: high
+          allow-licenses: ${DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES}
+          deny-licenses: ${DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES}"
+
+  run_ci_policy_failure_case "dependency review combined license inputs" "allow-licenses and deny-licenses must be configured on separate actions/dependency-review-action steps" \
     dependency-review-workflow-config --workflow "$workflow_file"
 
   rm -f "$workflow_file"
@@ -10777,6 +10811,7 @@ run_dependency_review_license_failure_case "duplicate deny" "$DEPENDENCY_REVIEW_
 run_dependency_review_license_failure_case "reordered deny" "$DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES" "GPL-3.0-only, AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-or-later, LGPL-2.0-only, LGPL-2.0-or-later, LGPL-2.1-only, LGPL-2.1-or-later, LGPL-3.0-only, LGPL-3.0-or-later" "denied licenses must follow the required order"
 run_dependency_review_license_failure_case "missing allow input" "" "$DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES" "allow-licenses is required"
 run_dependency_review_license_failure_case "missing deny input" "$DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES" "" "deny-licenses is required"
+run_dependency_review_combined_license_inputs_case
 run_docker_build_action_verification_case
 run_docker_build_action_push_true_case
 run_docker_build_action_missing_action_case

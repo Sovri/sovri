@@ -1472,46 +1472,79 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
   }
 
   const stepEntries = getDependencyReviewStepEntries(workflow);
-  const dependencyReviewStep = stepEntries.find((entry) =>
+  const dependencyReviewSteps = stepEntries.filter((entry) =>
     isDependencyReviewActionStep(entry.block),
   );
-  if (dependencyReviewStep === undefined) {
+  if (dependencyReviewSteps.length === 0) {
     failures.push(`${DEPENDENCY_REVIEW_ACTION_REPOSITORY} is required`);
     return failures;
   }
 
-  const actionReference = getStepPropertyValue(dependencyReviewStep.block, "uses") ?? "";
-  const pinFailure = getDependencyReviewActionPinFailure(actionReference);
-  if (pinFailure !== undefined) failures.push(pinFailure);
+  for (const dependencyReviewStep of dependencyReviewSteps) {
+    const actionReference = getStepPropertyValue(dependencyReviewStep.block, "uses") ?? "";
+    const pinFailure = getDependencyReviewActionPinFailure(actionReference);
+    if (pinFailure !== undefined) failures.push(pinFailure);
+  }
 
-  const failOnSeverity = getStepInput(
-    dependencyReviewStep.block,
-    "fail-on-severity",
-    workflow,
-    dependencyReviewStep.startIndex,
+  const severityInputs = dependencyReviewSteps.map((dependencyReviewStep) =>
+    getStepInput(
+      dependencyReviewStep.block,
+      "fail-on-severity",
+      workflow,
+      dependencyReviewStep.startIndex,
+    ),
   );
-  if (failOnSeverity === undefined) {
+  if (severityInputs.some((failOnSeverity) => failOnSeverity === undefined)) {
     failures.push("fail-on-severity: high is required");
     failures.push("fail-on-severity must be configured on actions/dependency-review-action");
-  } else if (failOnSeverity !== "high") {
+  } else if (severityInputs.some((failOnSeverity) => failOnSeverity !== "high")) {
     failures.push("high severity advisories must fail");
   }
 
-  const allowLicenses = parseCommaSeparatedList(
-    getStepInput(
+  const stepsWithBothLicenseModes = dependencyReviewSteps.filter((dependencyReviewStep) => {
+    const allowLicensesInput = getStepInput(
       dependencyReviewStep.block,
       "allow-licenses",
       workflow,
       dependencyReviewStep.startIndex,
-    ),
-  );
-  const denyLicenses = parseCommaSeparatedList(
-    getStepInput(
+    );
+    const denyLicensesInput = getStepInput(
       dependencyReviewStep.block,
       "deny-licenses",
       workflow,
       dependencyReviewStep.startIndex,
-    ),
+    );
+    return allowLicensesInput !== undefined && denyLicensesInput !== undefined;
+  });
+  if (stepsWithBothLicenseModes.length > 0) {
+    failures.push(
+      "allow-licenses and deny-licenses must be configured on separate actions/dependency-review-action steps",
+    );
+  }
+
+  const allowLicenses = parseCommaSeparatedList(
+    dependencyReviewSteps
+      .map((dependencyReviewStep) =>
+        getStepInput(
+          dependencyReviewStep.block,
+          "allow-licenses",
+          workflow,
+          dependencyReviewStep.startIndex,
+        ),
+      )
+      .find((value) => value !== undefined),
+  );
+  const denyLicenses = parseCommaSeparatedList(
+    dependencyReviewSteps
+      .map((dependencyReviewStep) =>
+        getStepInput(
+          dependencyReviewStep.block,
+          "deny-licenses",
+          workflow,
+          dependencyReviewStep.startIndex,
+        ),
+      )
+      .find((value) => value !== undefined),
   );
   failures.push(
     ...getExactLicenseListFailures(
@@ -1540,27 +1573,25 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
   return [...new Set(failures)];
 };
 
-const getDependencyReviewWorkflowActionReference = (workflow) => {
-  const dependencyReviewStep = getDependencyReviewStepEntries(workflow).find((entry) =>
-    isDependencyReviewActionStep(entry.block),
-  );
-  if (dependencyReviewStep === undefined) return undefined;
-
-  return getStepPropertyValue(dependencyReviewStep.block, "uses");
-};
+const getDependencyReviewWorkflowActionReferences = (workflow) =>
+  getDependencyReviewStepEntries(workflow)
+    .filter((entry) => isDependencyReviewActionStep(entry.block))
+    .map((entry) => getStepPropertyValue(entry.block, "uses"))
+    .filter((actionReference) => actionReference !== undefined);
 
 const runDependencyReviewWorkflowConfig = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", dependencyReviewWorkflowConfigUsage);
   const workflow = readWorkflowFile(workflowPath);
   const failures = getDependencyReviewWorkflowFailures(workflow);
-  const actionReference = getDependencyReviewWorkflowActionReference(workflow);
-  const pinFailure =
-    actionReference === undefined
-      ? undefined
-      : getDependencyReviewActionPinFailure(actionReference);
-  const boundaryReasons =
-    actionReference === undefined ? [] : [getShaBoundaryReason(actionReference)].filter(Boolean);
+  const actionReferences = getDependencyReviewWorkflowActionReferences(workflow);
+  const pinFailure = actionReferences
+    .map((actionReference) => ({
+      actionReference,
+      reason: getDependencyReviewActionPinFailure(actionReference),
+    }))
+    .find((failure) => failure.reason !== undefined);
+  const boundaryReasons = actionReferences.map(getShaBoundaryReason).filter(Boolean);
 
   if (failures.length === 0) {
     writeStdout(
@@ -1570,7 +1601,7 @@ const runDependencyReviewWorkflowConfig = (args) => {
   }
 
   writeStdout(
-    `dependency_review_workflow=fail\n${pinFailure === undefined ? "" : `moving_reference=${actionReference}\nboundary_reason=${pinFailure}\n`}`,
+    `dependency_review_workflow=fail\n${pinFailure === undefined ? "" : `moving_reference=${pinFailure.actionReference}\nboundary_reason=${pinFailure.reason}\n`}`,
   );
   fail(failures.join("\n"), 1);
 };
