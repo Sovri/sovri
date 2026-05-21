@@ -56,7 +56,7 @@ function evaluateFile(file: VitestApiStyleFile): readonly string[] {
 }
 
 function callsVitestApi(source: string, api: string): boolean {
-  const pattern = new RegExp(`(^|[^\\w$])${api}(?:\\s*\\(|\\s*\\.)`, "u");
+  const pattern = new RegExp(`(^|[^\\w$.])${api}(?:\\s*\\(|\\s*\\.)`, "u");
   return pattern.test(source);
 }
 
@@ -66,10 +66,8 @@ function extractVitestImports(source: string): ReadonlySet<string> {
   for (const match of matches) {
     const importList = match[1] ?? "";
     for (const name of importList.split(",")) {
-      const importedName = name
-        .trim()
-        .split(/\s+as\s+/u)[0]
-        ?.trim();
+      const importParts = name.trim().split(/\s+as\s+/u);
+      const importedName = importParts[1]?.trim() ?? importParts[0]?.trim();
       if (importedName !== undefined && importedName.length > 0) {
         imports.add(importedName);
       }

@@ -166,4 +166,26 @@ describe("Vitest root config explicit import policy", () => {
       expect(result.messages.join("\n")).toContain(example.reason);
     },
   );
+
+  it("accepts local Vitest import aliases and ignores object member calls", () => {
+    const result = evaluateVitestApiStyle({
+      configSource: readVitestConfig(),
+      files: [
+        {
+          path: "packages/core/src/aliased.test.ts",
+          source: [
+            'import { test as it, vi } from "vitest";',
+            'schema.describe("value");',
+            'it.each([[1]])("%i", () => {});',
+            'vi.mock("node:fs");',
+          ].join("\n"),
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      messages: [],
+      passed: true,
+    });
+  });
 });
