@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `ci`: add Docker setup action pinning policy coverage requiring the
+  `build-docker` QEMU and Buildx setup actions to use full commit SHAs (#739).
+
 - `ci`: add Docker build action policy coverage requiring `docker/build-push-action`,
   `push: false`, exactly `linux/amd64` and `linux/arm64`, and GitHub Actions
   cache configuration for `build-docker` (#734).
