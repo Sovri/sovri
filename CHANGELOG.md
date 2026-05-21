@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `ci`: add changelog-check documentation classification coverage for Markdown
+  files inside package folders (#813).
+
 - `ci`: add R-01 changelog-check assertion coverage rejecting failure results for
   documentation-only pull requests (#812).
 
