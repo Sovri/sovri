@@ -877,6 +877,12 @@ const classifyChangelogPath = (path) =>
 const formatChangelogClassifications = (changedFiles) =>
   changedFiles.map((path) => `classification=${path}:${classifyChangelogPath(path)}\n`).join("");
 
+const buildChangelogRemediationMessage = (changedFiles) => {
+  const examplePath = changedFiles.find((path) => isTypescriptCodePath(path));
+  if (examplePath === undefined) return CHANGELOG_REMEDIATION_MESSAGE;
+  return `${CHANGELOG_REMEDIATION_MESSAGE} Example changed file: ${examplePath}`;
+};
+
 const isCiOnlyChangelogPath = (path) =>
   path.startsWith(".github/workflows/") ||
   path === ".github/dependabot.yml" ||
@@ -907,7 +913,7 @@ const runChangelogDiff = (args) => {
   writeStdout(
     `${classifications}has_typescript_code=${hasTypescriptCode}\nhas_root_changelog=${hasRootChangelog}\nchangelog_gate=fail\ngate_result=failure\n`,
   );
-  fail(CHANGELOG_REMEDIATION_MESSAGE, 1);
+  fail(buildChangelogRemediationMessage(changedFiles), 1);
 };
 
 const runChangelogCiOnlyAssert = (args) => {
