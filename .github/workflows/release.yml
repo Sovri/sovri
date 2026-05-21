@@ -82,7 +82,7 @@ jobs:
             ghcr.io/mpiton/sovri/community-bot:${{ steps.image-tags.outputs.minor }}
             ghcr.io/mpiton/sovri/community-bot:${{ steps.image-tags.outputs.major }}
             ghcr.io/mpiton/sovri/community-bot:latest
-          labels: org.opencontainers.image.source=ghcr.io/mpiton/sovri/community-bot
+          labels: org.opencontainers.image.source=https://github.com/mpiton/sovri
 
   sbom:
     runs-on: ubuntu-latest

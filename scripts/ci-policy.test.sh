@@ -9865,7 +9865,7 @@ run_release_build_missing_tag_case() {
   local workflow_file tags
 
   workflow_file=$(mktemp)
-  tags=$(release_required_tags | grep -Fv "ghcr.io/mpiton/sovri/community-bot:${missing_tag}" || true)
+  tags=$(release_required_tags | grep -Fvx "ghcr.io/mpiton/sovri/community-bot:${missing_tag}" || true)
   write_release_build_workflow "$workflow_file" "true" "linux/amd64,linux/arm64" "$tags" "ghcr.io/mpiton/sovri/community-bot"
 
   run_ci_policy_failure_case "release build missing ${missing_tag}" "missing ${missing_tag} tag" \
