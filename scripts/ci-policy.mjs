@@ -10,6 +10,7 @@ const DURATION_BUDGET_MS = 300000;
 const SECRETS_SCAN_DURATION_BUDGET_MS = 60000;
 const FORBIDDEN_JOB_DURATION_BUDGET_MS = 30000;
 const BUILD_DOCKER_DURATION_BUDGET_MS = 600000;
+const CODEQL_DURATION_BUDGET_MS = 480000;
 const FULL_COMMIT_SHA_LENGTH = 40;
 const PINNED_EXTERNAL_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const HEX_SHA_SUFFIX_PATTERN = /@([0-9a-f]+)$/;
@@ -20,11 +21,23 @@ const DOCKER_BUILD_ACTION_REPOSITORY = "docker/build-push-action";
 const DOCKER_SETUP_ACTION_REPOSITORIES = ["docker/setup-qemu-action", "docker/setup-buildx-action"];
 const TRIVY_ACTION_REPOSITORY = "aquasecurity/trivy-action";
 const CODEQL_UPLOAD_SARIF_ACTION_REPOSITORY = "github/codeql-action/upload-sarif";
+const CODEQL_INIT_ACTION_REPOSITORY = "github/codeql-action/init";
+const CODEQL_ANALYZE_ACTION_REPOSITORY = "github/codeql-action/analyze";
 const TRIVY_REQUIRED_SEVERITY = "HIGH,CRITICAL";
 const TRIVY_REQUIRED_EXIT_CODE = "1";
 const TRIVY_REQUIRED_SARIF_FORMAT = "sarif";
 const TRIVY_REQUIRED_SARIF_PATH = "trivy-results.sarif";
 const TRIVY_BLOCKING_SEVERITIES = new Set(["HIGH", "CRITICAL"]);
+const CODEQL_JOB_NAME = "codeql";
+const CODEQL_REQUIRED_LANGUAGE = "javascript";
+const CODEQL_REQUIRED_CATEGORY = "/language:javascript";
+const CODEQL_REQUIRED_CRON = "0 6 * * 1";
+const CODEQL_REQUIRED_QUERIES = ["security-extended", "security-and-quality"];
+const CODEQL_REQUIRED_PERMISSIONS = new Map([
+  ["actions", "read"],
+  ["contents", "read"],
+  ["security-events", "write"],
+]);
 const RELEASE_REQUIRED_JOBS = ["verify-tag", "build-and-push", "sbom", "gh-release"];
 const RELEASE_VERSION = "0.1.0";
 const RELEASE_IMAGE_REPOSITORY = "ghcr.io/mpiton/sovri/community-bot";
@@ -74,6 +87,10 @@ const forbiddenJobsDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs forbidden-jobs-duration-budget --forbidden-tools-ms <ms|missing|unknown> --forbidden-imports-ms <ms|missing|unknown>";
 const buildDockerDurationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs build-docker-duration-budget --job-start-ms <ms> --job-end-ms <ms> --github-actions-cache <enabled|missing>";
+const codeqlDurationBudgetUsage =
+  "Usage: node scripts/ci-policy.mjs codeql-duration-budget --job-start-ms <ms> --job-end-ms <ms>";
+const codeqlWorkflowConfigUsage =
+  "Usage: node scripts/ci-policy.mjs codeql-workflow-config --workflow <path>";
 const dockerBuildActionUsage =
   "Usage: node scripts/ci-policy.mjs docker-build-action --workflow <path>";
 const dockerSetupActionPinningUsage =
@@ -122,7 +139,7 @@ const changelogRemediationMessageUsage =
   "Usage: node scripts/ci-policy.mjs changelog-remediation-message --message <text>";
 const changelogDocumentationOnlyAssertUsage =
   "Usage: node scripts/ci-policy.mjs changelog-documentation-only-assert --changed-files <comma-separated-paths> --gate-result <success|failure>";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${codeqlDurationBudgetUsage}\n${codeqlWorkflowConfigUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -356,6 +373,29 @@ const runBuildDockerDurationBudget = (args) => {
     `measured_duration_ms=${elapsedMs}\nduration_budget=fail\nreported_duration=${formatBuildDockerDuration(elapsedMs)}\n`,
   );
   fail("build-docker must finish in under 10 minutes", 1);
+};
+
+const runCodeqlDurationBudget = (args) => {
+  const options = parseOptions(args);
+  const startMs = readInteger(options, "job-start-ms");
+  const endMs = readInteger(options, "job-end-ms");
+  const elapsedMs = endMs - startMs;
+
+  if (elapsedMs < 0) {
+    fail("ERROR: --job-end-ms must be greater than or equal to --job-start-ms.", 2);
+  }
+
+  if (elapsedMs < CODEQL_DURATION_BUDGET_MS) {
+    writeStdout(
+      `measured_duration_ms=${elapsedMs}\ncodeql_duration_budget=pass\nreported_duration=${formatDuration(elapsedMs)}\n`,
+    );
+    return;
+  }
+
+  writeStdout(
+    `measured_duration_ms=${elapsedMs}\ncodeql_duration_budget=fail\nreported_duration=${formatDuration(elapsedMs)}\n`,
+  );
+  fail("CodeQL must finish in under 8 minutes", 1);
 };
 
 const findDirectChildEntry = (entries, parentEntry, childPattern) => {
@@ -1167,6 +1207,251 @@ const readWorkflowRootEventNames = (workflow) => {
   }
 
   return events;
+};
+
+const getRootEntry = (workflow, rootPattern) =>
+  findRootEntry(getYamlStructureEntries(workflow), rootPattern);
+
+const readYamlListEntryValues = (workflow, entry) => {
+  const inlineValue = entry.line.match(/^\s*[A-Za-z0-9_-]+:\s*(.*?)\s*(?:#.*)?$/)?.[1]?.trim();
+  if (inlineValue !== undefined && inlineValue.length > 0) {
+    return parseYamlScalarListValue(inlineValue);
+  }
+
+  return getIndentedBlockRawFromIndex(workflow, entry.index)
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.match(/^\s*-\s+(.+?)\s*(?:#.*)?$/)?.[1])
+    .filter((value) => value !== undefined)
+    .map((value) => stripYamlQuotes(value));
+};
+
+const readDirectChildScalarMap = (workflow, parentEntry) => {
+  const entries = getYamlStructureEntries(workflow);
+  const parentIndent = getIndent(parentEntry.line);
+  const values = new Map();
+  let childIndent;
+
+  for (const entry of entries.filter((candidate) => candidate.index > parentEntry.index)) {
+    const trimmedLine = entry.line.trim();
+    if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) continue;
+
+    const indent = getIndent(entry.line);
+    if (indent <= parentIndent) break;
+
+    childIndent ??= indent;
+    if (indent !== childIndent) continue;
+
+    const match = entry.line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*(?:#.*)?$/);
+    if (match?.[1] !== undefined && match[2] !== undefined) {
+      values.set(match[1], stripYamlQuotes(match[2].trim()));
+    }
+  }
+
+  return values;
+};
+
+const readCodeqlPushBranches = (workflow) => {
+  const entries = getYamlStructureEntries(workflow);
+  const onEntry = findRootEntry(entries, /^\s*on:\s*(?:#.*)?$/);
+  if (onEntry === undefined) return [];
+
+  const pushEntry = findDirectChildEntry(entries, onEntry, /^\s+push:\s*(?:#.*)?$/);
+  if (pushEntry === undefined) return [];
+
+  const branchesEntry = findDirectChildEntry(entries, pushEntry, /^\s+branches:\s*(?:.*)?$/);
+  if (branchesEntry === undefined) return [];
+
+  return readYamlListEntryValues(workflow, branchesEntry);
+};
+
+const readCodeqlScheduleCrons = (workflow) => {
+  const entries = getYamlStructureEntries(workflow);
+  const onEntry = findRootEntry(entries, /^\s*on:\s*(?:#.*)?$/);
+  if (onEntry === undefined) return [];
+
+  const scheduleEntry = findDirectChildEntry(entries, onEntry, /^\s+schedule:\s*(?:#.*)?$/);
+  if (scheduleEntry === undefined) return [];
+
+  return getTopLevelListItemBlocks(getIndentedBlockRawFromIndex(workflow, scheduleEntry.index))
+    .map((block) => {
+      const inlineCron = block.match(/^\s*-\s+cron:\s*(.*?)\s*(?:#.*)?$/m)?.[1];
+      if (inlineCron !== undefined) return stripYamlQuotes(inlineCron.trim());
+
+      const childCron = block.match(/^\s*cron:\s*(.*?)\s*(?:#.*)?$/m)?.[1];
+      return childCron === undefined ? undefined : stripYamlQuotes(childCron.trim());
+    })
+    .filter((cron) => cron !== undefined);
+};
+
+const readCodeqlPermissions = (workflow) => {
+  const permissionsEntry = getRootEntry(workflow, /^\s*permissions:\s*(?:#.*)?$/);
+  if (permissionsEntry === undefined) return undefined;
+  return readDirectChildScalarMap(workflow, permissionsEntry);
+};
+
+const isCodeqlInitActionStep = (step) =>
+  getStepPropertyValue(step, "uses")?.startsWith(`${CODEQL_INIT_ACTION_REPOSITORY}@`) ?? false;
+
+const isCodeqlAnalyzeActionStep = (step) =>
+  getStepPropertyValue(step, "uses")?.startsWith(`${CODEQL_ANALYZE_ACTION_REPOSITORY}@`) ?? false;
+
+const getCodeqlStepEntries = (workflow) => {
+  const stepsBlockEntry = getJobStepsBlockEntry(workflow, CODEQL_JOB_NAME);
+  if (stepsBlockEntry === undefined) return [];
+
+  return getTopLevelListItemBlockEntries(stepsBlockEntry.block, stepsBlockEntry.startIndex);
+};
+
+const readCodeqlQuerySet = (queries) =>
+  new Set(
+    (queries ?? "")
+      .split(/[,\n]/)
+      .map((query) => query.trim().replace(/^\+/, ""))
+      .filter((query) => query.length > 0),
+  );
+
+const getCodeqlActionRef = (actionReference) => {
+  const separatorIndex = actionReference.lastIndexOf("@");
+  return separatorIndex === -1 ? "" : actionReference.slice(separatorIndex + 1);
+};
+
+const getCodeqlActionPinFailure = (actionReference) => {
+  if (!isExternalActionReference(actionReference)) return undefined;
+
+  const ref = getCodeqlActionRef(actionReference);
+  if (/^[0-9a-f]{40}$/.test(ref)) return undefined;
+
+  const boundaryReason = getShaBoundaryReason(actionReference);
+  if (boundaryReason !== undefined) return boundaryReason;
+  if (ref.length === FULL_COMMIT_SHA_LENGTH) {
+    return "SHA must use lowercase hexadecimal characters";
+  }
+  return "CodeQL workflow actions must be pinned to a full commit SHA";
+};
+
+const getCodeqlPinFailures = (workflow) =>
+  extractActionReferences(workflow)
+    .map((actionReference) => ({
+      actionReference,
+      reason: getCodeqlActionPinFailure(actionReference),
+    }))
+    .filter((failure) => failure.reason !== undefined);
+
+const getCodeqlPermissionFailures = (permissions) => {
+  if (permissions === undefined) return ["CodeQL workflow must set least-privilege permissions"];
+
+  const missingOrWrongPermissions = [...CODEQL_REQUIRED_PERMISSIONS].flatMap(
+    ([permissionName, requiredValue]) =>
+      permissions.get(permissionName) === requiredValue
+        ? []
+        : [`permissions.${permissionName} must be ${requiredValue}`],
+  );
+  const extraPermissions = [...permissions.keys()]
+    .filter((permissionName) => !CODEQL_REQUIRED_PERMISSIONS.has(permissionName))
+    .map(
+      (permissionName) => `permission ${permissionName} is outside CodeQL least-privilege scope`,
+    );
+
+  return [...missingOrWrongPermissions, ...extraPermissions];
+};
+
+const getCodeqlWorkflowFailures = (workflow) => {
+  const failures = [];
+  const eventNames = readWorkflowRootEventNames(workflow);
+
+  if (!eventNames.includes("push") || !readCodeqlPushBranches(workflow).includes("main")) {
+    failures.push("CodeQL workflow must run on push to main");
+  }
+  if (!eventNames.includes("pull_request")) {
+    failures.push("CodeQL workflow must run on pull_request");
+  }
+
+  const scheduleCrons = readCodeqlScheduleCrons(workflow);
+  if (!eventNames.includes("schedule") || scheduleCrons.length === 0) {
+    failures.push("CodeQL workflow must run weekly");
+  } else if (!scheduleCrons.includes(CODEQL_REQUIRED_CRON)) {
+    failures.push(`CodeQL weekly schedule must use ${CODEQL_REQUIRED_CRON}`);
+  }
+
+  failures.push(...getCodeqlPermissionFailures(readCodeqlPermissions(workflow)));
+
+  const jobEntry = getJobBlockEntry(workflow, CODEQL_JOB_NAME);
+  if (jobEntry === undefined) {
+    failures.push("missing codeql job");
+  } else {
+    const jobBlock = getIndentedBlockRawFromIndex(workflow, jobEntry.index);
+    if (getStepPropertyValue(jobBlock, "timeout-minutes") !== "8") {
+      failures.push("CodeQL job timeout-minutes must be 8");
+    }
+  }
+
+  const stepEntries = getCodeqlStepEntries(workflow);
+  const initStep = stepEntries.find((entry) => isCodeqlInitActionStep(entry.block));
+  const analyzeStep = stepEntries.find((entry) => isCodeqlAnalyzeActionStep(entry.block));
+
+  if (initStep === undefined) {
+    failures.push(`CodeQL workflow must use ${CODEQL_INIT_ACTION_REPOSITORY}`);
+  } else {
+    const language = getStepInput(initStep.block, "languages", workflow, initStep.startIndex);
+    if (language !== CODEQL_REQUIRED_LANGUAGE) {
+      failures.push(`CodeQL must analyze ${CODEQL_REQUIRED_LANGUAGE}`);
+    }
+
+    const queries = readCodeqlQuerySet(
+      getStepInput(initStep.block, "queries", workflow, initStep.startIndex),
+    );
+    if (!CODEQL_REQUIRED_QUERIES.every((query) => queries.has(query))) {
+      failures.push("CodeQL queries must include security-extended and security-and-quality");
+    }
+  }
+
+  if (analyzeStep === undefined) {
+    failures.push(`CodeQL workflow must use ${CODEQL_ANALYZE_ACTION_REPOSITORY}`);
+  } else {
+    const category = getStepInput(analyzeStep.block, "category", workflow, analyzeStep.startIndex);
+    if (category !== CODEQL_REQUIRED_CATEGORY) {
+      failures.push(`CodeQL analyze category must be ${CODEQL_REQUIRED_CATEGORY}`);
+    }
+  }
+
+  const pinFailures = getCodeqlPinFailures(workflow);
+  if (pinFailures.length > 0) {
+    failures.push("CodeQL workflow actions must be pinned to a full commit SHA");
+    failures.push(...pinFailures.map((failure) => failure.reason));
+  }
+
+  return [...new Set(failures)];
+};
+
+const runCodeqlWorkflowConfig = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", codeqlWorkflowConfigUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const failures = getCodeqlWorkflowFailures(workflow);
+  const actionReferences = extractActionReferences(workflow);
+  const pinFailures = getCodeqlPinFailures(workflow);
+  const boundaryReasons = [
+    "weekly Monday scan at 06:00 UTC",
+    ...getBoundaryReasons(actionReferences),
+  ];
+
+  if (failures.length === 0) {
+    writeStdout(
+      `codeql_workflow=pass\ncodeql_visibility=security-tab\ncodeql_language=${CODEQL_REQUIRED_LANGUAGE}\ncodeql_category=${CODEQL_REQUIRED_CATEGORY}\nschedule_cron=${CODEQL_REQUIRED_CRON}\n${boundaryReasons.map((reason) => `boundary_reason=${reason}\n`).join("")}`,
+    );
+    return;
+  }
+
+  writeStdout(
+    `codeql_workflow=fail\n${pinFailures
+      .map(
+        (failure) =>
+          `moving_reference=${failure.actionReference}\nboundary_reason=${failure.reason}\n`,
+      )
+      .join("")}`,
+  );
+  fail(failures.join("\n"), 1);
 };
 
 const getReleaseTagPatternFailure = (tagPatterns) => {
@@ -2705,6 +2990,10 @@ if (command === "duration-budget") {
   runForbiddenJobsDurationBudget(args);
 } else if (command === "build-docker-duration-budget") {
   runBuildDockerDurationBudget(args);
+} else if (command === "codeql-duration-budget") {
+  runCodeqlDurationBudget(args);
+} else if (command === "codeql-workflow-config") {
+  runCodeqlWorkflowConfig(args);
 } else if (command === "docker-build-action") {
   runDockerBuildAction(args);
 } else if (command === "docker-setup-action-pinning") {

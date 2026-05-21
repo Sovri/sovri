@@ -9537,6 +9537,325 @@ $(printf '%s\n' "$combined" | sed 's/^/      /')"
   PASS=$((PASS + 1))
 }
 
+CODEQL_TEST_CHECKOUT_SHA="1234567890123456789012345678901234567890"
+CODEQL_TEST_ACTION_SHA="abcdefabcdefabcdefabcdefabcdefabcdefabcd"
+
+codeql_standard_trigger_body() {
+  printf '%s\n' \
+    "  push:" \
+    "    branches:" \
+    "      - main" \
+    "  pull_request:" \
+    "  schedule:" \
+    "    - cron: \"0 6 * * 1\""
+}
+
+codeql_standard_permissions_body() {
+  printf '%s\n' \
+    "  actions: read" \
+    "  contents: read" \
+    "  security-events: write"
+}
+
+write_codeql_workflow_fixture() {
+  local workflow_file="$1"
+  local trigger_body="$2"
+  local permissions_body="$3"
+  local timeout_minutes="$4"
+  local language="$5"
+  local queries="$6"
+  local category="$7"
+  local checkout_ref="$8"
+  local init_ref="$9"
+  local analyze_ref="${10}"
+
+  cat >"$workflow_file" <<YAML
+name: CodeQL
+
+on:
+${trigger_body}
+
+permissions:
+${permissions_body}
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${timeout_minutes}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@${checkout_ref}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@${init_ref}
+        with:
+          languages: ${language}
+          queries: ${queries}
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@${analyze_ref}
+        with:
+          category: "${category}"
+YAML
+}
+
+write_standard_codeql_workflow() {
+  local workflow_file="$1"
+
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+}
+
+run_codeql_duration_pass_case() {
+  local elapsed_ms="$1"
+  local reported_duration="$2"
+
+  run_ci_policy_success_case "codeql duration pass ${elapsed_ms}" "codeql_duration_budget=pass" \
+    codeql-duration-budget \
+    --job-start-ms 100000 \
+    --job-end-ms "$((100000 + elapsed_ms))"
+
+  run_ci_policy_success_case "codeql duration report ${elapsed_ms}" "reported_duration=${reported_duration}" \
+    codeql-duration-budget \
+    --job-start-ms 100000 \
+    --job-end-ms "$((100000 + elapsed_ms))"
+}
+
+run_codeql_duration_fail_case() {
+  local elapsed_ms="$1"
+
+  run_ci_policy_failure_case "codeql duration fail ${elapsed_ms}" "CodeQL must finish in under 8 minutes" \
+    codeql-duration-budget \
+    --job-start-ms 100000 \
+    --job-end-ms "$((100000 + elapsed_ms))"
+}
+
+run_codeql_workflow_config_pass_case() {
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_standard_codeql_workflow "$workflow_file"
+
+  run_ci_policy_success_case "codeql workflow config pass" "codeql_workflow=pass" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_missing_trigger_case() {
+  local name="$1"
+  local trigger_body="$2"
+  local expected_message="$3"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$trigger_body" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql missing trigger ${name}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_cron_boundary_case() {
+  local cron_value="$1"
+  local outcome="$2"
+  local reason="$3"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: \"${cron_value}\"" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  if [ "$outcome" = accepted ]; then
+    run_ci_policy_success_case "codeql cron ${cron_value}" "boundary_reason=${reason}" \
+      codeql-workflow-config --workflow "$workflow_file"
+  else
+    run_ci_policy_failure_case "codeql cron ${cron_value}" "$reason" \
+      codeql-workflow-config --workflow "$workflow_file"
+  fi
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_permission_case() {
+  local name="$1"
+  local permissions_body="$2"
+  local expected_message="$3"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$permissions_body" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql permission ${name}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_language_case() {
+  local language="$1"
+  local expected_message="$2"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "$language" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql language ${language}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_queries_case() {
+  local queries="$1"
+  local expected_message="$2"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "$queries" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql queries ${queries}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_category_case() {
+  local category="$1"
+  local expected_message="$2"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "$category" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql category ${category}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_timeout_case() {
+  local timeout_minutes="$1"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "$timeout_minutes" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$CODEQL_TEST_CHECKOUT_SHA" \
+    "$CODEQL_TEST_ACTION_SHA" \
+    "$CODEQL_TEST_ACTION_SHA"
+
+  run_ci_policy_failure_case "codeql timeout ${timeout_minutes}" "CodeQL job timeout-minutes must be 8" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_codeql_workflow_pinning_case() {
+  local name="$1"
+  local checkout_ref="$2"
+  local init_ref="$3"
+  local analyze_ref="$4"
+  local expected_message="$5"
+  local workflow_file
+
+  workflow_file=$(mktemp)
+  write_codeql_workflow_fixture \
+    "$workflow_file" \
+    "$(codeql_standard_trigger_body)" \
+    "$(codeql_standard_permissions_body)" \
+    "8" \
+    "javascript" \
+    "+security-extended,security-and-quality" \
+    "/language:javascript" \
+    "$checkout_ref" \
+    "$init_ref" \
+    "$analyze_ref"
+
+  run_ci_policy_failure_case "codeql pinning ${name}" "$expected_message" \
+    codeql-workflow-config --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
 write_release_trigger_workflow() {
   local workflow_file="$1"
   local trigger_body="$2"
@@ -10048,6 +10367,46 @@ run_build_docker_duration_fail_case 600000
 run_build_docker_duration_fail_case 720000
 run_build_docker_duration_excludes_queue_case
 run_build_docker_duration_missing_cache_case
+run_codeql_duration_pass_case 180000 "180 s"
+run_codeql_duration_pass_case 479999 "479.999 s"
+run_codeql_duration_fail_case 480000
+run_codeql_duration_fail_case 600000
+run_codeql_workflow_config_pass_case
+run_codeql_workflow_missing_trigger_case "push main" "$(printf '%s\n' \
+  "  pull_request:" \
+  "  schedule:" \
+  "    - cron: \"0 6 * * 1\"")" "CodeQL workflow must run on push to main"
+run_codeql_workflow_missing_trigger_case "pull_request" "$(printf '%s\n' \
+  "  push:" \
+  "    branches:" \
+  "      - main" \
+  "  schedule:" \
+  "    - cron: \"0 6 * * 1\"")" "CodeQL workflow must run on pull_request"
+run_codeql_workflow_missing_trigger_case "schedule" "$(printf '%s\n' \
+  "  push:" \
+  "    branches:" \
+  "      - main" \
+  "  pull_request:")" "CodeQL workflow must run weekly"
+run_codeql_workflow_cron_boundary_case "0 6 * * 1" accepted "weekly Monday scan at 06:00 UTC"
+run_codeql_workflow_cron_boundary_case "0 5 * * 1" rejected "CodeQL weekly schedule must use 0 6 * * 1"
+run_codeql_workflow_permission_case "contents write" "$(printf '%s\n' \
+  "  actions: read" \
+  "  contents: write" \
+  "  security-events: write")" "permissions.contents must be read"
+run_codeql_workflow_permission_case "missing security events" "$(printf '%s\n' \
+  "  actions: read" \
+  "  contents: read")" "permissions.security-events must be write"
+run_codeql_workflow_permission_case "extra pull requests" "$(printf '%s\n' \
+  "  actions: read" \
+  "  contents: read" \
+  "  security-events: write" \
+  "  pull-requests: write")" "permission pull-requests is outside CodeQL least-privilege scope"
+run_codeql_workflow_language_case "python" "CodeQL must analyze javascript"
+run_codeql_workflow_queries_case "security-extended" "CodeQL queries must include security-extended and security-and-quality"
+run_codeql_workflow_category_case "javascript" "CodeQL analyze category must be /language:javascript"
+run_codeql_workflow_timeout_case 10
+run_codeql_workflow_pinning_case "moving checkout" "v4" "$CODEQL_TEST_ACTION_SHA" "$CODEQL_TEST_ACTION_SHA" "CodeQL workflow actions must be pinned to a full commit SHA"
+run_codeql_workflow_pinning_case "uppercase codeql" "$CODEQL_TEST_CHECKOUT_SHA" "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD" "$CODEQL_TEST_ACTION_SHA" "SHA must use lowercase hexadecimal characters"
 run_docker_build_action_verification_case
 run_docker_build_action_push_true_case
 run_docker_build_action_missing_action_case
