@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `ci`: add CodeQL policy coverage and a pinned GitHub Advanced Security
+  workflow for JavaScript/TypeScript analysis (#55).
+
 - `ci`: add release workflow policy coverage and the v0.1.0 GHCR, SBOM, and
   GitHub Release publishing workflow (#54).
 
