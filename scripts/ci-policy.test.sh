@@ -967,6 +967,79 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_build_action_platform_boundary_case() {
+  local platforms="$1"
+  local expected_outcome="$2"
+  local expected_reason="$3"
+  local expected_ec=1
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  if [ "$expected_outcome" = "accepted" ]; then
+    expected_ec=0
+  fi
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<YAML
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Community bot image
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          push: false
+          platforms: ${platforms}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+YAML
+
+  # Given the build-docker job contains a `docker/build-push-action` step
+  # And the Docker build action input `push` is `false`
+  # And the Docker build action input `platforms` is "<platforms>"
+  node "$SCRIPT" docker-build-action --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne "$expected_ec" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action platforms ${platforms}: expected exit ${expected_ec}, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker build action configuration is evaluated
+  # Then the Docker build action configuration outcome is "<outcome>"
+  if ! printf '%s\n' "$stdout" | grep -Fq "platform_outcome=${expected_outcome}"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action platforms ${platforms}: missing ${expected_outcome} platform outcome
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the boundary reason is "<reason>"
+  if ! printf '%s\n' "$combined" | grep -Fq "boundary_reason=${expected_reason}"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker build action platforms ${platforms}: missing boundary reason ${expected_reason}
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_docker_build_action_ignores_env_inputs_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -6347,6 +6420,10 @@ run_build_docker_duration_missing_cache_case
 run_docker_build_action_verification_case
 run_docker_build_action_push_true_case
 run_docker_build_action_missing_action_case
+run_docker_build_action_platform_boundary_case "linux/amd64,linux/arm64" "accepted" "required amd64 and arm64 platforms present"
+run_docker_build_action_platform_boundary_case "linux/amd64" "rejected" "arm64 platform is missing"
+run_docker_build_action_platform_boundary_case "linux/arm64" "rejected" "amd64 platform is missing"
+run_docker_build_action_platform_boundary_case "linux/amd64,linux/arm64,linux/386" "rejected" "extra platform is outside the v0.1 contract"
 run_docker_build_action_ignores_env_inputs_case
 run_docker_build_action_flow_with_mapping_case
 run_docker_build_action_build_job_anchor_case
