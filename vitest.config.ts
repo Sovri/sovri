@@ -4,6 +4,8 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
+const repoRoot = fileURLToPath(new URL(".", import.meta.url));
+
 const workspaceSourceAliases = {
   "@sovri/config": fileURLToPath(new URL("./packages/config/src/index.ts", import.meta.url)),
   "@sovri/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)),
@@ -19,6 +21,7 @@ const workspaceSourceAliases = {
 };
 
 export default defineConfig({
+  root: repoRoot,
   resolve: {
     alias: workspaceSourceAliases,
   },
