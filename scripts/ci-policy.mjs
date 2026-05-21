@@ -831,7 +831,10 @@ const runBuildDockerNeeds = (args) => {
   const workflowPath = readRequiredOption(options, "workflow", buildDockerNeedsUsage);
   const workflow = readWorkflowFile(workflowPath);
   const jobsBlock = getIndentedBlock(workflow, /^\s*jobs:\s*(?:#.*)?$/);
-  const buildDockerJob = getIndentedBlock(jobsBlock, /^\s+build-docker:\s*(?:#.*)?$/);
+  const buildDockerJob = getIndentedBlock(
+    jobsBlock,
+    /^\s+build-docker:\s*(?:&[^\s#]+)?\s*(?:#.*)?$/,
+  );
   const needsBlock = getIndentedBlock(buildDockerJob, /^\s+needs:\s*(?:.*)?$/);
   if (needsBlock.length === 0) {
     writeStdout("build_docker_needs=fail\nneeds=missing\n");
