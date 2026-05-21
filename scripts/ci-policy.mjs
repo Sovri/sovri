@@ -74,7 +74,9 @@ const changelogTriggerUsage =
   "Usage: node scripts/ci-policy.mjs changelog-trigger --workflow <path>";
 const changelogDiffUsage =
   "Usage: node scripts/ci-policy.mjs changelog-diff --changed-files <comma-separated-paths>";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}`;
+const changelogCiOnlyAssertUsage =
+  "Usage: node scripts/ci-policy.mjs changelog-ci-only-assert --changed-files <comma-separated-paths> --gate-result <success|failure>";
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -865,6 +867,19 @@ const readChangedFiles = (options) => {
 
 const isTypescriptCodePath = (path) => path.endsWith(".ts") || path.endsWith(".tsx");
 
+const isCiOnlyChangelogPath = (path) =>
+  path.startsWith(".github/workflows/") ||
+  path === ".github/dependabot.yml" ||
+  path === "scripts/no-secrets.sh";
+
+const readGateResult = (options) => {
+  const value = readRequiredOption(options, "gate-result", changelogCiOnlyAssertUsage);
+  if (value !== "success" && value !== "failure") {
+    fail('ERROR: --gate-result must be "success" or "failure".', 2);
+  }
+  return value;
+};
+
 const runChangelogDiff = (args) => {
   const options = parseOptions(args);
   const changedFiles = readChangedFiles(options);
@@ -882,6 +897,21 @@ const runChangelogDiff = (args) => {
     `has_typescript_code=${hasTypescriptCode}\nhas_root_changelog=${hasRootChangelog}\nchangelog_gate=fail\ngate_result=failure\n`,
   );
   fail("CHANGELOG.md must be updated when TypeScript code changes", 1);
+};
+
+const runChangelogCiOnlyAssert = (args) => {
+  const options = parseOptions(args);
+  const changedFiles = readChangedFiles(options);
+  const gateResult = readGateResult(options);
+  const isCiOnly =
+    changedFiles.length > 0 && changedFiles.every((path) => isCiOnlyChangelogPath(path));
+
+  if (isCiOnly && gateResult === "failure") {
+    writeStdout("r02_assertion=fail\n");
+    fail("CI-only PR must not require CHANGELOG.md", 1);
+  }
+
+  writeStdout("r02_assertion=pass\n");
 };
 
 const runBuildDockerNeeds = (args) => {
@@ -2263,6 +2293,8 @@ if (command === "duration-budget") {
   runChangelogTrigger(args);
 } else if (command === "changelog-diff") {
   runChangelogDiff(args);
+} else if (command === "changelog-ci-only-assert") {
+  runChangelogCiOnlyAssert(args);
 } else {
   fail(usage, 2);
 }
