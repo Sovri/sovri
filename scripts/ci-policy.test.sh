@@ -9749,6 +9749,20 @@ run_release_verify_tag_normalization_case() {
   rm -rf "$root"
 }
 
+run_release_verify_tag_format_case() {
+  local git_tag="$1"
+  local root package_files
+
+  root=$(mktemp -d)
+  write_release_metadata_fixture "$root" "0.1.0" "0.1.0" "## [0.1.0]"
+  package_files=$(release_metadata_package_files "$root")
+
+  run_ci_policy_failure_case "release verify tag format ${git_tag}" "tag must use vX.Y.Z format" \
+    release-verify-tag --tag "$git_tag" --package-files "$package_files" --changelog "$root/CHANGELOG.md"
+
+  rm -rf "$root"
+}
+
 write_release_build_workflow() {
   local workflow_file="$1"
   local push_value="$2"
@@ -9792,6 +9806,23 @@ run_release_build_and_push_case() {
   write_release_build_workflow "$workflow_file" "true" "linux/amd64,linux/arm64" "$(release_required_tags)" "ghcr.io/mpiton/sovri/community-bot"
 
   run_ci_policy_success_case "release build-and-push" "release_build_and_push=pass" \
+    release-build-and-push --workflow "$workflow_file"
+
+  rm -f "$workflow_file"
+}
+
+run_release_build_dynamic_tags_case() {
+  local workflow_file dynamic_tags
+
+  workflow_file=$(mktemp)
+  dynamic_tags=$(printf '%s\n' \
+    'ghcr.io/mpiton/sovri/community-bot:${{ steps.image-tags.outputs.full }}' \
+    'ghcr.io/mpiton/sovri/community-bot:${{ steps.image-tags.outputs.minor }}' \
+    'ghcr.io/mpiton/sovri/community-bot:${{ steps.image-tags.outputs.major }}' \
+    'ghcr.io/mpiton/sovri/community-bot:latest')
+  write_release_build_workflow "$workflow_file" "true" "linux/amd64,linux/arm64" "$dynamic_tags" "ghcr.io/mpiton/sovri/community-bot"
+
+  run_ci_policy_success_case "release build-and-push dynamic tags" "release_build_and_push=pass" \
     release-build-and-push --workflow "$workflow_file"
 
   rm -f "$workflow_file"
@@ -10079,7 +10110,10 @@ run_release_verify_mixed_package_versions_case
 run_release_verify_tag_normalization_case "v0.1.0" accepted "tag has one leading v and exact version"
 run_release_verify_tag_normalization_case "0.1.0" rejected "tag lacks required v prefix"
 run_release_verify_tag_normalization_case "vv0.1.0" rejected "tag has two leading v prefixes"
+run_release_verify_tag_format_case "v0.1"
+run_release_verify_tag_format_case "v0.1.0-rc.1"
 run_release_build_and_push_case
+run_release_build_dynamic_tags_case
 run_release_build_push_false_case
 run_release_build_platform_boundary_case "linux/amd64,linux/arm64" accepted "required amd64 and arm64 platforms present"
 run_release_build_platform_boundary_case "linux/amd64" rejected "arm64 platform is missing"

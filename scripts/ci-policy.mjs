@@ -29,10 +29,32 @@ const RELEASE_REQUIRED_JOBS = ["verify-tag", "build-and-push", "sbom", "gh-relea
 const RELEASE_VERSION = "0.1.0";
 const RELEASE_IMAGE_REPOSITORY = "ghcr.io/mpiton/sovri/community-bot";
 const RELEASE_REQUIRED_IMAGE_TAGS = [
-  `${RELEASE_IMAGE_REPOSITORY}:v0.1.0`,
-  `${RELEASE_IMAGE_REPOSITORY}:v0.1`,
-  `${RELEASE_IMAGE_REPOSITORY}:v0`,
-  `${RELEASE_IMAGE_REPOSITORY}:latest`,
+  {
+    label: "v0.1.0",
+    values: [
+      `${RELEASE_IMAGE_REPOSITORY}:v0.1.0`,
+      `${RELEASE_IMAGE_REPOSITORY}:\${{ github.ref_name }}`,
+      `${RELEASE_IMAGE_REPOSITORY}:\${{ steps.image-tags.outputs.full }}`,
+    ],
+  },
+  {
+    label: "v0.1",
+    values: [
+      `${RELEASE_IMAGE_REPOSITORY}:v0.1`,
+      `${RELEASE_IMAGE_REPOSITORY}:\${{ steps.image-tags.outputs.minor }}`,
+    ],
+  },
+  {
+    label: "v0",
+    values: [
+      `${RELEASE_IMAGE_REPOSITORY}:v0`,
+      `${RELEASE_IMAGE_REPOSITORY}:\${{ steps.image-tags.outputs.major }}`,
+    ],
+  },
+  {
+    label: "latest",
+    values: [`${RELEASE_IMAGE_REPOSITORY}:latest`],
+  },
 ];
 const REQUIRED_BUILD_DOCKER_NEEDS = [
   "backend-checks",
@@ -1211,6 +1233,7 @@ const readPackageFiles = (options) =>
 const getExpectedVersionFromTag = (tag) => {
   if (!tag.startsWith("v")) fail("tag lacks required v prefix", 1);
   if (tag.startsWith("vv")) fail("tag has two leading v prefixes", 1);
+  if (!/^v\d+\.\d+\.\d+$/.test(tag)) fail("tag must use vX.Y.Z format", 1);
   return tag.slice(1);
 };
 
@@ -1328,15 +1351,15 @@ const runReleaseBuildAndPush = (args) => {
     fail(`image repository must be ${RELEASE_IMAGE_REPOSITORY}`, 1);
   }
 
-  const missingTags = RELEASE_REQUIRED_IMAGE_TAGS.filter((tag) => !imageTags.includes(tag));
+  const missingTags = RELEASE_REQUIRED_IMAGE_TAGS.filter(
+    (requiredTag) => !requiredTag.values.some((tag) => imageTags.includes(tag)),
+  );
   if (missingTags.length > 0) {
     const missingTag = missingTags.toSorted(
-      (left, right) =>
-        left.slice(`${RELEASE_IMAGE_REPOSITORY}:`.length).length -
-        right.slice(`${RELEASE_IMAGE_REPOSITORY}:`.length).length,
+      (left, right) => left.label.length - right.label.length,
     )[0];
     writeStdout("release_build_and_push=fail\n");
-    fail(`missing ${missingTag.slice(`${RELEASE_IMAGE_REPOSITORY}:`.length)} tag`, 1);
+    fail(`missing ${missingTag.label} tag`, 1);
   }
 
   writeStdout(
