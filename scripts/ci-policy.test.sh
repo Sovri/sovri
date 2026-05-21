@@ -976,6 +976,56 @@ $(printf '%s\n' "$combined" | sed 's/^/      /')"
   PASS=$((PASS + 1))
 }
 
+run_changelog_diff_typescript_with_changelog_pass_case() {
+  local stdout stderr stdout_file stderr_file ec combined
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Given pull request 53 changes these files:
+  #   | path                                        |
+  #   | packages/review-engine/src/changelog-gate.ts |
+  #   | CHANGELOG.md                                |
+  node "$SCRIPT" changelog-diff \
+    --changed-files "packages/review-engine/src/changelog-gate.ts,CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  combined="${stdout}
+${stderr}"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff TypeScript with changelog pass: expected exit 0, got ${ec}
+$(printf '%s\n' "$combined" | sed 's/^/      /')"
+    return
+  fi
+
+  # When the changelog-check gate evaluates the pull request diff
+  # Then the changelog-check gate passes
+  if ! printf '%s\n' "$stdout" | grep -Fq "changelog_gate=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff TypeScript with changelog pass: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/      /')"
+    return
+  fi
+
+  # And the gate result is "success"
+  if ! printf '%s\n' "$stdout" | grep -Fq "gate_result=success"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ changelog diff TypeScript with changelog pass: missing success result
+$(printf '%s\n' "$stdout" | sed 's/^/      /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_changelog_diff_failure_message_example_path_case() {
   local stdout stderr stdout_file stderr_file ec combined
 
@@ -8937,6 +8987,7 @@ run_changelog_diff_workflow_classification_case
 run_changelog_diff_failure_message_case
 run_changelog_remediation_message_vague_case
 run_changelog_diff_with_changelog_has_no_remediation_case
+run_changelog_diff_typescript_with_changelog_pass_case
 run_changelog_diff_failure_message_example_path_case
 run_invalid_cache_state_case
 run_action_pinning_sha_pass_case
