@@ -32,6 +32,8 @@ const REQUIRED_BUILD_DOCKER_NEEDS = [
   "forbidden-tools",
   "forbidden-imports",
 ];
+const CHANGELOG_REMEDIATION_MESSAGE =
+  "CHANGELOG.md must be updated when .ts/.tsx files change; add a changelog entry.";
 
 const durationBudgetUsage =
   "Usage: node scripts/ci-policy.mjs duration-budget --job-start-ms <ms> --job-end-ms <ms> --pnpm-cache hit --turbo-cache hit";
@@ -903,7 +905,7 @@ const runChangelogDiff = (args) => {
   writeStdout(
     `${classifications}has_typescript_code=${hasTypescriptCode}\nhas_root_changelog=${hasRootChangelog}\nchangelog_gate=fail\ngate_result=failure\n`,
   );
-  fail("CHANGELOG.md must be updated when TypeScript code changes", 1);
+  fail(CHANGELOG_REMEDIATION_MESSAGE, 1);
 };
 
 const runChangelogCiOnlyAssert = (args) => {
