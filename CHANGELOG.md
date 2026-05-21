@@ -21,6 +21,24 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `test`: scope per-package `vitest run` discovery to the package directory by
+  passing `--root .` in workspace `test` scripts, so `pnpm --filter X test`
+  exercises only that package's suite rather than the entire monorepo (#937).
+
+- `test`: add ATDD coverage and policy evaluation for rejecting missing or
+  inaccurate Vitest API style documentation (#932).
+
+- `test`: add ATDD coverage and policy evaluation for rejecting enabled Vitest
+  globals (#931).
+
+- `test`: add ATDD coverage and policy evaluation for missing, partial,
+  chained, and locally aliased Vitest explicit-import violations (#930).
+
+- `test`: add the root Vitest config with disabled globals, repo-root project
+  resolution, workspace source aliases, and v8 coverage summary output (#57).
+
+- `test`: add ATDD coverage for the root Vitest explicit-import policy (#929).
+
 - `ci`: add Dependency Review policy coverage and a pinned pull-request-only
   workflow for license and advisory blocking (#56).
 

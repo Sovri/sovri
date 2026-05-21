@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+import { evaluateVitestApiStyle } from "./vitest-api-style-policy.js";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+
+type ExplicitImportExample = {
+  readonly calledApis: readonly string[];
+  readonly file: string;
+  readonly importedApis: readonly string[];
+};
+
+type ExplicitImportViolationExample = ExplicitImportExample & {
+  readonly reason: string;
+};
+
+type DocumentationViolationExample = {
+  readonly documentation: string;
+};
+
+const explicitImportExamples: readonly ExplicitImportExample[] = [
+  {
+    calledApis: ["describe", "expect", "it"],
+    file: "packages/core/src/index.test.ts",
+    importedApis: ["describe", "expect", "it"],
+  },
+  {
+    calledApis: ["describe", "expect", "it"],
+    file: "packages/review-engine/test/scaffold.test.ts",
+    importedApis: ["describe", "expect", "it"],
+  },
+  {
+    calledApis: ["describe", "expect", "it", "vi"],
+    file: "apps/community-bot/tests/handlers/pull-request.delegation.test.ts",
+    importedApis: ["describe", "expect", "it", "vi"],
+  },
+  {
+    calledApis: ["afterAll", "afterEach", "beforeAll", "describe", "expect", "it", "vi"],
+    file: "packages/llm-providers/src/providers/AnthropicProvider.test.ts",
+    importedApis: ["afterAll", "afterEach", "beforeAll", "describe", "expect", "it", "vi"],
+  },
+];
+
+const explicitImportViolationExamples: readonly ExplicitImportViolationExample[] = [
+  {
+    calledApis: ["describe", "expect", "it"],
+    file: "packages/core/src/index.test.ts",
+    importedApis: [],
+    reason: "test files must import Vitest APIs explicitly",
+  },
+  {
+    calledApis: ["describe", "expect", "it", "vi"],
+    file: "apps/community-bot/tests/handlers/pull-request.delegation.test.ts",
+    importedApis: ["describe", "expect", "it"],
+    reason: "missing Vitest import: vi",
+  },
+  {
+    calledApis: ["afterAll", "afterEach", "beforeAll", "describe", "expect", "it", "vi"],
+    file: "packages/llm-providers/src/providers/AnthropicProvider.test.ts",
+    importedApis: ["describe", "expect", "it", "vi"],
+    reason: "missing Vitest imports: afterAll, afterEach, beforeAll",
+  },
+];
+
+const documentationViolationExamples: readonly DocumentationViolationExample[] = [
+  { documentation: "none" },
+  { documentation: "Vitest globals may be used in tests" },
+  { documentation: "Coverage provider is v8" },
+];
+
+function readRepoFile(relativePath: string): string {
+  return readFileSync(resolve(repoRoot, relativePath), "utf8");
+}
+
+function readVitestConfig(): string {
+  return readRepoFile("vitest.config.ts");
+}
+
+function buildConfigWithDocumentation(documentation: string): string {
+  const requiredDocumentation = "Vitest globals stay disabled; tests import APIs from vitest";
+  const config = readVitestConfig();
+
+  if (documentation === "none") {
+    return config.replace(`    // ${requiredDocumentation}.\n`, "");
+  }
+
+  return config.replace(requiredDocumentation, documentation);
+}
+
+function buildVitestSource(example: ExplicitImportExample): string {
+  const importLine =
+    example.importedApis.length === 0
+      ? ""
+      : `import { ${example.importedApis.join(", ")} } from "vitest";\n`;
+  const calls = example.calledApis.map((api) => buildVitestCall(api)).join("\n");
+
+  return `${importLine}${calls}\n`;
+}
+
+function buildVitestCall(api: string): string {
+  if (api === "describe") {
+    return 'describe.each([["case"]])("%s", () => {});';
+  }
+
+  if (api === "it") {
+    return 'it.each([[1]])("%i", () => {});';
+  }
+
+  if (api === "vi") {
+    return 'vi.mock("node:fs");';
+  }
+
+  return `${api}();`;
+}
+
+function extractVitestImports(source: string): Set<string> {
+  const imports = new Set<string>();
+  const matches = source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']vitest["']/gu);
+  for (const match of matches) {
+    const importList = match[1] ?? "";
+    for (const name of importList.split(",")) {
+      const importParts = name.trim().split(/\s+as\s+/u);
+      const importedName = importParts[1]?.trim() ?? importParts[0]?.trim();
+      if (importedName !== undefined && importedName.length > 0) {
+        imports.add(importedName);
+      }
+    }
+  }
+  return imports;
+}
+
+describe("Vitest root config explicit import policy", () => {
+  it.each(explicitImportExamples)("keeps explicit imports in $file", (example) => {
+    // Given "vitest.config.ts" sets "test.globals" to false
+    const config = readVitestConfig();
+    expect(config).toContain("globals: false");
+    // And "vitest.config.ts" documents "Vitest globals stay disabled; tests import APIs from vitest"
+    expect(config).toContain("Vitest globals stay disabled; tests import APIs from vitest");
+    // And "<file>" calls "<called_apis>"
+    const source = readRepoFile(example.file);
+    for (const api of example.calledApis) {
+      expect(source).toContain(api);
+    }
+    // And "<file>" imports "<imported_apis>" from "vitest"
+    const imports = extractVitestImports(source);
+    expect([...imports].toSorted()).toEqual([...example.importedApis].toSorted());
+    // When the Vitest API style rule is evaluated
+    const result = evaluateVitestApiStyle({
+      configSource: config,
+      files: [{ path: example.file, source }],
+    });
+    // Then the Vitest API style assertion passes
+    expect(result).toEqual({ messages: [], passed: true });
+    for (const api of example.calledApis) {
+      expect(imports.has(api)).toBe(true);
+    }
+  });
+
+  it.each(explicitImportViolationExamples)(
+    "rejects missing explicit imports in $file",
+    (example) => {
+      // Given "vitest.config.ts" sets "test.globals" to false
+      const config = readVitestConfig();
+      expect(config).toContain("globals: false");
+      // And "vitest.config.ts" documents "Vitest globals stay disabled; tests import APIs from vitest"
+      expect(config).toContain("Vitest globals stay disabled; tests import APIs from vitest");
+      // And "<file>" calls "<called_apis>"
+      const source = buildVitestSource(example);
+      for (const api of example.calledApis) {
+        expect(source).toContain(api);
+      }
+      // And "<file>" imports "<imported_apis>" from "vitest"
+      const imports = extractVitestImports(source);
+      expect([...imports].toSorted()).toEqual([...example.importedApis].toSorted());
+      // When the Vitest API style rule is evaluated
+      const result = evaluateVitestApiStyle({
+        configSource: config,
+        files: [{ path: example.file, source }],
+      });
+      // Then the Vitest API style assertion fails
+      expect(result.passed).toBe(false);
+      // And the failure mentions "<reason>"
+      expect(result.messages.join("\n")).toContain(example.reason);
+    },
+  );
+
+  it("rejects enabled Vitest globals", () => {
+    // Given "vitest.config.ts" sets "test.globals" to true
+    const config = readVitestConfig().replace("globals: false", "globals: true");
+    expect(config).toContain("globals: true");
+    // And "vitest.config.ts" documents "Vitest globals stay disabled; tests import APIs from vitest"
+    expect(config).toContain("Vitest globals stay disabled; tests import APIs from vitest");
+    // When the Vitest API style rule is evaluated
+    const result = evaluateVitestApiStyle({
+      configSource: config,
+      files: [],
+    });
+    // Then the Vitest API style assertion fails
+    expect(result.passed).toBe(false);
+    // And the failure mentions "Vitest globals must stay disabled"
+    expect(result.messages.join("\n")).toContain("Vitest globals must stay disabled");
+  });
+
+  it.each(documentationViolationExamples)(
+    "rejects missing or inaccurate documentation: $documentation",
+    (example) => {
+      // Given "vitest.config.ts" sets "test.globals" to false
+      const config = buildConfigWithDocumentation(example.documentation);
+      expect(config).toContain("globals: false");
+      // And "vitest.config.ts" documents "<documentation>"
+      if (example.documentation === "none") {
+        expect(config).not.toContain("Vitest globals stay disabled; tests import APIs from vitest");
+      } else {
+        expect(config).toContain(example.documentation);
+      }
+      // When the Vitest API style rule is evaluated
+      const result = evaluateVitestApiStyle({
+        configSource: config,
+        files: [],
+      });
+      // Then the Vitest API style assertion fails
+      expect(result.passed).toBe(false);
+      // And the failure mentions "document the Vitest API style choice"
+      expect(result.messages.join("\n")).toContain("document the Vitest API style choice");
+    },
+  );
+
+  it("detects Vitest APIs invoked with generic type parameters", () => {
+    const result = evaluateVitestApiStyle({
+      configSource: readVitestConfig(),
+      files: [
+        {
+          path: "packages/core/src/type-params.test.ts",
+          source: ["expectTypeOf<{ id: string }>().toMatchTypeOf<{ id: string }>();"].join("\n"),
+        },
+      ],
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.messages.join("\n")).toContain("test files must import Vitest APIs explicitly");
+  });
+
+  it("accepts local Vitest import aliases and ignores object member calls", () => {
+    const result = evaluateVitestApiStyle({
+      configSource: readVitestConfig(),
+      files: [
+        {
+          path: "packages/core/src/aliased.test.ts",
+          source: [
+            'import { test as it, vi } from "vitest";',
+            'schema.describe("value");',
+            'it.each([[1]])("%i", () => {});',
+            'vi.mock("node:fs");',
+          ].join("\n"),
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      messages: [],
+      passed: true,
+    });
+  });
+});
