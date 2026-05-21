@@ -5889,6 +5889,64 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_trivy_scan_config_equivalent_severity_order_case() {
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<'YAML'
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan built image
+        uses: aquasecurity/trivy-action@0123456789abcdef0123456789abcdef01234567
+        with:
+          image-ref: sovri/community-bot:ci-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+YAML
+
+  node "$SCRIPT" trivy-scan-config --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x Trivy scan config equivalent severity order: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "trivy_scan_config=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x Trivy scan config equivalent severity order: missing pass assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "blocking_severities=HIGH,CRITICAL"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x Trivy scan config equivalent severity order: missing normalized blocking severities
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_trivy_vulnerability_gate_no_high_or_critical_case() {
   local trivy_file stdout stderr stdout_file stderr_file ec combined
 
@@ -7329,6 +7387,7 @@ run_audit_gate_high_without_advisory_name_case
 run_audit_gate_mixed_high_and_critical_prioritizes_critical_case
 run_audit_gate_critical_vulnerability_case
 run_trivy_scan_config_pass_case
+run_trivy_scan_config_equivalent_severity_order_case
 run_trivy_vulnerability_gate_no_high_or_critical_case
 run_trivy_vulnerability_gate_null_vulnerabilities_case
 run_trivy_vulnerability_gate_high_vulnerability_case

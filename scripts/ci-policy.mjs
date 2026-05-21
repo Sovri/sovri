@@ -1748,6 +1748,22 @@ const getTrivyExitCodeBoundary = (exitCode) => {
   return { outcome: "rejected", reason: "only exit-code one is in scope" };
 };
 
+const hasRequiredTrivySeveritySet = (severity) => {
+  if (severity === undefined) return false;
+
+  const severitySet = new Set(
+    severity
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0),
+  );
+
+  return (
+    severitySet.size === TRIVY_BLOCKING_SEVERITIES.size &&
+    [...TRIVY_BLOCKING_SEVERITIES].every((entry) => severitySet.has(entry))
+  );
+};
+
 const runTrivyScanConfig = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", trivyScanConfigUsage);
@@ -1764,7 +1780,7 @@ const runTrivyScanConfig = (args) => {
     const exitCode = getStepInput(trivyStep.block, "exit-code", workflow, trivyStep.startIndex);
     const exitCodeBoundary = getTrivyExitCodeBoundary(exitCode);
 
-    if (severity !== TRIVY_REQUIRED_SEVERITY) {
+    if (!hasRequiredTrivySeveritySet(severity)) {
       writeStdout(`trivy_scan_config=fail\ntrivy_severity=${severity ?? "missing"}\n`);
       fail(`Trivy severity must be ${TRIVY_REQUIRED_SEVERITY}`, 1);
     }
