@@ -828,6 +828,30 @@ const readYamlNeedsValues = (needsBlock) => {
     .map((value) => stripYamlQuotes(value));
 };
 
+const readWorkflowEventNames = (workflow) => {
+  const onLine = getYamlStructureLines(workflow).find((line) => /^\s*on:\s*/.test(line));
+  const inlineValue = onLine?.match(/^\s*on:\s*(.*?)\s*(?:#.*)?$/)?.[1]?.trim();
+  if (inlineValue !== undefined && inlineValue.length > 0) {
+    return parseYamlScalarListValue(inlineValue);
+  }
+
+  const eventBlock = getIndentedBlock(workflow, /^\s*on:\s*(?:#.*)?$/);
+  return eventBlock
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.match(/^\s*([A-Za-z0-9_-]+):\s*(?:#.*)?$/)?.[1])
+    .filter((eventName) => eventName !== undefined);
+};
+
+const stripGitHubExpression = (condition) =>
+  condition
+    .replace(/^\$\{\{\s*/, "")
+    .replace(/\s*\}\}$/, "")
+    .trim();
+
+const isPullRequestEventCondition = (condition) =>
+  /^github\.event_name\s*==\s*['"]pull_request['"]$/.test(stripGitHubExpression(condition));
+
 const runBuildDockerNeeds = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", buildDockerNeedsUsage);
@@ -889,12 +913,12 @@ const runChangelogTrigger = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", changelogTriggerUsage);
   const workflow = readWorkflowFile(workflowPath);
-  const eventBlock = getIndentedBlock(workflow, /^\s*on:\s*(?:#.*)?$/);
   const jobsBlock = getIndentedBlock(workflow, /^\s*jobs:\s*(?:#.*)?$/);
   const changelogJob = getIndentedBlock(jobsBlock, /^\s+changelog-check:\s*(?:#.*)?$/);
-  const hasPullRequestEvent = /^\s*pull_request:\s*(?:#.*)?$/m.test(eventBlock);
+  const hasPullRequestEvent = readWorkflowEventNames(workflow).includes("pull_request");
+  const condition = getStepPropertyValue(changelogJob, "if");
   const jobEligibleForPullRequest =
-    /^\s*if:\s*github\.event_name\s*==\s*['"]pull_request['"]\s*(?:#.*)?$/m.test(changelogJob);
+    condition !== undefined && isPullRequestEventCondition(condition);
 
   if (hasPullRequestEvent && changelogJob.length > 0 && jobEligibleForPullRequest) {
     writeStdout("changelog_trigger=pass\njob=changelog-check\neligible_event=pull_request\n");
