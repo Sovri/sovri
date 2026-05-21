@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `test`: add ATDD coverage for the root Vitest explicit-import policy (#929).
+
 - `ci`: add Dependency Review policy coverage and a pinned pull-request-only
   workflow for license and advisory blocking (#56).
 
