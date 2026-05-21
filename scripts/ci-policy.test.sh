@@ -2475,6 +2475,81 @@ $(printf '%s\n' "$combined" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+run_docker_setup_action_pinning_moving_ref_case() {
+  local action_ref="$1"
+  local other_action_ref="docker/setup-buildx-action@89abcdef0123456789abcdef0123456789abcdef"
+  local workflow_file stdout stderr stdout_file stderr_file ec combined
+
+  if printf '%s\n' "$action_ref" | grep -Fq "docker/setup-buildx-action@"; then
+    other_action_ref="docker/setup-qemu-action@0123456789abcdef0123456789abcdef01234567"
+  fi
+
+  workflow_file=$(mktemp)
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  cat >"$workflow_file" <<YAML
+name: ci
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker setup action under test
+        uses: ${action_ref}
+      - name: Other required Docker setup action
+        uses: ${other_action_ref}
+YAML
+
+  # Given the build-docker job contains the action reference "<action_ref>"
+  node "$SCRIPT" docker-setup-action-pinning --workflow "$workflow_file" >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$workflow_file" "$stdout_file" "$stderr_file"
+  combined=$(printf '%s\n%s\n' "$stdout" "$stderr")
+
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action moving ref ${action_ref}: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  # When the Docker setup action pinning rule is evaluated
+  # Then the Docker setup action pinning assertion fails
+  if ! printf '%s\n' "$stdout" | grep -Fq "docker_setup_action_pinning=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action moving ref ${action_ref}: missing fail assertion
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure mentions "<action_ref>"
+  if ! printf '%s\n' "$combined" | grep -Fq "$action_ref"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action moving ref ${action_ref}: missing action reference
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  # And the failure mentions "Docker setup actions must be pinned to a full commit SHA"
+  if ! printf '%s\n' "$combined" | grep -Fq "Docker setup actions must be pinned to a full commit SHA"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  x docker setup action moving ref ${action_ref}: missing pinning failure message
+$(printf '%s\n' "$combined" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_build_docker_needs_required_gates_case() {
   local workflow_file stdout stderr stdout_file stderr_file ec combined
 
@@ -6586,6 +6661,10 @@ run_docker_build_action_rejects_later_push_step_case
 run_docker_build_action_ignores_nested_with_scalar_inputs_case
 run_docker_build_action_ignores_nested_with_block_case
 run_docker_setup_action_pinning_sha_pass_case
+run_docker_setup_action_pinning_moving_ref_case "docker/setup-qemu-action@v3"
+run_docker_setup_action_pinning_moving_ref_case "docker/setup-buildx-action@v3"
+run_docker_setup_action_pinning_moving_ref_case "docker/setup-buildx-action@master"
+run_docker_setup_action_pinning_moving_ref_case "docker/setup-qemu-action@3df4ab1"
 run_build_docker_needs_required_gates_case
 run_build_docker_needs_inline_gates_case
 run_build_docker_needs_multiline_flow_gates_case

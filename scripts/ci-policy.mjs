@@ -686,6 +686,9 @@ const runDockerSetupActionPinning = (args) => {
   fail(
     [
       ...missingRepositories.map((repository) => `build-docker must use ${repository}`),
+      ...(pinFailures.length > 0
+        ? ["Docker setup actions must be pinned to a full commit SHA"]
+        : []),
       ...pinFailures.map((pinFailure) => `${pinFailure.actionReference}: ${pinFailure.reason}`),
     ].join("\n"),
     1,
