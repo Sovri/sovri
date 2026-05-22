@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add missing Docker restart-count evidence coverage for the
+  no-crash smoke assertion (#1032).
+
 - `test(e2e)`: add missing GitHub App webhook subscription coverage for
   pull_request and issue_comment installation evidence (#1014).
 
