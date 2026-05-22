@@ -13,6 +13,8 @@ const LATENCY_METADATA_PATTERN =
   /^Latency PR metadata: pr=(?<prNumber>\d+) delivery_id=(?<deliveryId>\S+) changed_lines=(?<changedLines>\d+)$/u;
 const SOVRI_PR_COMMENT_PATTERN =
   /^Sovri PR comment: pr=(?<prNumber>\d+) created_at=(?<createdAt>\S+)$/u;
+const SMOKE_PR_ROW_PATTERN =
+  /^Smoke PR: (?<pr>\d+)(?: event=\S+)? target_branch=(?<targetBranch>\S+) draft=(?<draft>true|false) changed_lines=(?<changedLines>\d+)$/u;
 const WEBHOOK_RECEIPT_PATTERN =
   /^Webhook received: delivery_id=(?<deliveryId>\S+) at=(?<receivedAt>\S+)$/u;
 const COMMUNITY_BOT_CONTAINER_NAME = "sovri-community-bot-v0-1-soak";
@@ -786,24 +788,23 @@ function classifySmokeRun(qualifyingCount, expected) {
 }
 
 function readSmokePrRows(content) {
-  const rowPattern =
-    /^Smoke PR: (?<pr>\d+) target_branch=(?<targetBranch>\S+) draft=(?<draft>true|false) changed_lines=(?<changedLines>\d+)$/u;
+  const rowsByPr = new Map();
 
-  return content.split(/\r?\n/u).flatMap((line) => {
-    const match = rowPattern.exec(line);
+  for (const line of content.split(/\r?\n/u)) {
+    const match = SMOKE_PR_ROW_PATTERN.exec(line);
     if (match?.groups === undefined) {
-      return [];
+      continue;
     }
 
-    return [
-      {
-        changedLines: Number.parseInt(match.groups.changedLines, 10),
-        draft: match.groups.draft === "true",
-        pr: match.groups.pr,
-        targetBranch: match.groups.targetBranch,
-      },
-    ];
-  });
+    rowsByPr.set(match.groups.pr, {
+      changedLines: Number.parseInt(match.groups.changedLines, 10),
+      draft: match.groups.draft === "true",
+      pr: match.groups.pr,
+      targetBranch: match.groups.targetBranch,
+    });
+  }
+
+  return [...rowsByPr.values()];
 }
 
 function qualifySmokePr(pr, expected) {
