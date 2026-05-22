@@ -250,6 +250,37 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("--secret-value is malformed");
   });
+
+  it("fails no-crash validation when the container restarts during the smoke set", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "Container restart count after PR 103: 1",
+      ].join("\n"),
+    );
+
+    // Given the smoke set contains qualifying PRs 101, 102, 103, and 104
+    // And the container restart count is 0 before PR 101
+    // When the container restart count becomes 1 after PR 103
+    const result = runValidator([
+      "no-crash",
+      "--from-pr",
+      "101",
+      "--to-pr",
+      "104",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the no-crash assertion fails
+    // And the failure mentions "container restarted during the smoke PR set"
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("container restarted during the smoke PR set");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {
