@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add five-PR no-crash smoke evidence coverage and validator
+  support for per-review health checks plus no-exit events (#1026).
+
 - `test(e2e)`: add first-comment latency measurement coverage and validator
   support (#1049).
 
