@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add nominal GitHub App installation evidence coverage and
+  validator checks for required permissions, webhook subscriptions, signed PR
+  webhook delivery, and required GitHub API access (#1010).
+
 - `test(e2e)`: add four-PR minimum smoke-count coverage for the
   `minimum count reached` classification (#1038).
 
