@@ -74,9 +74,18 @@ if (command === "image-provenance") {
   }
   process.stdout.write("no-crash outcome: accepted\n");
   process.stdout.write(`reason: ${noCrashResult.reason}\n`);
+} else if (command === "github-app-installation") {
+  const expectedApp = readOption("--expected-app");
+  const repoFullName = readOption("--repo");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (!hasExpectedGitHubAppInstallation(soakLog, { expectedApp, repoFullName })) {
+    fail(`GitHub App installation assertion failed: ${expectedApp}`);
+  }
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation> [options]",
   );
 }
 
@@ -129,6 +138,25 @@ function readCapturedLogLines(content) {
 
 function capturedLogsContain(capturedLogLines, needle) {
   return capturedLogLines.some((line) => line.includes(needle));
+}
+
+function hasExpectedGitHubAppInstallation(content, expected) {
+  const lines = content.split(/\r?\n/u);
+  let currentRepo;
+
+  for (const line of lines) {
+    if (line.startsWith("Repository: ")) {
+      currentRepo = line.slice("Repository: ".length);
+    }
+    if (
+      currentRepo === expected.repoFullName &&
+      line === `Installed GitHub App: ${expected.expectedApp}`
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function evaluateNoCrashEvidence(content, range) {
