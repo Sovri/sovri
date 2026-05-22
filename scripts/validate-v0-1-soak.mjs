@@ -47,7 +47,7 @@ if (command === "image-provenance") {
   }
 } else if (command === "log-secrets") {
   const secretName = readOption("--secret-name");
-  const secretValue = readOption("--secret-value");
+  const secretValues = readOptions("--secret-value");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
   const capturedLogLines = readCapturedLogLines(soakLog);
@@ -55,9 +55,10 @@ if (command === "image-provenance") {
   if (capturedLogLines.length === 0) {
     fail("captured logs are missing");
   }
-  if (capturedLogsContain(capturedLogLines, secretValue)) {
+  if (secretValues.some((secretValue) => capturedLogsContain(capturedLogLines, secretValue))) {
     fail(`log secret assertion failed: ${secretName}`);
   }
+  process.stdout.write("log secret assertion passed\n");
 } else {
   fail(
     "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets> [options]",
@@ -122,6 +123,17 @@ function readOption(name) {
     fail(`${name} is required`);
   }
   return value;
+}
+
+function readOptions(name) {
+  const values = args.flatMap((arg, index) => (arg === name ? [args[index + 1]] : []));
+  const parsedValues = values.filter(
+    (value) => value !== undefined && value.startsWith("--") === false,
+  );
+  if (parsedValues.length === 0) {
+    fail(`${name} is required`);
+  }
+  return parsedValues;
 }
 
 function fail(message) {
