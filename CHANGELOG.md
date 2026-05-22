@@ -21,8 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
-- `test(e2e)`: add crash evidence matrix outcome coverage for no-crash smoke
-  validation (#1031).
+- `test(e2e)`: add crash evidence matrix outcome coverage and no-crash
+  classification for smoke validation (#1031).
 
 - `test(e2e)`: add no-crash restart plus missing, truncated, and malformed
   restart evidence failure coverage for the smoke PR set (#1028).
