@@ -412,6 +412,36 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain("restart evidence is incomplete");
   });
 
+  it("fails no-crash validation when container restart evidence is missing", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Captured log: delivery_id=delivery-60-101 pr=101 provider=anthropic",
+      ].join("\n"),
+    );
+
+    // Given the smoke set contains qualifying PRs 101, 102, 103, and 104
+    // And no Docker restart-count evidence is available for "sovri-community-bot-v0-1-soak"
+    // When the no-crash assertion is evaluated
+    const result = runValidator([
+      "no-crash",
+      "--from-pr",
+      "101",
+      "--to-pr",
+      "104",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the no-crash assertion fails
+    // And the failure mentions "missing container restart evidence"
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("missing container restart evidence");
+  });
+
   it("fails no-crash validation when restart evidence stops before the final PR", () => {
     const soakLogPath = writeSoakLog(
       [
