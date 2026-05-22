@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add missing GitHub runtime credential startup failure
+  evidence coverage and validator support for the v0.1 smoke run (#1055).
+
 - `test(e2e)`: add missing first Sovri PR comment latency failure coverage
   for the v0.1 smoke run (#1048).
 
