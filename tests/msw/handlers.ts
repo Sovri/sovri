@@ -27,6 +27,7 @@ export const handlerContracts: readonly HandlerContract[] = [
 
 const GhPullRequestFilesFixture = readJsonFixture("gh-pr-files.json");
 const AnthropicReviewFixture = readJsonFixture("anthropic-review.json");
+const AnthropicEmptyFixture = readJsonFixture("anthropic-empty.json");
 
 export const handlers = [
   http.get(GitHubPullRequestFilesUrl, () => HttpResponse.json(GhPullRequestFilesFixture)),
@@ -47,7 +48,7 @@ export const handlers = [
       return HttpResponse.json(AnthropicReviewFixture);
     }
 
-    return HttpResponse.json(AnthropicReviewFixture);
+    return HttpResponse.json(AnthropicEmptyFixture);
   }),
 ];
 

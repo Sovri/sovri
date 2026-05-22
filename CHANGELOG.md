@@ -19,6 +19,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- `test(msw)`: shared Anthropic handler now returns `anthropic-empty.json` for
+  non-`json_schema` requests so the structured-output branch is exercised
+  distinctly from the default response (#966 review feedback).
+
 ### Security
 
 - `test`: add shared MSW handlers and anonymized GitHub/Anthropic fixtures for
