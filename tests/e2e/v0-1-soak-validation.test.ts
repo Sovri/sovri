@@ -1775,6 +1775,39 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("APP_ID startup failure assertion passed");
   });
 
+  it("accepts wrong webhook secret rejection evidence", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "WEBHOOK_SECRET configured: true",
+        "Repository: mpiton/forgent",
+        "PR: 101",
+        "GitHub webhook delivered: pull_request.opened repo=mpiton/forgent signed=false",
+        "Webhook signature verification: rejected",
+        "Review work started: false",
+        "First PR comment posted: false",
+        "GitHub credential wiring assertion: failed",
+      ].join("\n"),
+    );
+
+    // Given `WEBHOOK_SECRET` is configured
+    // When GitHub delivers PR 101 with a signature computed from the wrong secret
+    const result = runValidator([
+      "webhook-secret",
+      "--repo",
+      "mpiton/forgent",
+      "--pr",
+      "101",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then Sovri rejects the webhook before starting review work
+    // And no first review comment is posted on PR 101
+    // And the GitHub credential wiring assertion fails
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("webhook secret rejection assertion passed");
+  });
+
   it("passes latency validation when five qualifying PRs stay below ninety seconds", () => {
     const soakLogPath = writeSoakLog(
       [
