@@ -59,9 +59,18 @@ if (command === "image-provenance") {
     fail(`log secret assertion failed: ${secretName}`);
   }
   process.stdout.write("log secret assertion passed\n");
+} else if (command === "no-crash") {
+  const fromPr = readOption("--from-pr");
+  const toPr = readOption("--to-pr");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (containerRestartedDuringSmokeSet(soakLog, { fromPr, toPr })) {
+    fail("container restarted during the smoke PR set");
+  }
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash> [options]",
   );
 }
 
@@ -114,6 +123,26 @@ function readCapturedLogLines(content) {
 
 function capturedLogsContain(capturedLogLines, needle) {
   return capturedLogLines.some((line) => line.includes(needle));
+}
+
+function containerRestartedDuringSmokeSet(content, range) {
+  const before = readRestartCount(content, `before PR ${range.fromPr}`);
+  const afterMatches = [...content.matchAll(/Container restart count after PR (\d+): (\d+)/gu)];
+  return afterMatches.some((match) => {
+    const prNumber = Number.parseInt(match[1], 10);
+    const restartCount = Number.parseInt(match[2], 10);
+    return (
+      prNumber >= Number.parseInt(range.fromPr, 10) &&
+      prNumber <= Number.parseInt(range.toPr, 10) &&
+      restartCount > before
+    );
+  });
+}
+
+function readRestartCount(content, marker) {
+  const pattern = new RegExp(`Container restart count ${marker}: (\\d+)`, "u");
+  const match = content.match(pattern);
+  return match === null ? 0 : Number.parseInt(match[1], 10);
 }
 
 function readOption(name) {
