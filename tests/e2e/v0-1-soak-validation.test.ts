@@ -401,6 +401,66 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain("restart evidence is incomplete");
   });
 
+  it("accepts five completed smoke PRs with no exit event and health after each review", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Smoke PR: 105 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "GET /health before PR 101: 200",
+        "Container restart count after PR 105: 0",
+        "Container exit event: none for sovri-community-bot-v0-1-soak",
+        "GET /health after PR 101: 200",
+        "GET /health after PR 102: 200",
+        "GET /health after PR 103: 200",
+        "GET /health after PR 104: 200",
+        "GET /health after PR 105: 200",
+      ].join("\n"),
+    );
+
+    // Given five qualifying PRs complete
+    // And the bot records no container exit event
+    // And health is checked before PR 101 and after each review comment
+    const result = runNoCrashValidatorForRange(soakLogPath, { fromPr: "101", toPr: "105" });
+
+    // Then the no-crash assertion passes
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("no-crash outcome: accepted");
+    expect(result.stdout).toContain("reason: no crash evidence");
+  });
+
+  it("rejects five completed smoke PRs when health after a review comment is missing", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Smoke PR: 105 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "GET /health before PR 101: 200",
+        "Container restart count after PR 105: 0",
+        "Community bot process exit code: 0",
+        "GET /health after PR 101: 200",
+        "GET /health after PR 102: 200",
+        "GET /health after PR 104: 200",
+        "GET /health after PR 105: 200",
+        "Latest GET /health response status: 200",
+      ].join("\n"),
+    );
+
+    // Given five qualifying PRs complete
+    // But health evidence is missing after PR 103
+    const result = runNoCrashValidatorForRange(soakLogPath, { fromPr: "101", toPr: "105" });
+
+    // Then the no-crash assertion fails instead of relying on the latest health line
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("health evidence is incomplete");
+  });
+
   it("accepts the healthy crash evidence matrix row", () => {
     const result = runNoCrashValidator(
       writeCrashEvidenceLog({ exitCode: 0, healthStatus: 200, restartDelta: 0 }),
@@ -968,12 +1028,19 @@ function writeSoakLog(content: string): string {
 }
 
 function runNoCrashValidator(soakLogPath: string): ReturnType<typeof spawnSync> {
+  return runNoCrashValidatorForRange(soakLogPath, { fromPr: "101", toPr: "104" });
+}
+
+function runNoCrashValidatorForRange(
+  soakLogPath: string,
+  range: { readonly fromPr: string; readonly toPr: string },
+): ReturnType<typeof spawnSync> {
   return runValidator([
     "no-crash",
     "--from-pr",
-    "101",
+    range.fromPr,
     "--to-pr",
-    "104",
+    range.toPr,
     "--soak-log",
     soakLogPath,
   ]);

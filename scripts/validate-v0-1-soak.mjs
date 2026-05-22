@@ -15,6 +15,7 @@ const SOVRI_PR_COMMENT_PATTERN =
   /^Sovri PR comment: pr=(?<prNumber>\d+) created_at=(?<createdAt>\S+)$/u;
 const WEBHOOK_RECEIPT_PATTERN =
   /^Webhook received: delivery_id=(?<deliveryId>\S+) at=(?<receivedAt>\S+)$/u;
+const COMMUNITY_BOT_CONTAINER_NAME = "sovri-community-bot-v0-1-soak";
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 
@@ -644,20 +645,20 @@ function evaluateNoCrashEvidence(content, range) {
     return rejectedNoCrash("restart evidence is incomplete");
   }
 
-  const exitCode = readCommunityBotProcessExitCode(content);
-  if (exitCode === undefined) {
+  const exitResult = evaluateNoExitEvidence(content);
+  if (exitResult.outcome === "missing") {
     return rejectedNoCrash("crash evidence is incomplete");
   }
-  if (exitCode !== 0) {
-    return rejectedNoCrash(`process exited with code ${exitCode}`);
+  if (exitResult.outcome === "rejected") {
+    return rejectedNoCrash(exitResult.reason);
   }
 
-  const healthStatus = readLatestHealthStatus(content);
-  if (healthStatus === undefined) {
-    return rejectedNoCrash("crash evidence is incomplete");
+  const healthResult = evaluateHealthEvidence(content, prRange);
+  if (healthResult.outcome === "missing") {
+    return rejectedNoCrash(healthResult.reason);
   }
-  if (healthStatus !== 200) {
-    return rejectedNoCrash("/health failed");
+  if (healthResult.outcome === "rejected") {
+    return rejectedNoCrash(healthResult.reason, healthResult.message);
   }
 
   return { outcome: "accepted", reason: "no crash evidence" };
@@ -706,6 +707,110 @@ function readRestartCountBeforePr(content, prNumber) {
 
 function readCommunityBotProcessExitCode(content) {
   return readIntegerLine(content, "Community bot process exit code: ");
+}
+
+function evaluateNoExitEvidence(content) {
+  if (hasNoContainerExitEvent(content)) {
+    return { outcome: "accepted" };
+  }
+
+  const exitCode = readCommunityBotProcessExitCode(content);
+  if (exitCode === undefined) {
+    return { outcome: "missing" };
+  }
+  if (exitCode !== 0) {
+    return { outcome: "rejected", reason: `process exited with code ${exitCode}` };
+  }
+
+  return { outcome: "accepted" };
+}
+
+function hasNoContainerExitEvent(content) {
+  return content
+    .split(/\r?\n/u)
+    .some((line) => line === `Container exit event: none for ${COMMUNITY_BOT_CONTAINER_NAME}`);
+}
+
+function evaluateHealthEvidence(content, range) {
+  const healthEvidence = readRangeHealthEvidence(content, range);
+  if (requiresRangeHealthEvidence(range, healthEvidence)) {
+    return evaluateCompleteRangeHealthEvidence(healthEvidence, range);
+  }
+
+  const healthStatus = readLatestHealthStatus(content);
+  if (healthStatus === undefined) {
+    return { outcome: "missing", reason: "crash evidence is incomplete" };
+  }
+  if (healthStatus !== 200) {
+    return { message: "/health failed", outcome: "rejected", reason: "/health failed" };
+  }
+
+  return { outcome: "accepted" };
+}
+
+function readRangeHealthEvidence(content, range) {
+  const afterStatuses = new Map();
+  let beforeStatus;
+  let hasRangeEvidence = false;
+
+  for (const line of content.split(/\r?\n/u)) {
+    const beforeMatch = /^GET \/health before PR (\d+): (\d+)$/u.exec(line);
+    if (beforeMatch !== null) {
+      const prNumber = Number.parseInt(beforeMatch[1], 10);
+      if (prNumber === range.fromPr) {
+        beforeStatus = Number.parseInt(beforeMatch[2], 10);
+        hasRangeEvidence = true;
+      }
+    }
+
+    const afterMatch = /^GET \/health after PR (\d+): (\d+)$/u.exec(line);
+    if (afterMatch !== null) {
+      const prNumber = Number.parseInt(afterMatch[1], 10);
+      if (prNumber >= range.fromPr && prNumber <= range.toPr) {
+        afterStatuses.set(prNumber, Number.parseInt(afterMatch[2], 10));
+        hasRangeEvidence = true;
+      }
+    }
+  }
+
+  return { afterStatuses, beforeStatus, hasRangeEvidence };
+}
+
+function requiresRangeHealthEvidence(range, healthEvidence) {
+  return healthEvidence.hasRangeEvidence || countPrs(range) >= 5;
+}
+
+function countPrs(range) {
+  return range.toPr - range.fromPr + 1;
+}
+
+function evaluateCompleteRangeHealthEvidence(healthEvidence, range) {
+  if (healthEvidence.beforeStatus === undefined) {
+    return { outcome: "missing", reason: "health evidence is incomplete" };
+  }
+  if (healthEvidence.beforeStatus !== 200) {
+    return {
+      message: "/health failed during the smoke PR set",
+      outcome: "rejected",
+      reason: "/health failed",
+    };
+  }
+
+  for (let prNumber = range.fromPr; prNumber <= range.toPr; prNumber += 1) {
+    const healthStatus = healthEvidence.afterStatuses.get(prNumber);
+    if (healthStatus === undefined) {
+      return { outcome: "missing", reason: "health evidence is incomplete" };
+    }
+    if (healthStatus !== 200) {
+      return {
+        message: "/health failed during the smoke PR set",
+        outcome: "rejected",
+        reason: "/health failed",
+      };
+    }
+  }
+
+  return { outcome: "accepted" };
 }
 
 function readLatestHealthStatus(content) {
