@@ -144,6 +144,16 @@ describe("community bot Probot bootstrap", () => {
     expect(() => readRuntimeEnvironment(env)).toThrow("PRIVATE_KEY");
   });
 
+  it.each(["not-a-num", "12.34", "-123", "0"])("rejects malformed APP_ID %s", (appId) => {
+    // Given `APP_ID` is "<app_id>"
+    const env = createRuntimeEnv({ APP_ID: appId });
+    // When the operator starts the community bot
+    // Then startup fails before accepting webhook traffic
+    expect(() => readRuntimeEnvironment(env)).toThrow(RuntimeEnvironmentError);
+    // And the failure mentions "APP_ID"
+    expect(() => readRuntimeEnvironment(env)).toThrow("APP_ID");
+  });
+
   it("accepts escaped private key newlines from environment storage", () => {
     // Given `PRIVATE_KEY` is stored as a single environment value with literal "\n" line breaks
     const privateKey = createPrivateKey();

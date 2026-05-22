@@ -1241,6 +1241,33 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("private key startup failure assertion passed");
   });
 
+  it.each(["not-a-num", "12.34", "-123", "0"])(
+    "accepts malformed APP_ID startup failure evidence for %s",
+    (appId) => {
+      const soakLogPath = writeSoakLog(
+        [
+          `APP_ID value: ${appId}`,
+          "WEBHOOK_SECRET configured: true",
+          "PRIVATE_KEY decoded PEM key: valid 2048-bit RSA",
+          "Community bot startup: failed before webhook processing",
+          "Startup failure reason: APP_ID must be a positive integer",
+          "Webhook processing: not started",
+        ].join("\n"),
+      );
+
+      // Given `APP_ID` is "<app_id>"
+      // And `WEBHOOK_SECRET` is "WEBHOOK_SECRET_SENTINEL_60"
+      // And `PRIVATE_KEY` contains valid PEM private key material
+      // When the Community bot starts
+      const result = runValidator(["app-id-startup-failure", "--soak-log", soakLogPath]);
+
+      // Then startup fails before processing webhooks
+      // And the failure mentions "APP_ID"
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("APP_ID startup failure assertion passed");
+    },
+  );
+
   it("passes latency validation when five qualifying PRs stay below ninety seconds", () => {
     const soakLogPath = writeSoakLog(
       [
