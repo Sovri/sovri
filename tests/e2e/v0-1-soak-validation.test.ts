@@ -1262,6 +1262,32 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain(field);
   });
 
+  it("ignores unrelated Markdown tables before the soak evidence table", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "| metric | latency |",
+        "| --- | --- |",
+        "| startup | 12s |",
+        "",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | 2 | 4 |",
+      ].join("\n"),
+    );
+
+    const result = runValidator([
+      "soak-log-content",
+      "--repo",
+      "mpiton/forgent",
+      "--qualifying-pr",
+      "101",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+  });
+
   it("fails committed soak log evidence when no PR rows are present", () => {
     const soakLogPath = writeSoakLog(
       [

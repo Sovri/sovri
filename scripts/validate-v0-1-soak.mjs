@@ -833,7 +833,7 @@ function readSoakLogEvidenceTable(content) {
       continue;
     }
 
-    if (header === undefined && cells.some((cell) => REQUIRED_SOAK_LOG_FIELDS.includes(cell))) {
+    if (header === undefined && cells.includes("PR URL")) {
       header = cells;
       continue;
     }
