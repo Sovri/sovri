@@ -135,9 +135,16 @@ if (command === "image-provenance") {
     qualifyingPrs,
     repoFullName,
   });
+  const invalidFindingCountPr = findInvalidFindingCountPr(soakLog, {
+    qualifyingPrs,
+    repoFullName,
+  });
 
   if (duplicatePr !== undefined) {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
+  }
+  if (invalidFindingCountPr !== undefined) {
+    fail("finding count must be a non-negative integer");
   }
 } else if (command === "soak-log-commit") {
   const repoFullName = readOption("--repo");
@@ -402,6 +409,26 @@ function findDuplicateSoakEvidencePr(content, expected) {
   return undefined;
 }
 
+function findInvalidFindingCountPr(content, expected) {
+  for (const line of content.split(/\r?\n/u)) {
+    const [prUrlCell, , findingCountCell] = readMarkdownTableCells(line);
+    if (prUrlCell === undefined) {
+      continue;
+    }
+
+    const prNumber = readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
+    if (prNumber === undefined || !expected.qualifyingPrs.includes(prNumber)) {
+      continue;
+    }
+
+    if (findingCountCell === undefined || !isDecimalInteger(findingCountCell)) {
+      return prNumber;
+    }
+  }
+
+  return undefined;
+}
+
 function countSoakLogPrEvidenceRows(content, repoFullName) {
   return content.split(/\r?\n/u).filter((line) => lineHasGitHubPullEvidenceCell(line, repoFullName))
     .length;
@@ -438,16 +465,20 @@ function readMarkdownTableCells(line) {
 }
 
 function isGitHubPullUrl(value, repoFullName) {
+  return readGitHubPullUrlPrNumber(value, repoFullName) !== undefined;
+}
+
+function readGitHubPullUrlPrNumber(value, repoFullName) {
   let url;
   try {
     url = new URL(value);
   } catch {
-    return false;
+    return undefined;
   }
 
   const [owner, repo, extraPart] = repoFullName.split("/");
   const pathParts = url.pathname.split("/").filter((part) => part.length > 0);
-  return (
+  const isExpectedPullUrl =
     extraPart === undefined &&
     url.protocol === "https:" &&
     url.hostname === "github.com" &&
@@ -455,8 +486,9 @@ function isGitHubPullUrl(value, repoFullName) {
     pathParts[0] === owner &&
     pathParts[1] === repo &&
     pathParts[2] === "pull" &&
-    isDecimalInteger(pathParts[3])
-  );
+    isDecimalInteger(pathParts[3]);
+
+  return isExpectedPullUrl ? pathParts[3] : undefined;
 }
 
 function isDecimalInteger(value) {
