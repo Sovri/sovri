@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add four-PR p95 latency acceptance coverage for the strict
+  below-90-second smoke target (#1044).
+
 - `test(e2e)`: add four-PR no-crash acceptance coverage with explicit
   no-exit event evidence (#1027).
 
