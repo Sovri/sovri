@@ -27,6 +27,13 @@ if (command === "image-provenance") {
   if (hasAnthropicAuthenticationFailure(soakLog, prNumber)) {
     fail("Anthropic key wiring assertion failed");
   }
+  const repoFullName = readOption("--repo");
+  const changedLines = readOption("--changed-lines");
+  if (hasSuccessfulAnthropicWiring(soakLog, { changedLines, prNumber, repoFullName })) {
+    process.stdout.write("Anthropic key wiring assertion passed\n");
+  } else {
+    fail("Anthropic key wiring evidence is incomplete");
+  }
 } else {
   fail("usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key> [options]");
 }
@@ -51,6 +58,17 @@ function hasAnthropicAuthenticationFailure(content, prNumber) {
     content.includes("Successful review comment posted: false") &&
     content.includes("Container restart count: 0") &&
     content.includes("Health status after failed review: 200")
+  );
+}
+
+function hasSuccessfulAnthropicWiring(content, expected) {
+  return (
+    content.includes("ANTHROPIC_API_KEY value: valid Anthropic API key") &&
+    content.includes(`Repository: ${expected.repoFullName}`) &&
+    content.includes(`PR: ${expected.prNumber}`) &&
+    content.includes(`Changed lines: ${expected.changedLines}`) &&
+    content.includes("Structured Anthropic response received: true") &&
+    content.includes("First PR comment posted: true")
   );
 }
 
