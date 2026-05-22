@@ -19,6 +19,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `test(e2e)`: add v0.1 soak image provenance acceptance coverage (#1015).
+
 ### Fixed
 
 - `test(msw)`: shared Anthropic handler now returns `anthropic-empty.json` for
