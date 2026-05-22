@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add three-PR below-minimum smoke-count coverage for v0.1
+  smoke PR validation (#1039).
+
 - `test(e2e)`: add wrong GHCR image repository rejection coverage for
   v0.1 image provenance validation (#1017).
 
