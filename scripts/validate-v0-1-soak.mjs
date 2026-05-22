@@ -143,35 +143,43 @@ function hasAnthropicAuthenticationFailure(content, prNumber) {
 }
 
 function hasMissingAnthropicKeyFailure(content, prNumber) {
-  const apiKeyEvidence = readAnthropicApiKeyEvidence(content, prNumber);
+  const evidence = readAnthropicReviewEvidence(content, prNumber);
 
   return (
-    apiKeyEvidence !== undefined &&
-    apiKeyEvidence.trim().length === 0 &&
-    content.includes(`PR: ${prNumber}`) &&
-    content.includes("Successful review comment posted: false")
+    evidence?.apiKeyEvidence !== undefined &&
+    evidence.apiKeyEvidence.trim().length === 0 &&
+    evidence.successfulReviewCommentPosted === "false"
   );
 }
 
-function readAnthropicApiKeyEvidence(content, prNumber) {
-  const prefix = "ANTHROPIC_API_KEY value: ";
-  let pendingApiKeyEvidence;
-  let matchedApiKeyEvidence;
+function readAnthropicReviewEvidence(content, prNumber) {
+  const apiKeyPrefix = "ANTHROPIC_API_KEY value: ";
+  const reviewCommentPrefix = "Successful review comment posted: ";
+  let currentEvidence = {};
+  let matchedEvidence;
 
   for (const line of content.split(/\r?\n/u)) {
-    if (line.startsWith(prefix)) {
-      pendingApiKeyEvidence = line.slice(prefix.length);
+    if (line.startsWith(apiKeyPrefix)) {
+      if (currentEvidence.prNumber === prNumber) {
+        matchedEvidence = { ...currentEvidence };
+      }
+      currentEvidence = { apiKeyEvidence: line.slice(apiKeyPrefix.length) };
     }
 
     if (line.startsWith("PR: ")) {
-      if (line === `PR: ${prNumber}`) {
-        matchedApiKeyEvidence = pendingApiKeyEvidence;
-      }
-      pendingApiKeyEvidence = undefined;
+      currentEvidence.prNumber = line.slice("PR: ".length);
+    }
+
+    if (line.startsWith(reviewCommentPrefix)) {
+      currentEvidence.successfulReviewCommentPosted = line.slice(reviewCommentPrefix.length);
+    }
+
+    if (currentEvidence.prNumber === prNumber) {
+      matchedEvidence = { ...currentEvidence };
     }
   }
 
-  return matchedApiKeyEvidence;
+  return matchedEvidence;
 }
 
 function hasSuccessfulAnthropicWiring(content, expected) {
