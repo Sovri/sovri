@@ -113,9 +113,19 @@ if (command === "image-provenance") {
   if (duplicatePr !== undefined) {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
   }
+} else if (command === "soak-log-commit") {
+  readOption("--repo");
+  readOption("--path");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (countSoakLogPrEvidenceRows(soakLog) === 0) {
+    fail("soak log has no PR evidence rows");
+  }
+  process.stdout.write("soak log commit assertion passed\n");
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|smoke-pr-count|soak-log-content> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
   );
 }
 
@@ -318,6 +328,12 @@ function findDuplicateSoakEvidencePr(content, expected) {
   }
 
   return undefined;
+}
+
+function countSoakLogPrEvidenceRows(content) {
+  return content
+    .split(/\r?\n/u)
+    .filter((line) => line.includes("https://github.com/") && line.includes("/pull/")).length;
 }
 
 function readSoakEvidencePrNumbers(content, repoFullName) {
