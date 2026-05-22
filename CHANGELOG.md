@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add first-comment latency measurement coverage and validator
+  support (#1049).
+
 - `test(e2e)`: add non-negative soak-log finding count coverage and validator
   support (#1024).
 
@@ -70,6 +73,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(e2e)`: add v0.1 soak image provenance acceptance coverage (#1015).
 
 ### Fixed
+
+- `test(e2e)`: reject impossible negative PR latency evidence when comment
+  timestamps precede webhook receipt timestamps (#1049 review feedback).
+
+- `test(e2e)`: ignore stale pre-webhook PR comments when measuring first-comment
+  latency (#1049 review feedback).
 
 - `test(e2e)`: require committed soak-log metadata and PR evidence rows to
   match the expected repository exactly (#1053).
