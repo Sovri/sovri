@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add synchronize-event smoke PR count coverage and validator
+  support for deduplicating repeated events by PR (#1042).
+
 - `test(e2e)`: add missing webhook receipt timestamp coverage for v0.1
   latency evidence validation (#1047).
 

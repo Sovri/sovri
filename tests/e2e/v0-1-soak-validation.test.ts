@@ -1145,6 +1145,42 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("smoke PR count assertion passed");
   });
 
+  it("counts repeated synchronize events for the same PR once", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 event=pull_request.synchronize target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 101 event=pull_request.synchronize target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 101 event=pull_request.synchronize target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 102 event=pull_request.opened target_branch=main draft=false changed_lines=240",
+        "Smoke PR: 103 event=pull_request.opened target_branch=main draft=false changed_lines=499",
+        "Smoke PR: 104 event=pull_request.opened target_branch=main draft=false changed_lines=42",
+      ].join("\n"),
+    );
+
+    // Given PR 101 receives 3 `pull_request.synchronize` events
+    // And PR 102 receives 1 `pull_request.opened` event
+    // And PR 103 receives 1 `pull_request.opened` event
+    // And PR 104 receives 1 `pull_request.opened` event
+    // When the smoke PR count is evaluated
+    const result = runValidator([
+      "smoke-pr-count",
+      "--target-branch",
+      "main",
+      "--minimum-count",
+      "4",
+      "--target-count",
+      "5",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the qualifying PR count is 4
+    // And the smoke PR count assertion passes
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("qualifying PR count: 4");
+    expect(result.stdout).toContain("smoke PR count assertion passed");
+  });
+
   it("fails smoke PR count validation when only three PRs qualify", () => {
     const soakLogPath = writeSoakLog(
       [
