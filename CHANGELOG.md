@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add missing GitHub App webhook subscription coverage for
+  pull_request and issue_comment installation evidence (#1014).
+
 - `test(e2e)`: add missing GitHub App permission coverage for
   pull_requests, contents, issues, and metadata installation evidence (#1013).
 
