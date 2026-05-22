@@ -264,8 +264,19 @@ describe("v0.1 soak evidence validation", () => {
   });
 
   it("fails log secret review when captured logs are missing", () => {
-    const soakLogPath = writeSoakLog("Operator note: container logs were not captured\n");
+    const soakLogPath = writeSoakLog(
+      [
+        "Qualifying PR: 101",
+        "Qualifying PR: 102",
+        "Qualifying PR: 103",
+        "Qualifying PR: 104",
+        "Operator note: container logs were not captured",
+      ].join("\n"),
+    );
 
+    // Given the smoke set contains qualifying PRs 101, 102, 103, and 104
+    // And no captured container stdout is available
+    // When the captured container logs are reviewed
     const result = runValidator([
       "log-secrets",
       "--secret-name",
@@ -276,8 +287,10 @@ describe("v0.1 soak evidence validation", () => {
       soakLogPath,
     ]);
 
+    // Then the log secret assertion fails
+    // And the failure mentions "missing docker logs evidence"
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("captured logs are missing");
+    expect(result.stderr).toContain("missing docker logs evidence");
   });
 
   it("passes when captured logs contain smoke metadata without secret values", () => {
