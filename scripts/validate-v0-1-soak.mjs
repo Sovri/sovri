@@ -114,11 +114,14 @@ if (command === "image-provenance") {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
   }
 } else if (command === "soak-log-commit") {
-  readOption("--repo");
-  readOption("--path");
+  const repoFullName = readOption("--repo");
+  const relativePath = readOption("--path");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
 
+  if (!hasCommittedSoakLogMetadata(soakLog, { relativePath, repoFullName })) {
+    fail(`soak log must be committed to ${repoFullName}`);
+  }
   if (countSoakLogPrEvidenceRows(soakLog) === 0) {
     fail("soak log has no PR evidence rows");
   }
@@ -332,6 +335,13 @@ function findDuplicateSoakEvidencePr(content, expected) {
 
 function countSoakLogPrEvidenceRows(content) {
   return content.split(/\r?\n/u).filter((line) => lineHasGitHubPullEvidenceCell(line)).length;
+}
+
+function hasCommittedSoakLogMetadata(content, expected) {
+  return (
+    content.includes(`Evidence repository: ${expected.repoFullName}`) &&
+    content.includes(`Committed soak log path: ${expected.relativePath}`)
+  );
 }
 
 function lineHasGitHubPullEvidenceCell(line) {
