@@ -341,7 +341,13 @@ describe("shared MSW server contract", () => {
     // Then all 4 required fixture files are found
     expect(files).toEqual([...RequiredFixtures]);
     // And each required fixture file contains valid JSON
-    expect(RequiredFixtures.map(readJsonFixture)).toHaveLength(4);
+    const parseResults = RequiredFixtures.map((fixture) =>
+      parseJsonFixtureText(readFixtureText(fixture)),
+    );
+    expect(parseResults).toHaveLength(4);
+    for (const result of parseResults) {
+      expect(result.passed).toBe(true);
+    }
   });
 
   it.each(RequiredFixtures)("fails when %s is missing", (missingFixture) => {

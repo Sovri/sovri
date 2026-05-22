@@ -187,6 +187,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test`: enforce per-fixture JSON parse success in
+  `packages/review-engine/src/shared-msw-contract.test.ts` "finds all required
+  fixture files" so malformed fixtures fail the contract instead of slipping
+  through a tautological length assertion (#965).
+
 - `ci`: align the `build-docker-needs` job-header regex in
   `scripts/ci-policy.mjs` with the rest of the policy so a workflow
   declaring `build-docker: &anchor` is no longer reported as missing
