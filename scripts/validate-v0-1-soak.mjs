@@ -354,8 +354,12 @@ function readOptions(name) {
 
 function readIntegerOption(name) {
   const rawValue = readOption(name);
+  if (!/^\d+$/u.test(rawValue)) {
+    fail(`${name} is invalid`);
+  }
+
   const value = Number.parseInt(rawValue, 10);
-  if (Number.isNaN(value)) {
+  if (!Number.isSafeInteger(value)) {
     fail(`${name} is invalid`);
   }
   return value;
