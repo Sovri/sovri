@@ -380,9 +380,14 @@ function evaluatePrLatency(content, expected) {
     return rejectedLatency("missing first Sovri PR comment timestamp");
   }
 
-  const firstCommentAt = commentTimes.toSorted((left, right) => left - right)[0];
+  const sortedCommentTimes = commentTimes.toSorted((left, right) => left - right);
+  const firstCommentAt = sortedCommentTimes.find((timestamp) => timestamp >= webhookReceivedAt);
+  if (firstCommentAt === undefined) {
+    return rejectedLatency("missing first Sovri PR comment timestamp after webhook receipt");
+  }
+
   return {
-    laterCommentsIgnored: commentTimes.length > 1,
+    laterCommentsIgnored: sortedCommentTimes.some((timestamp) => timestamp > firstCommentAt),
     latencySeconds: (firstCommentAt - webhookReceivedAt) / 1000,
     outcome: "accepted",
   };

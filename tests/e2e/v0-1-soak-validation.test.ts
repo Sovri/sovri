@@ -900,7 +900,7 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("later PR comments ignored: true");
   });
 
-  it("rejects latency evidence when the first comment predates webhook receipt", () => {
+  it("rejects latency evidence when all comments predate webhook receipt", () => {
     const soakLogPath = writeSoakLog(
       [
         "Latency PR metadata: pr=101 delivery_id=delivery-60-101 changed_lines=128",
@@ -920,7 +920,35 @@ describe("v0.1 soak evidence validation", () => {
     ]);
 
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("latency must be >= 0 s");
+    expect(result.stderr).toContain(
+      "missing first Sovri PR comment timestamp after webhook receipt",
+    );
+  });
+
+  it("uses the first Sovri PR comment after webhook receipt when stale comments exist", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Latency PR metadata: pr=101 delivery_id=delivery-60-101 changed_lines=128",
+        "Sovri PR comment: pr=101 created_at=2026-05-22T09:59:30Z",
+        "Webhook received: delivery_id=delivery-60-101 at=2026-05-22T10:00:00Z",
+        "Sovri PR comment: pr=101 created_at=2026-05-22T10:01:20Z",
+        "Sovri PR comment: pr=101 created_at=2026-05-22T10:03:10Z",
+      ].join("\n"),
+    );
+
+    const result = runValidator([
+      "latency-pr",
+      "--pr",
+      "101",
+      "--delivery-id",
+      "delivery-60-101",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("measured latency: 80.000 seconds");
+    expect(result.stdout).toContain("later PR comments ignored: true");
   });
 });
 
