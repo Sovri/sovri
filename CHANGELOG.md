@@ -96,6 +96,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test(e2e)`: accept GitHub App API access evidence for any PR number instead
+  of hard-coding PR 101 (#1010 review feedback).
+
 - `test(e2e)`: reject impossible negative PR latency evidence when comment
   timestamps precede webhook receipt timestamps (#1049 review feedback).
 

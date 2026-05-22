@@ -364,12 +364,8 @@ function evaluateGitHubAppInstallation(content, expected) {
     return { outcome: "rejected", reason: "signed pull_request.opened webhook" };
   }
 
-  if (!hasGitHubApiCall(content, `GET /repos/${expected.repoFullName}/pulls/101/files`)) {
-    return { outcome: "rejected", reason: "pull request files API access" };
-  }
-
-  if (!hasGitHubApiCall(content, `POST /repos/${expected.repoFullName}/pulls/101/reviews`)) {
-    return { outcome: "rejected", reason: "pull request reviews API access" };
+  if (!hasRequiredPullRequestApiAccess(content, expected.repoFullName)) {
+    return { outcome: "rejected", reason: "pull request files/reviews API access" };
   }
 
   return { outcome: "accepted" };
@@ -391,10 +387,38 @@ function hasSignedPullRequestWebhook(content, repoFullName) {
     .includes(`GitHub webhook delivered: pull_request.opened repo=${repoFullName} signed=true`);
 }
 
-function hasGitHubApiCall(content, request) {
-  return content
-    .split(/\r?\n/u)
-    .some((line) => line.startsWith(`GitHub API call: ${request} status=2`));
+function hasRequiredPullRequestApiAccess(content, repoFullName) {
+  const fileAccessPrs = readGitHubApiAccessPrs(content, {
+    method: "GET",
+    repoFullName,
+    suffix: "files",
+  });
+  const reviewAccessPrs = readGitHubApiAccessPrs(content, {
+    method: "POST",
+    repoFullName,
+    suffix: "reviews",
+  });
+
+  return [...fileAccessPrs].some((prNumber) => reviewAccessPrs.has(prNumber));
+}
+
+function readGitHubApiAccessPrs(content, expected) {
+  const prefix = `GitHub API call: ${expected.method} /repos/${expected.repoFullName}/pulls/`;
+  const prNumbers = new Set();
+
+  for (const line of content.split(/\r?\n/u)) {
+    if (!line.startsWith(prefix)) {
+      continue;
+    }
+
+    const suffix = line.slice(prefix.length);
+    const prNumber = readLeadingDigits(suffix);
+    if (prNumber !== undefined && suffix.startsWith(`${prNumber}/${expected.suffix} status=2`)) {
+      prNumbers.add(prNumber);
+    }
+  }
+
+  return prNumbers;
 }
 
 function hasEscapedPrivateKeyNewlineStartupEvidence(content) {
