@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add Anthropic provider log secret-redaction smoke coverage
+  (#1008).
+
 - `test(e2e)`: add parameterized successful Anthropic smoke review evidence
   coverage (#1005).
 
