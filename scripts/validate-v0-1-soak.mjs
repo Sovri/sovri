@@ -59,9 +59,22 @@ if (command === "image-provenance") {
     fail(`log secret assertion failed: ${secretName}`);
   }
   process.stdout.write("log secret assertion passed\n");
+} else if (command === "no-crash") {
+  const fromPr = readOption("--from-pr");
+  const toPr = readOption("--to-pr");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const noCrashFailure = validateContainerDidNotRestartDuringSmokeSet(soakLog, {
+    fromPr,
+    toPr,
+  });
+
+  if (noCrashFailure !== undefined) {
+    fail(noCrashFailure);
+  }
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash> [options]",
   );
 }
 
@@ -114,6 +127,67 @@ function readCapturedLogLines(content) {
 
 function capturedLogsContain(capturedLogLines, needle) {
   return capturedLogLines.some((line) => line.includes(needle));
+}
+
+function validateContainerDidNotRestartDuringSmokeSet(content, range) {
+  const prRange = readPrRange(range);
+  const before = readRestartCountBeforePr(content, range.fromPr);
+  const afterCounts = prRange === undefined ? [] : readRestartCountsAfterPr(content, prRange);
+
+  if (prRange === undefined || before === undefined || afterCounts.length === 0) {
+    return "restart evidence is incomplete";
+  }
+
+  if (afterCounts.some((after) => after.restartCount > before)) {
+    return "container restarted during the smoke PR set";
+  }
+
+  if (!afterCounts.some((after) => after.prNumber >= prRange.toPr)) {
+    return "restart evidence is incomplete";
+  }
+
+  return undefined;
+}
+
+function readRestartCountsAfterPr(content, range) {
+  const afterMatches = [...content.matchAll(/Container restart count after PR (\d+): (\d+)/gu)];
+
+  return afterMatches.flatMap((match) => {
+    const prNumber = Number.parseInt(match[1], 10);
+    const restartCount = Number.parseInt(match[2], 10);
+
+    if (prNumber < range.fromPr || prNumber > range.toPr) {
+      return [];
+    }
+
+    return [{ prNumber, restartCount }];
+  });
+}
+
+function readPrRange(range) {
+  const fromPr = Number.parseInt(range.fromPr, 10);
+  const toPr = Number.parseInt(range.toPr, 10);
+
+  if (Number.isNaN(fromPr) || Number.isNaN(toPr)) {
+    return undefined;
+  }
+
+  return { fromPr, toPr };
+}
+
+function readRestartCountBeforePr(content, prNumber) {
+  const prefix = `Container restart count before PR ${prNumber}: `;
+  const line = content.split(/\r?\n/u).find((candidate) => candidate.startsWith(prefix));
+  if (line === undefined) {
+    return undefined;
+  }
+
+  const restartCount = Number.parseInt(line.slice(prefix.length), 10);
+  if (Number.isNaN(restartCount)) {
+    return undefined;
+  }
+
+  return restartCount;
 }
 
 function readOption(name) {
