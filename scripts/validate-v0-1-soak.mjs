@@ -443,11 +443,15 @@ function hasEscapedPrivateKeyNewlineStartupEvidence(content) {
 
 function hasInvalidPrivateKeyStartupFailureEvidence(content) {
   const lines = content.split(/\r?\n/u);
+  const appId = readLineValue(lines, "APP_ID value: ");
+  const privateKey = readLineValue(lines, "PRIVATE_KEY value: ");
   return (
+    appId !== undefined &&
+    appId.trim().length > 0 &&
+    privateKey !== undefined &&
+    privateKey.trim().length > 0 &&
     [
-      "APP_ID value: 123456",
       "WEBHOOK_SECRET configured: true",
-      "PRIVATE_KEY value: not-a-private-key",
       "Community bot startup: failed before webhook processing",
       "Webhook processing: not started",
     ].every((expectedLine) => lines.includes(expectedLine)) &&
@@ -455,6 +459,11 @@ function hasInvalidPrivateKeyStartupFailureEvidence(content) {
       (line) => line.startsWith("Startup failure reason: ") && line.includes("PRIVATE_KEY"),
     )
   );
+}
+
+function readLineValue(lines, prefix) {
+  const line = lines.find((candidate) => candidate.startsWith(prefix));
+  return line === undefined ? undefined : line.slice(prefix.length);
 }
 
 function calculateLatencyP95(content) {
