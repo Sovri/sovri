@@ -1145,6 +1145,37 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("smoke PR count assertion passed");
   });
 
+  it("fails smoke PR count validation when only three PRs qualify", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 102 target_branch=main draft=false changed_lines=240",
+        "Smoke PR: 103 target_branch=main draft=false changed_lines=499",
+      ].join("\n"),
+    );
+
+    // Given the smoke run contains three non-draft PRs on main below 500 changed lines
+    // When the smoke PR count is evaluated
+    const result = runValidator([
+      "smoke-pr-count",
+      "--target-branch",
+      "main",
+      "--minimum-count",
+      "4",
+      "--target-count",
+      "5",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the qualifying PR count is 3
+    // And the smoke PR count assertion fails
+    // And the failure mentions "at least 4 qualifying PRs"
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("qualifying PR count: 3");
+    expect(result.stderr).toContain("at least 4 qualifying PRs");
+  });
+
   it.each([
     {
       changedLines: 0,
