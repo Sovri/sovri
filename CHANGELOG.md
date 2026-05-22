@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: restrict soak-log field, duplicate, latency, finding-count,
+  and row-count checks to the complete PR evidence table (#1022).
+
 - `test(e2e)`: add missing required soak-log field coverage for PR URL,
   latency, finding count, manual quality rating, and unrelated leading
   Markdown tables (#1022).

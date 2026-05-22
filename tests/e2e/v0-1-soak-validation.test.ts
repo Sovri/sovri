@@ -1211,33 +1211,33 @@ describe("v0.1 soak evidence validation", () => {
     {
       field: "PR URL",
       rows: [
-        "| latency | finding count | manual quality rating |",
-        "| --- | --- | --- |",
-        "| 31.200s | 2 | 4 |",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| | 31.200s | 2 | 4 |",
       ],
     },
     {
       field: "latency",
       rows: [
-        "| PR URL | finding count | manual quality rating |",
-        "| --- | --- | --- |",
-        "| https://github.com/mpiton/forgent/pull/101 | 2 | 4 |",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | | 2 | 4 |",
       ],
     },
     {
       field: "finding count",
       rows: [
-        "| PR URL | latency | manual quality rating |",
-        "| --- | --- | --- |",
-        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | 4 |",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | | 4 |",
       ],
     },
     {
       field: "manual quality rating",
       rows: [
-        "| PR URL | latency | finding count |",
-        "| --- | --- | --- |",
-        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | 2 |",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | 2 | |",
       ],
     },
   ])("fails soak log validation when required field $field is omitted", ({ field, rows }) => {
@@ -1268,6 +1268,32 @@ describe("v0.1 soak evidence validation", () => {
         "| metric | latency |",
         "| --- | --- |",
         "| startup | 12s |",
+        "",
+        "| PR URL | latency | finding count | manual quality rating |",
+        "| --- | --- | --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | 31.200s | 2 | 4 |",
+      ].join("\n"),
+    );
+
+    const result = runValidator([
+      "soak-log-content",
+      "--repo",
+      "mpiton/forgent",
+      "--qualifying-pr",
+      "101",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it("uses the complete soak evidence table when an earlier Markdown table also has a PR URL column", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "| PR URL | note |",
+        "| --- | --- |",
+        "| https://github.com/mpiton/forgent/pull/101 | queued for smoke |",
         "",
         "| PR URL | latency | finding count | manual quality rating |",
         "| --- | --- | --- | --- |",

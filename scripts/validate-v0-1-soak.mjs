@@ -233,7 +233,7 @@ if (command === "image-provenance") {
   });
 
   if (missingRequiredField !== undefined) {
-    fail(`${missingRequiredField} is required`);
+    failMissingRequiredSoakLogField(missingRequiredField);
   }
   if (duplicatePr !== undefined) {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
@@ -803,17 +803,18 @@ function findMissingRequiredSoakLogField(content, expected) {
   const fieldIndexes = readSoakLogFieldIndexes(table.header);
   for (const row of table.rows) {
     const prUrlCell = readRequiredSoakLogCell(row, fieldIndexes, "PR URL");
-    const prNumber =
-      prUrlCell === undefined
-        ? undefined
-        : readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
+    if (prUrlCell === undefined || prUrlCell.length === 0) {
+      return "PR URL";
+    }
+
+    const prNumber = readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
     if (prNumber === undefined || !expected.qualifyingPrs.includes(prNumber)) {
       continue;
     }
 
     const missingCellField = REQUIRED_SOAK_LOG_FIELDS.find((field) => {
       const cell = readRequiredSoakLogCell(row, fieldIndexes, field);
-      return cell === undefined;
+      return cell === undefined || cell.length === 0;
     });
     if (missingCellField !== undefined) {
       return missingCellField;
@@ -824,26 +825,60 @@ function findMissingRequiredSoakLogField(content, expected) {
 }
 
 function readSoakLogEvidenceTable(content) {
-  let header;
-  const rows = [];
+  const tables = readMarkdownTables(content);
+  const completeTable = tables.find((table) =>
+    REQUIRED_SOAK_LOG_FIELDS.every((field) => table.header.includes(field)),
+  );
+  if (completeTable !== undefined) {
+    return completeTable;
+  }
+
+  return tables.find((table) =>
+    table.header.some((cell) => REQUIRED_SOAK_LOG_FIELDS.includes(cell)),
+  );
+}
+
+function readMarkdownTables(content) {
+  const tables = [];
+  let currentTable;
 
   for (const line of content.split(/\r?\n/u)) {
     const cells = readMarkdownTableCells(line);
-    if (cells.length === 0 || isMarkdownSeparatorRow(cells)) {
+    if (cells.length === 0) {
+      if (currentTable !== undefined) {
+        tables.push(currentTable);
+        currentTable = undefined;
+      }
       continue;
     }
 
-    if (header === undefined && cells.includes("PR URL")) {
-      header = cells;
+    if (isMarkdownSeparatorRow(cells)) {
       continue;
     }
 
-    if (header !== undefined) {
-      rows.push(cells);
+    if (currentTable === undefined) {
+      currentTable = { header: cells, rows: [] };
+      continue;
     }
+
+    currentTable.rows.push(cells);
   }
 
-  return header === undefined ? undefined : { header, rows };
+  if (currentTable !== undefined) {
+    tables.push(currentTable);
+  }
+
+  return tables;
+}
+
+function failMissingRequiredSoakLogField(field) {
+  if (field === "latency") {
+    fail("latency is required; latency must be a duration in seconds");
+  }
+  if (field === "finding count") {
+    fail("finding count is required; finding count must be a non-negative integer");
+  }
+  fail(`${field} is required`);
 }
 
 function readSoakLogFieldIndexes(header) {
@@ -862,7 +897,7 @@ function isMarkdownSeparatorRow(cells) {
 function findDuplicateSoakEvidencePr(content, expected) {
   const evidenceCounts = new Map();
 
-  for (const prNumber of readSoakEvidencePrNumbers(content, expected.repoFullName)) {
+  for (const prNumber of readSoakEvidenceRowPrNumbers(content, expected.repoFullName)) {
     if (!expected.qualifyingPrs.includes(prNumber)) {
       continue;
     }
@@ -883,17 +918,20 @@ function findMissingSoakEvidencePr(content, expected) {
 }
 
 function findInvalidFindingCountPr(content, expected) {
-  for (const line of content.split(/\r?\n/u)) {
-    const [prUrlCell, , findingCountCell] = readMarkdownTableCells(line);
-    if (prUrlCell === undefined) {
-      continue;
-    }
+  const table = readSoakLogEvidenceTable(content);
+  if (table === undefined) {
+    return undefined;
+  }
 
+  const fieldIndexes = readSoakLogFieldIndexes(table.header);
+  for (const row of table.rows) {
+    const prUrlCell = readRequiredSoakLogCell(row, fieldIndexes, "PR URL");
     const prNumber = readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
     if (prNumber === undefined || !expected.qualifyingPrs.includes(prNumber)) {
       continue;
     }
 
+    const findingCountCell = readRequiredSoakLogCell(row, fieldIndexes, "finding count");
     if (findingCountCell === undefined || !isDecimalInteger(findingCountCell)) {
       return prNumber;
     }
@@ -903,17 +941,20 @@ function findInvalidFindingCountPr(content, expected) {
 }
 
 function findInvalidLatencyPr(content, expected) {
-  for (const line of content.split(/\r?\n/u)) {
-    const [prUrlCell, latencyCell] = readMarkdownTableCells(line);
-    if (prUrlCell === undefined) {
-      continue;
-    }
+  const table = readSoakLogEvidenceTable(content);
+  if (table === undefined) {
+    return undefined;
+  }
 
+  const fieldIndexes = readSoakLogFieldIndexes(table.header);
+  for (const row of table.rows) {
+    const prUrlCell = readRequiredSoakLogCell(row, fieldIndexes, "PR URL");
     const prNumber = readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
     if (prNumber === undefined || !expected.qualifyingPrs.includes(prNumber)) {
       continue;
     }
 
+    const latencyCell = readRequiredSoakLogCell(row, fieldIndexes, "latency");
     if (latencyCell === undefined || !SOAK_LOG_LATENCY_DURATION_PATTERN.test(latencyCell)) {
       return prNumber;
     }
@@ -923,8 +964,7 @@ function findInvalidLatencyPr(content, expected) {
 }
 
 function countSoakLogPrEvidenceRows(content, repoFullName) {
-  return content.split(/\r?\n/u).filter((line) => lineHasGitHubPullEvidenceCell(line, repoFullName))
-    .length;
+  return readSoakEvidenceRowPrNumbers(content, repoFullName).length;
 }
 
 function hasCommittedSoakLogMetadata(content, expected) {
@@ -948,11 +988,6 @@ function readMetadataValue(content, label) {
   return line?.slice(prefix.length).trim();
 }
 
-function lineHasGitHubPullEvidenceCell(line, repoFullName) {
-  const [prUrlCell] = readMarkdownTableCells(line);
-  return prUrlCell !== undefined && isGitHubPullUrl(prUrlCell, repoFullName);
-}
-
 function readMarkdownTableCells(line) {
   const trimmedLine = line.trim();
   if (!trimmedLine.startsWith("|") || !trimmedLine.endsWith("|")) {
@@ -963,10 +998,6 @@ function readMarkdownTableCells(line) {
     .slice(1, -1)
     .split("|")
     .map((cell) => cell.trim());
-}
-
-function isGitHubPullUrl(value, repoFullName) {
-  return readGitHubPullUrlPrNumber(value, repoFullName) !== undefined;
 }
 
 function readGitHubPullUrlPrNumber(value, repoFullName) {
@@ -996,23 +1027,15 @@ function isDecimalInteger(value) {
   return value.length > 0 && [...value].every((character) => character >= "0" && character <= "9");
 }
 
-function readSoakEvidencePrNumbers(content, repoFullName) {
-  const prUrlPrefix = `https://github.com/${repoFullName}/pull/`;
-
-  return content.split(/\r?\n/u).flatMap((line) => {
-    const prUrlStart = line.indexOf(prUrlPrefix);
-    if (prUrlStart < 0) {
-      return [];
-    }
-
-    const prNumber = readLeadingDigits(line.slice(prUrlStart + prUrlPrefix.length));
-    return prNumber === undefined ? [] : [prNumber];
-  });
-}
-
 function readSoakEvidenceRowPrNumbers(content, repoFullName) {
-  return content.split(/\r?\n/u).flatMap((line) => {
-    const [prUrlCell] = readMarkdownTableCells(line);
+  const table = readSoakLogEvidenceTable(content);
+  if (table === undefined) {
+    return [];
+  }
+
+  const fieldIndexes = readSoakLogFieldIndexes(table.header);
+  return table.rows.flatMap((row) => {
+    const prUrlCell = readRequiredSoakLogCell(row, fieldIndexes, "PR URL");
     const prNumber =
       prUrlCell === undefined ? undefined : readGitHubPullUrlPrNumber(prUrlCell, repoFullName);
     return prNumber === undefined ? [] : [prNumber];
