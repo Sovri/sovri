@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add missing captured Docker logs failure coverage for the v0.1
+  smoke run (#1036).
+
 - `test(e2e)`: add unset Anthropic API key evidence coverage for the v0.1
   smoke run (#1006).
 

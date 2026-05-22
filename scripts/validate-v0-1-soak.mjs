@@ -79,7 +79,7 @@ if (command === "image-provenance") {
   const capturedLogLines = readCapturedLogLines(soakLog);
 
   if (capturedLogLines.length === 0) {
-    fail("captured logs are missing");
+    fail("missing docker logs evidence");
   }
   if (secretValues.some((secretValue) => capturedLogsContain(capturedLogLines, secretValue))) {
     fail(`log secret assertion failed: ${secretName}`);
