@@ -24,6 +24,9 @@ if (command === "image-provenance") {
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
 
+  if (hasMissingAnthropicKeyFailure(soakLog, prNumber)) {
+    fail("Anthropic key wiring assertion failed: ANTHROPIC_API_KEY is missing");
+  }
   if (hasAnthropicAuthenticationFailure(soakLog, prNumber)) {
     fail("Anthropic key wiring assertion failed");
   }
@@ -137,6 +140,24 @@ function hasAnthropicAuthenticationFailure(content, prNumber) {
     content.includes("Container restart count: 0") &&
     content.includes("Health status after failed review: 200")
   );
+}
+
+function hasMissingAnthropicKeyFailure(content, prNumber) {
+  const apiKeyEvidence = readAnthropicApiKeyEvidence(content);
+
+  return (
+    apiKeyEvidence !== undefined &&
+    apiKeyEvidence.trim().length === 0 &&
+    content.includes(`PR: ${prNumber}`) &&
+    content.includes("Successful review comment posted: false")
+  );
+}
+
+function readAnthropicApiKeyEvidence(content) {
+  const prefix = "ANTHROPIC_API_KEY value: ";
+  const line = content.split(/\r?\n/u).find((entry) => entry.startsWith(prefix));
+
+  return line === undefined ? undefined : line.slice(prefix.length);
 }
 
 function hasSuccessfulAnthropicWiring(content, expected) {
