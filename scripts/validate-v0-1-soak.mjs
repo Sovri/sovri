@@ -83,9 +83,23 @@ if (command === "image-provenance") {
   if (!hasExpectedGitHubAppInstallation(soakLog, { expectedApp, repoFullName })) {
     fail(`GitHub App installation assertion failed: ${expectedApp}`);
   }
+} else if (command === "smoke-pr-count") {
+  const targetBranch = readOption("--target-branch");
+  const minimumCount = readIntegerOption("--minimum-count");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const result = evaluateSmokePrCount(soakLog, { targetBranch });
+
+  if (result.qualifyingCount < minimumCount) {
+    process.stderr.write(`qualifying PR count: ${result.qualifyingCount}\n`);
+    for (const exclusion of result.exclusions) {
+      process.stderr.write(`PR ${exclusion.pr} is excluded because ${exclusion.reason}\n`);
+    }
+    fail(`smoke PR count assertion failed: at least ${minimumCount} qualifying PRs`);
+  }
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|smoke-pr-count> [options]",
   );
 }
 
@@ -157,6 +171,60 @@ function hasExpectedGitHubAppInstallation(content, expected) {
   }
 
   return false;
+}
+
+function evaluateSmokePrCount(content, expected) {
+  const prs = readSmokePrRows(content);
+  const exclusions = [];
+  let qualifyingCount = 0;
+
+  for (const pr of prs) {
+    const exclusionReason = smokePrExclusionReason(pr, expected);
+    if (exclusionReason === undefined) {
+      qualifyingCount += 1;
+    } else {
+      exclusions.push({ pr: pr.pr, reason: exclusionReason });
+    }
+  }
+
+  return { exclusions, qualifyingCount };
+}
+
+function readSmokePrRows(content) {
+  const rowPattern =
+    /^Smoke PR: (?<pr>\d+) target_branch=(?<targetBranch>\S+) draft=(?<draft>true|false) changed_lines=(?<changedLines>\d+)$/u;
+
+  return content.split(/\r?\n/u).flatMap((line) => {
+    const match = rowPattern.exec(line);
+    if (match?.groups === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        changedLines: Number.parseInt(match.groups.changedLines, 10),
+        draft: match.groups.draft === "true",
+        pr: match.groups.pr,
+        targetBranch: match.groups.targetBranch,
+      },
+    ];
+  });
+}
+
+function smokePrExclusionReason(pr, expected) {
+  if (pr.targetBranch !== expected.targetBranch) {
+    return `it does not target "${expected.targetBranch}"`;
+  }
+
+  if (pr.draft) {
+    return "it is a draft";
+  }
+
+  if (pr.changedLines >= 500) {
+    return "changed lines are not < 500";
+  }
+
+  return undefined;
 }
 
 function evaluateNoCrashEvidence(content, range) {
@@ -282,6 +350,19 @@ function readOptions(name) {
     }
   }
   return values;
+}
+
+function readIntegerOption(name) {
+  const rawValue = readOption(name);
+  if (!/^\d+$/u.test(rawValue)) {
+    fail(`${name} is invalid`);
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  if (!Number.isSafeInteger(value)) {
+    fail(`${name} is invalid`);
+  }
+  return value;
 }
 
 function fail(message) {
