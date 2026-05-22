@@ -218,6 +218,10 @@ if (command === "image-provenance") {
     qualifyingPrs,
     repoFullName,
   });
+  const missingPr = findMissingSoakEvidencePr(soakLog, {
+    qualifyingPrs,
+    repoFullName,
+  });
   const invalidLatencyPr = findInvalidLatencyPr(soakLog, {
     qualifyingPrs,
     repoFullName,
@@ -225,6 +229,9 @@ if (command === "image-provenance") {
 
   if (duplicatePr !== undefined) {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
+  }
+  if (missingPr !== undefined) {
+    fail(`missing evidence row for PR ${missingPr}`);
   }
   if (invalidLatencyPr !== undefined) {
     fail("latency must be a duration in seconds");
@@ -785,6 +792,11 @@ function findDuplicateSoakEvidencePr(content, expected) {
   }
 
   return undefined;
+}
+
+function findMissingSoakEvidencePr(content, expected) {
+  const evidencePrs = new Set(readSoakEvidencePrNumbers(content, expected.repoFullName));
+  return expected.qualifyingPrs.find((prNumber) => !evidencePrs.has(prNumber));
 }
 
 function findInvalidFindingCountPr(content, expected) {
