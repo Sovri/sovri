@@ -97,9 +97,22 @@ if (command === "image-provenance") {
     }
     fail(`smoke PR count assertion failed: at least ${minimumCount} qualifying PRs`);
   }
+} else if (command === "soak-log-content") {
+  const repoFullName = readOption("--repo");
+  const qualifyingPrs = readOptions("--qualifying-pr");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const duplicatePr = findDuplicateSoakEvidencePr(soakLog, {
+    qualifyingPrs,
+    repoFullName,
+  });
+
+  if (duplicatePr !== undefined) {
+    fail(`duplicate evidence row for PR ${duplicatePr}`);
+  }
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|smoke-pr-count> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|smoke-pr-count|soak-log-content> [options]",
   );
 }
 
@@ -225,6 +238,47 @@ function smokePrExclusionReason(pr, expected) {
   }
 
   return undefined;
+}
+
+function findDuplicateSoakEvidencePr(content, expected) {
+  const evidenceCounts = new Map();
+
+  for (const prNumber of readSoakEvidencePrNumbers(content, expected.repoFullName)) {
+    if (!expected.qualifyingPrs.includes(prNumber)) {
+      continue;
+    }
+
+    const count = (evidenceCounts.get(prNumber) ?? 0) + 1;
+    if (count > 1) {
+      return prNumber;
+    }
+    evidenceCounts.set(prNumber, count);
+  }
+
+  return undefined;
+}
+
+function readSoakEvidencePrNumbers(content, repoFullName) {
+  const prUrlPrefix = `https://github.com/${repoFullName}/pull/`;
+
+  return content.split(/\r?\n/u).flatMap((line) => {
+    const prUrlStart = line.indexOf(prUrlPrefix);
+    if (prUrlStart < 0) {
+      return [];
+    }
+
+    const prNumber = readLeadingDigits(line.slice(prUrlStart + prUrlPrefix.length));
+    return prNumber === undefined ? [] : [prNumber];
+  });
+}
+
+function readLeadingDigits(value) {
+  let endIndex = 0;
+  while (endIndex < value.length && value[endIndex] >= "0" && value[endIndex] <= "9") {
+    endIndex += 1;
+  }
+
+  return endIndex === 0 ? undefined : value.slice(0, endIndex);
 }
 
 function evaluateNoCrashEvidence(content, range) {
