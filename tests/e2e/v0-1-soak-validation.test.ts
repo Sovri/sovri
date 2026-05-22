@@ -190,6 +190,66 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("captured logs are missing");
   });
+
+  it("passes when captured logs contain smoke metadata without secret values", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Captured log: delivery_id=delivery-60-101 pr=101 provider=anthropic",
+        "Captured log: delivery_id=delivery-60-102 pr=102 provider=anthropic",
+        "Captured log: delivery_id=delivery-60-103 pr=103 provider=anthropic",
+        "Captured log: delivery_id=delivery-60-104 pr=104 provider=anthropic",
+        "Captured log: delivery_id=delivery-60-105 pr=105 provider=anthropic",
+      ].join("\n"),
+    );
+
+    // Given the smoke set contains qualifying PRs 101, 102, 103, 104, and 105
+    // And captured logs contain delivery IDs "delivery-60-101", "delivery-60-102", "delivery-60-103", "delivery-60-104", and "delivery-60-105"
+    // When the captured container logs are reviewed
+    const result = runValidator([
+      "log-secrets",
+      "--secret-name",
+      "all smoke secrets",
+      "--secret-value",
+      "WEBHOOK_SECRET_SENTINEL_60",
+      "--secret-value",
+      "PRIVATE_KEY_SENTINEL_60",
+      "--secret-value",
+      "ANTHROPIC_API_KEY_SENTINEL_60",
+      "--secret-value",
+      "GITHUB_INSTALLATION_TOKEN_SENTINEL_60",
+      "--secret-value",
+      "BEGIN RSA PRIVATE KEY",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then no log line contains "WEBHOOK_SECRET_SENTINEL_60"
+    // And no log line contains "PRIVATE_KEY_SENTINEL_60"
+    // And no log line contains "ANTHROPIC_API_KEY_SENTINEL_60"
+    // And no log line contains "GITHUB_INSTALLATION_TOKEN_SENTINEL_60"
+    // And no log line contains "BEGIN RSA PRIVATE KEY"
+    // And the log secret assertion passes
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("log secret assertion passed");
+  });
+
+  it("rejects a malformed repeated secret value argument", () => {
+    const soakLogPath = writeSoakLog("Captured log: delivery_id=delivery-60-101 pr=101\n");
+
+    const result = runValidator([
+      "log-secrets",
+      "--secret-name",
+      "all smoke secrets",
+      "--secret-value",
+      "WEBHOOK_SECRET_SENTINEL_60",
+      "--secret-value",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("--secret-value is malformed");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {
