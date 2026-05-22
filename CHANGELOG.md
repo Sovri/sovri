@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add empty Anthropic API key smoke evidence coverage and
+  validator support (#1009).
+
 - `test(e2e)`: add duplicate soak evidence row rejection coverage and
   validator support for qualifying PRs (#1021).
 

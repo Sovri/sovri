@@ -24,6 +24,9 @@ if (command === "image-provenance") {
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
 
+  if (hasMissingAnthropicKeyFailure(soakLog, prNumber)) {
+    fail("Anthropic key wiring assertion failed: ANTHROPIC_API_KEY is missing");
+  }
   if (hasAnthropicAuthenticationFailure(soakLog, prNumber)) {
     fail("Anthropic key wiring assertion failed");
   }
@@ -137,6 +140,65 @@ function hasAnthropicAuthenticationFailure(content, prNumber) {
     content.includes("Container restart count: 0") &&
     content.includes("Health status after failed review: 200")
   );
+}
+
+function hasMissingAnthropicKeyFailure(content, prNumber) {
+  const evidence = readAnthropicReviewEvidence(content, prNumber);
+
+  return (
+    evidence?.apiKeyEvidence !== undefined &&
+    evidence.apiKeyEvidence.trim().length === 0 &&
+    evidence.successfulReviewCommentPosted === "false"
+  );
+}
+
+function readAnthropicReviewEvidence(content, prNumber) {
+  const apiKeyPrefix = "ANTHROPIC_API_KEY value: ";
+  const reviewCommentPrefix = "Successful review comment posted: ";
+  let pendingEvidence = {};
+  let currentEvidence;
+  let matchedEvidence;
+
+  for (const line of content.split(/\r?\n/u)) {
+    if (line.startsWith(apiKeyPrefix)) {
+      if (currentEvidence?.prNumber === prNumber) {
+        matchedEvidence = { ...currentEvidence };
+      }
+
+      const apiKeyEvidence = line.slice(apiKeyPrefix.length);
+      if (currentEvidence?.prNumber !== undefined && currentEvidence.apiKeyEvidence === undefined) {
+        Object.assign(currentEvidence, { apiKeyEvidence });
+      } else {
+        currentEvidence = undefined;
+        Object.assign(pendingEvidence, { apiKeyEvidence });
+      }
+    }
+
+    if (line.startsWith("PR: ")) {
+      if (currentEvidence?.prNumber === prNumber) {
+        matchedEvidence = { ...currentEvidence };
+      }
+      currentEvidence = Object.assign({}, pendingEvidence, {
+        prNumber: line.slice("PR: ".length),
+      });
+      pendingEvidence = {};
+    }
+
+    if (line.startsWith(reviewCommentPrefix)) {
+      const successfulReviewCommentPosted = line.slice(reviewCommentPrefix.length);
+      if (currentEvidence?.prNumber !== undefined) {
+        Object.assign(currentEvidence, { successfulReviewCommentPosted });
+      } else {
+        Object.assign(pendingEvidence, { successfulReviewCommentPosted });
+      }
+    }
+
+    if (currentEvidence?.prNumber === prNumber) {
+      matchedEvidence = { ...currentEvidence };
+    }
+  }
+
+  return matchedEvidence;
 }
 
 function hasSuccessfulAnthropicWiring(content, expected) {
