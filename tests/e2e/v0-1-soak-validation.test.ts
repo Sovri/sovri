@@ -135,6 +135,44 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("provider log assertion passed");
   });
+
+  it.each([
+    {
+      secretName: "WEBHOOK_SECRET",
+      secretValue: "WEBHOOK_SECRET_SENTINEL_60",
+    },
+    {
+      secretName: "PRIVATE_KEY",
+      secretValue: "PRIVATE_KEY_SENTINEL_60",
+    },
+    {
+      secretName: "ANTHROPIC_API_KEY",
+      secretValue: "ANTHROPIC_API_KEY_SENTINEL_60",
+    },
+    {
+      secretName: "GitHub installation token",
+      secretValue: "GITHUB_INSTALLATION_TOKEN_SENTINEL_60",
+    },
+  ])("fails when captured logs contain raw $secretName", ({ secretName, secretValue }) => {
+    const soakLogPath = writeSoakLog(`Captured log: leaked value ${secretValue}\n`);
+
+    // Given captured logs contain the text "<secret_value>"
+    // When the captured container logs are reviewed
+    const result = runValidator([
+      "log-secrets",
+      "--secret-name",
+      secretName,
+      "--secret-value",
+      secretValue,
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the log secret assertion fails
+    // And the failure mentions "<secret_name>"
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(secretName);
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {

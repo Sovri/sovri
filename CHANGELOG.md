@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add captured log raw-secret failure coverage (#1034).
+
 - `test(e2e)`: add Anthropic provider log secret-redaction smoke coverage
   (#1008).
 
