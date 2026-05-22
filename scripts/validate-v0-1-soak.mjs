@@ -5,6 +5,10 @@
 import { readFileSync } from "node:fs";
 
 const GHCR_IMAGE = "ghcr.io/mpiton/sovri/community-bot:v0.1.0";
+const LATENCY_P95_THRESHOLD_SECONDS = 90;
+const LATENCY_SAMPLE_PERCENTILE = 0.95;
+const LATENCY_LINE_PATTERN =
+  /^Latency PR: \d+ delivery_id=\S+ changed_lines=(?<changedLines>\d+) latency_seconds=(?<latencySeconds>\d+(?:\.\d{1,3})?)$/u;
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 
@@ -94,6 +98,20 @@ if (command === "image-provenance") {
     fail("private key newline assertion failed");
   }
   process.stdout.write("private key newline assertion passed\n");
+} else if (command === "latency-p95") {
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const p95Latency = calculateLatencyP95(soakLog);
+
+  if (p95Latency === undefined) {
+    fail("latency evidence is missing");
+  }
+  if (p95Latency >= LATENCY_P95_THRESHOLD_SECONDS) {
+    process.stderr.write(`p95 latency: ${formatSeconds(p95Latency)} seconds\n`);
+    fail("p95 latency must be < 90 s");
+  }
+  process.stdout.write(`p95 latency: ${formatSeconds(p95Latency)} seconds\n`);
+  process.stdout.write("latency assertion passed\n");
 } else if (command === "smoke-pr-count") {
   const targetBranch = readOption("--target-branch");
   const minimumCount = readIntegerOption("--minimum-count");
@@ -136,7 +154,7 @@ if (command === "image-provenance") {
   process.stdout.write("soak log commit assertion passed\n");
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|latency-p95|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
   );
 }
 
@@ -277,6 +295,39 @@ function hasEscapedPrivateKeyNewlineStartupEvidence(content) {
     "Private key line break normalization: true",
     "Community bot startup: success",
   ].every((expectedLine) => lines.includes(expectedLine));
+}
+
+function calculateLatencyP95(content) {
+  const latencies = readLatencyMeasurements(content)
+    .filter((measurement) => measurement.changedLines >= 1 && measurement.changedLines < 500)
+    .map((measurement) => measurement.latencySeconds)
+    .toSorted((left, right) => left - right);
+
+  if (latencies.length === 0) {
+    return undefined;
+  }
+
+  return latencies[Math.ceil(LATENCY_SAMPLE_PERCENTILE * latencies.length) - 1];
+}
+
+function readLatencyMeasurements(content) {
+  return content.split(/\r?\n/u).flatMap((line) => {
+    const match = LATENCY_LINE_PATTERN.exec(line);
+    if (match?.groups === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        changedLines: Number.parseInt(match.groups.changedLines, 10),
+        latencySeconds: Number.parseFloat(match.groups.latencySeconds),
+      },
+    ];
+  });
+}
+
+function formatSeconds(seconds) {
+  return seconds.toFixed(3);
 }
 
 function evaluateSmokePrCount(content, expected) {
