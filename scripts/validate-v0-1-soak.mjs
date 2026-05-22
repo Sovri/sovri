@@ -24,6 +24,7 @@ const REQUIRED_GITHUB_APP_PERMISSIONS = [
 ];
 const REQUIRED_GITHUB_APP_EVENTS = ["pull_request", "issue_comment"];
 const REQUIRED_RUNTIME_CREDENTIALS = new Set(["APP_ID", "WEBHOOK_SECRET", "PRIVATE_KEY"]);
+const REQUIRED_SOAK_LOG_FIELDS = ["PR URL", "latency", "finding count", "manual quality rating"];
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 const LOCAL_BUILD_EVIDENCE_PREFIX = "built sovri/community-bot:smoke from Dockerfile";
@@ -210,6 +211,10 @@ if (command === "image-provenance") {
   const qualifyingPrs = readOptions("--qualifying-pr");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
+  const missingRequiredField = findMissingRequiredSoakLogField(soakLog, {
+    qualifyingPrs,
+    repoFullName,
+  });
   const duplicatePr = findDuplicateSoakEvidencePr(soakLog, {
     qualifyingPrs,
     repoFullName,
@@ -227,6 +232,9 @@ if (command === "image-provenance") {
     repoFullName,
   });
 
+  if (missingRequiredField !== undefined) {
+    fail(`${missingRequiredField} is required`);
+  }
   if (duplicatePr !== undefined) {
     fail(`duplicate evidence row for PR ${duplicatePr}`);
   }
@@ -777,6 +785,78 @@ function writeSmokePrQualifications(stream, qualifications) {
       `PR ${qualification.pr} qualification: ${qualification.classification} reason=${qualification.reason}\n`,
     );
   }
+}
+
+function findMissingRequiredSoakLogField(content, expected) {
+  const table = readSoakLogEvidenceTable(content);
+  if (table === undefined) {
+    return "PR URL";
+  }
+
+  const missingHeaderField = REQUIRED_SOAK_LOG_FIELDS.find(
+    (field) => !table.header.includes(field),
+  );
+  if (missingHeaderField !== undefined) {
+    return missingHeaderField;
+  }
+
+  const fieldIndexes = readSoakLogFieldIndexes(table.header);
+  for (const row of table.rows) {
+    const prUrlCell = readRequiredSoakLogCell(row, fieldIndexes, "PR URL");
+    const prNumber =
+      prUrlCell === undefined
+        ? undefined
+        : readGitHubPullUrlPrNumber(prUrlCell, expected.repoFullName);
+    if (prNumber === undefined || !expected.qualifyingPrs.includes(prNumber)) {
+      continue;
+    }
+
+    const missingCellField = REQUIRED_SOAK_LOG_FIELDS.find((field) => {
+      const cell = readRequiredSoakLogCell(row, fieldIndexes, field);
+      return cell === undefined;
+    });
+    if (missingCellField !== undefined) {
+      return missingCellField;
+    }
+  }
+
+  return undefined;
+}
+
+function readSoakLogEvidenceTable(content) {
+  let header;
+  const rows = [];
+
+  for (const line of content.split(/\r?\n/u)) {
+    const cells = readMarkdownTableCells(line);
+    if (cells.length === 0 || isMarkdownSeparatorRow(cells)) {
+      continue;
+    }
+
+    if (header === undefined && cells.some((cell) => REQUIRED_SOAK_LOG_FIELDS.includes(cell))) {
+      header = cells;
+      continue;
+    }
+
+    if (header !== undefined) {
+      rows.push(cells);
+    }
+  }
+
+  return header === undefined ? undefined : { header, rows };
+}
+
+function readSoakLogFieldIndexes(header) {
+  return new Map(header.map((field, index) => [field, index]));
+}
+
+function readRequiredSoakLogCell(row, fieldIndexes, field) {
+  const index = fieldIndexes.get(field);
+  return index === undefined ? undefined : row[index];
+}
+
+function isMarkdownSeparatorRow(cells) {
+  return cells.every((cell) => /^:?-{3,}:?$/u.test(cell));
 }
 
 function findDuplicateSoakEvidencePr(content, expected) {
