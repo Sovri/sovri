@@ -173,6 +173,23 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain(secretName);
   });
+
+  it("fails log secret review when captured logs are missing", () => {
+    const soakLogPath = writeSoakLog("Operator note: container logs were not captured\n");
+
+    const result = runValidator([
+      "log-secrets",
+      "--secret-name",
+      "WEBHOOK_SECRET",
+      "--secret-value",
+      "WEBHOOK_SECRET_SENTINEL_60",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("captured logs are missing");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {
