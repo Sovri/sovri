@@ -615,6 +615,30 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain("PR 103 is excluded because changed lines are not < 500");
     expect(result.stderr).toContain('PR 105 is excluded because it does not target "main"');
   });
+
+  it("rejects a malformed minimum smoke PR count argument", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 102 target_branch=main draft=false changed_lines=240",
+        "Smoke PR: 103 target_branch=main draft=false changed_lines=42",
+        "Smoke PR: 104 target_branch=main draft=false changed_lines=120",
+      ].join("\n"),
+    );
+
+    const result = runValidator([
+      "smoke-pr-count",
+      "--target-branch",
+      "main",
+      "--minimum-count",
+      "not-a-number",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("--minimum-count is invalid");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {

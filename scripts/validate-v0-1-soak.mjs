@@ -85,7 +85,7 @@ if (command === "image-provenance") {
   }
 } else if (command === "smoke-pr-count") {
   const targetBranch = readOption("--target-branch");
-  const minimumCount = Number.parseInt(readOption("--minimum-count"), 10);
+  const minimumCount = readIntegerOption("--minimum-count");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
   const result = evaluateSmokePrCount(soakLog, { targetBranch });
@@ -350,6 +350,15 @@ function readOptions(name) {
     }
   }
   return values;
+}
+
+function readIntegerOption(name) {
+  const rawValue = readOption(name);
+  const value = Number.parseInt(rawValue, 10);
+  if (Number.isNaN(value)) {
+    fail(`${name} is invalid`);
+  }
+  return value;
 }
 
 function fail(message) {
