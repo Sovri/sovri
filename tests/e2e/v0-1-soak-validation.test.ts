@@ -452,6 +452,70 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain("no-crash outcome: rejected");
     expect(result.stderr).toContain("reason: /health failed");
   });
+
+  it("rejects no-crash validation when process exit evidence is missing", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "Container restart count after PR 104: 0",
+        "Latest GET /health response status: 200",
+      ].join("\n"),
+    );
+
+    const result = runNoCrashValidator(soakLogPath);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("no-crash outcome: rejected");
+    expect(result.stderr).toContain("reason: crash evidence is incomplete");
+  });
+
+  it("rejects no-crash validation when health evidence is malformed", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "Container restart count after PR 104: 0",
+        "Community bot process exit code: 0",
+        "Latest GET /health response status: unavailable",
+      ].join("\n"),
+    );
+
+    const result = runNoCrashValidator(soakLogPath);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("no-crash outcome: rejected");
+    expect(result.stderr).toContain("reason: crash evidence is incomplete");
+  });
+
+  it("uses the latest crash evidence line when duplicate fields are captured", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "Container restart count after PR 104: 0",
+        "Community bot process exit code: 1",
+        "Community bot process exit code: 0",
+        "Latest GET /health response status: 503",
+        "Latest GET /health response status: 200",
+      ].join("\n"),
+    );
+
+    const result = runNoCrashValidator(soakLogPath);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("no-crash outcome: accepted");
+    expect(result.stdout).toContain("reason: no crash evidence");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {

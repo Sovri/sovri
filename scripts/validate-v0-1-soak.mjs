@@ -149,12 +149,18 @@ function evaluateNoCrashEvidence(content, range) {
   }
 
   const exitCode = readCommunityBotProcessExitCode(content);
-  if (exitCode !== undefined && exitCode !== 0) {
+  if (exitCode === undefined) {
+    return rejectedNoCrash("crash evidence is incomplete");
+  }
+  if (exitCode !== 0) {
     return rejectedNoCrash(`process exited with code ${exitCode}`);
   }
 
   const healthStatus = readLatestHealthStatus(content);
-  if (healthStatus !== undefined && healthStatus !== 200) {
+  if (healthStatus === undefined) {
+    return rejectedNoCrash("crash evidence is incomplete");
+  }
+  if (healthStatus !== 200) {
     return rejectedNoCrash("/health failed");
   }
 
@@ -211,17 +217,17 @@ function readLatestHealthStatus(content) {
 }
 
 function readIntegerLine(content, prefix) {
-  const line = content.split(/\r?\n/u).find((candidate) => candidate.startsWith(prefix));
-  if (line === undefined) {
-    return undefined;
+  const lines = content.split(/\r?\n/u);
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (line.startsWith(prefix)) {
+      const value = Number.parseInt(line.slice(prefix.length), 10);
+      return Number.isNaN(value) ? undefined : value;
+    }
   }
 
-  const value = Number.parseInt(line.slice(prefix.length), 10);
-  if (Number.isNaN(value)) {
-    return undefined;
-  }
-
-  return value;
+  return undefined;
 }
 
 function rejectedNoCrash(reason, message = reason) {
