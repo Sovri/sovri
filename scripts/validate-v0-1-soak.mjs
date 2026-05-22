@@ -16,6 +16,13 @@ const SOVRI_PR_COMMENT_PATTERN =
 const WEBHOOK_RECEIPT_PATTERN =
   /^Webhook received: delivery_id=(?<deliveryId>\S+) at=(?<receivedAt>\S+)$/u;
 const COMMUNITY_BOT_CONTAINER_NAME = "sovri-community-bot-v0-1-soak";
+const REQUIRED_GITHUB_APP_PERMISSIONS = [
+  { access: "write", permission: "pull_requests" },
+  { access: "read", permission: "contents" },
+  { access: "write", permission: "issues" },
+  { access: "read", permission: "metadata" },
+];
+const REQUIRED_GITHUB_APP_EVENTS = ["pull_request", "issue_comment"];
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 
@@ -93,10 +100,12 @@ if (command === "image-provenance") {
   const repoFullName = readOption("--repo");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
+  const result = evaluateGitHubAppInstallation(soakLog, { expectedApp, repoFullName });
 
-  if (!hasExpectedGitHubAppInstallation(soakLog, { expectedApp, repoFullName })) {
-    fail(`GitHub App installation assertion failed: ${expectedApp}`);
+  if (result.outcome === "rejected") {
+    fail(`GitHub App installation assertion failed: ${result.reason}`);
   }
+  process.stdout.write("GitHub App installation assertion passed\n");
 } else if (command === "private-key-newlines") {
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
@@ -329,6 +338,87 @@ function hasExpectedGitHubAppInstallation(content, expected) {
   }
 
   return false;
+}
+
+function evaluateGitHubAppInstallation(content, expected) {
+  if (!hasExpectedGitHubAppInstallation(content, expected)) {
+    return { outcome: "rejected", reason: expected.expectedApp };
+  }
+
+  for (const permission of REQUIRED_GITHUB_APP_PERMISSIONS) {
+    if (!hasGitHubAppPermission(content, expected.expectedApp, permission)) {
+      return {
+        outcome: "rejected",
+        reason: `${permission.permission}: ${permission.access}`,
+      };
+    }
+  }
+
+  for (const event of REQUIRED_GITHUB_APP_EVENTS) {
+    if (!hasGitHubAppWebhookEvent(content, expected.expectedApp, event)) {
+      return { outcome: "rejected", reason: `${event} event` };
+    }
+  }
+
+  if (!hasSignedPullRequestWebhook(content, expected.repoFullName)) {
+    return { outcome: "rejected", reason: "signed pull_request.opened webhook" };
+  }
+
+  if (!hasRequiredPullRequestApiAccess(content, expected.repoFullName)) {
+    return { outcome: "rejected", reason: "pull request files/reviews API access" };
+  }
+
+  return { outcome: "accepted" };
+}
+
+function hasGitHubAppPermission(content, expectedApp, expected) {
+  return content
+    .split(/\r?\n/u)
+    .includes(`${expectedApp} permission: ${expected.permission}=${expected.access}`);
+}
+
+function hasGitHubAppWebhookEvent(content, expectedApp, event) {
+  return content.split(/\r?\n/u).includes(`${expectedApp} webhook event: ${event}`);
+}
+
+function hasSignedPullRequestWebhook(content, repoFullName) {
+  return content
+    .split(/\r?\n/u)
+    .includes(`GitHub webhook delivered: pull_request.opened repo=${repoFullName} signed=true`);
+}
+
+function hasRequiredPullRequestApiAccess(content, repoFullName) {
+  const fileAccessPrs = readGitHubApiAccessPrs(content, {
+    method: "GET",
+    repoFullName,
+    suffix: "files",
+  });
+  const reviewAccessPrs = readGitHubApiAccessPrs(content, {
+    method: "POST",
+    repoFullName,
+    suffix: "reviews",
+  });
+
+  return [...fileAccessPrs].some((prNumber) => reviewAccessPrs.has(prNumber));
+}
+
+function readGitHubApiAccessPrs(content, expected) {
+  const prefix = `GitHub API call: ${expected.method} /repos/${expected.repoFullName}/pulls/`;
+  const prNumbers = new Set();
+
+  for (const line of content.split(/\r?\n/u)) {
+    if (!line.startsWith(prefix)) {
+      continue;
+    }
+
+    const suffix = line.slice(prefix.length);
+    const prNumber = readLeadingDigits(suffix);
+    if (prNumber !== undefined && suffix.startsWith(`${prNumber}/${expected.suffix} status=2`)) {
+      prNumbers.add(prNumber);
+    }
+  }
+
+  return prNumbers;
 }
 
 function hasEscapedPrivateKeyNewlineStartupEvidence(content) {

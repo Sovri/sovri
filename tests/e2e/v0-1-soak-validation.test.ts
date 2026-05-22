@@ -634,6 +634,74 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("reason: no crash evidence");
   });
 
+  it("accepts GitHub App installation evidence with required access to the test repo", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Repository: mpiton/forgent",
+        "Installed GitHub App: Sovri Community Bot",
+        "Sovri Community Bot permission: pull_requests=write",
+        "Sovri Community Bot permission: contents=read",
+        "Sovri Community Bot permission: issues=write",
+        "Sovri Community Bot permission: metadata=read",
+        "Sovri Community Bot webhook event: pull_request",
+        "Sovri Community Bot webhook event: issue_comment",
+        "GitHub webhook delivered: pull_request.opened repo=mpiton/forgent signed=true",
+        "GitHub API call: GET /repos/mpiton/forgent/pulls/101/files status=200",
+        "GitHub API call: POST /repos/mpiton/forgent/pulls/101/reviews status=201",
+      ].join("\n"),
+    );
+
+    // Given "Sovri Community Bot" is installed on "mpiton/forgent"
+    // And the installation grants every required permission
+    // And the installation subscribes to every required webhook event
+    const result = runValidator([
+      "github-app-installation",
+      "--repo",
+      "mpiton/forgent",
+      "--expected-app",
+      "Sovri Community Bot",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then GitHub delivers a signed pull_request.opened webhook
+    // And Sovri can call the required pull request file and review endpoints
+    // And the GitHub App installation assertion passes
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("GitHub App installation assertion passed");
+  });
+
+  it("accepts GitHub App API access evidence for any pull request number", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Repository: mpiton/forgent",
+        "Installed GitHub App: Sovri Community Bot",
+        "Sovri Community Bot permission: pull_requests=write",
+        "Sovri Community Bot permission: contents=read",
+        "Sovri Community Bot permission: issues=write",
+        "Sovri Community Bot permission: metadata=read",
+        "Sovri Community Bot webhook event: pull_request",
+        "Sovri Community Bot webhook event: issue_comment",
+        "GitHub webhook delivered: pull_request.opened repo=mpiton/forgent signed=true",
+        "GitHub API call: GET /repos/mpiton/forgent/pulls/202/files status=200",
+        "GitHub API call: POST /repos/mpiton/forgent/pulls/202/reviews status=201",
+      ].join("\n"),
+    );
+
+    const result = runValidator([
+      "github-app-installation",
+      "--repo",
+      "mpiton/forgent",
+      "--expected-app",
+      "Sovri Community Bot",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("GitHub App installation assertion passed");
+  });
+
   it("rejects a different GitHub App even when it has the required access", () => {
     const soakLogPath = writeSoakLog(
       [
