@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add first-comment latency measurement coverage and validator
+  support (#1049).
+
 - `test(e2e)`: add non-negative soak-log finding count coverage and validator
   support (#1024).
 
