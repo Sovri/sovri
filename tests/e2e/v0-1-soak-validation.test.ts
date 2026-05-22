@@ -309,6 +309,64 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("restart evidence is incomplete");
   });
+
+  it("fails no-crash validation when restart evidence stops before the final PR", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: 0",
+        "Container restart count after PR 102: 0",
+      ].join("\n"),
+    );
+
+    // Given restart count evidence exists for the start of the smoke range
+    // But the last restart count evidence stops before PR 104
+    const result = runValidator([
+      "no-crash",
+      "--from-pr",
+      "101",
+      "--to-pr",
+      "104",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the no-crash assertion fails instead of accepting truncated evidence
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("restart evidence is incomplete");
+  });
+
+  it("fails no-crash validation when the baseline restart count is malformed", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 qualifying=true",
+        "Smoke PR: 102 qualifying=true",
+        "Smoke PR: 103 qualifying=true",
+        "Smoke PR: 104 qualifying=true",
+        "Container restart count before PR 101: unavailable",
+        "Container restart count after PR 104: 0",
+      ].join("\n"),
+    );
+
+    // Given restart count evidence reaches the end of the smoke range
+    // But the baseline restart count cannot be parsed
+    const result = runValidator([
+      "no-crash",
+      "--from-pr",
+      "101",
+      "--to-pr",
+      "104",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the no-crash assertion fails instead of accepting malformed evidence
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("restart evidence is incomplete");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {

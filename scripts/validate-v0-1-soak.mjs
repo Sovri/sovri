@@ -130,10 +130,11 @@ function capturedLogsContain(capturedLogLines, needle) {
 }
 
 function validateContainerDidNotRestartDuringSmokeSet(content, range) {
+  const prRange = readPrRange(range);
   const before = readRestartCountBeforePr(content, range.fromPr);
-  const afterCounts = readRestartCountsAfterPr(content, range);
+  const afterCounts = prRange === undefined ? [] : readRestartCountsAfterPr(content, prRange);
 
-  if (before === undefined || afterCounts.length === 0) {
+  if (prRange === undefined || before === undefined || afterCounts.length === 0) {
     return "restart evidence is incomplete";
   }
 
@@ -141,24 +142,37 @@ function validateContainerDidNotRestartDuringSmokeSet(content, range) {
     return "container restarted during the smoke PR set";
   }
 
+  if (!afterCounts.some((after) => after.prNumber >= prRange.toPr)) {
+    return "restart evidence is incomplete";
+  }
+
   return undefined;
 }
 
 function readRestartCountsAfterPr(content, range) {
-  const fromPr = Number.parseInt(range.fromPr, 10);
-  const toPr = Number.parseInt(range.toPr, 10);
   const afterMatches = [...content.matchAll(/Container restart count after PR (\d+): (\d+)/gu)];
 
   return afterMatches.flatMap((match) => {
     const prNumber = Number.parseInt(match[1], 10);
     const restartCount = Number.parseInt(match[2], 10);
 
-    if (prNumber < fromPr || prNumber > toPr) {
+    if (prNumber < range.fromPr || prNumber > range.toPr) {
       return [];
     }
 
     return [{ prNumber, restartCount }];
   });
+}
+
+function readPrRange(range) {
+  const fromPr = Number.parseInt(range.fromPr, 10);
+  const toPr = Number.parseInt(range.toPr, 10);
+
+  if (Number.isNaN(fromPr) || Number.isNaN(toPr)) {
+    return undefined;
+  }
+
+  return { fromPr, toPr };
 }
 
 function readRestartCountBeforePr(content, prNumber) {
@@ -168,7 +182,12 @@ function readRestartCountBeforePr(content, prNumber) {
     return undefined;
   }
 
-  return Number.parseInt(line.slice(prefix.length), 10);
+  const restartCount = Number.parseInt(line.slice(prefix.length), 10);
+  if (Number.isNaN(restartCount)) {
+    return undefined;
+  }
+
+  return restartCount;
 }
 
 function readOption(name) {
