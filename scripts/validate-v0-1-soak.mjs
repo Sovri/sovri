@@ -23,6 +23,7 @@ const REQUIRED_GITHUB_APP_PERMISSIONS = [
   { access: "read", permission: "metadata" },
 ];
 const REQUIRED_GITHUB_APP_EVENTS = ["pull_request", "issue_comment"];
+const REQUIRED_RUNTIME_CREDENTIALS = new Set(["APP_ID", "WEBHOOK_SECRET", "PRIVATE_KEY"]);
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 const LOCAL_BUILD_EVIDENCE_PREFIX = "built sovri/community-bot:smoke from Dockerfile";
@@ -135,6 +136,15 @@ if (command === "image-provenance") {
     fail("APP_ID startup failure assertion failed");
   }
   process.stdout.write("APP_ID startup failure assertion passed\n");
+} else if (command === "runtime-startup-failure") {
+  const variable = readOption("--variable");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (!hasMissingRuntimeCredentialStartupFailureEvidence(soakLog, variable)) {
+    fail("runtime startup failure assertion failed");
+  }
+  process.stdout.write("runtime startup failure assertion passed\n");
 } else if (command === "latency-p95") {
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
@@ -240,7 +250,7 @@ if (command === "image-provenance") {
   process.stdout.write("soak log commit assertion passed\n");
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|private-key-startup-failure|app-id-startup-failure|latency-p95|latency-pr|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|private-key-startup-failure|app-id-startup-failure|runtime-startup-failure|latency-p95|latency-pr|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
   );
 }
 
@@ -506,6 +516,19 @@ function hasMalformedAppIdStartupFailureEvidence(content) {
     failureReason !== undefined &&
     failureReason.includes("APP_ID") &&
     failureReason.includes("positive integer")
+  );
+}
+
+function hasMissingRuntimeCredentialStartupFailureEvidence(content, variable) {
+  const lines = content.split(/\r?\n/u);
+  return (
+    REQUIRED_RUNTIME_CREDENTIALS.has(variable) &&
+    [
+      `Runtime environment omitted: ${variable}`,
+      "Community bot startup: failed before webhook processing",
+      "Webhook processing: not started",
+    ].every((expectedLine) => lines.includes(expectedLine)) &&
+    lines.some((line) => line.startsWith("Startup failure reason: ") && line.includes(variable))
   );
 }
 
