@@ -9,6 +9,12 @@ const LATENCY_P95_THRESHOLD_SECONDS = 90;
 const LATENCY_SAMPLE_PERCENTILE = 0.95;
 const LATENCY_LINE_PATTERN =
   /^Latency PR: \d+ delivery_id=\S+ changed_lines=(?<changedLines>\d+) latency_seconds=(?<latencySeconds>\d+(?:\.\d{1,3})?)$/u;
+const LATENCY_METADATA_PATTERN =
+  /^Latency PR metadata: pr=(?<prNumber>\d+) delivery_id=(?<deliveryId>\S+) changed_lines=(?<changedLines>\d+)$/u;
+const SOVRI_PR_COMMENT_PATTERN =
+  /^Sovri PR comment: pr=(?<prNumber>\d+) created_at=(?<createdAt>\S+)$/u;
+const WEBHOOK_RECEIPT_PATTERN =
+  /^Webhook received: delivery_id=(?<deliveryId>\S+) at=(?<receivedAt>\S+)$/u;
 const LOCAL_BUILD_EVIDENCE =
   /built sovri\/community-bot:smoke from Dockerfile at commit [0-9a-f]{40}/u;
 
@@ -112,6 +118,23 @@ if (command === "image-provenance") {
   }
   process.stdout.write(`p95 latency: ${formatSeconds(p95Latency)} seconds\n`);
   process.stdout.write("latency assertion passed\n");
+} else if (command === "latency-pr") {
+  const prNumber = readOption("--pr");
+  const deliveryId = readOption("--delivery-id");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const result = evaluatePrLatency(soakLog, { deliveryId, prNumber });
+
+  if (result.outcome === "rejected") {
+    fail(result.reason);
+  }
+  if (result.latencySeconds >= LATENCY_P95_THRESHOLD_SECONDS) {
+    process.stderr.write(`measured latency: ${formatSeconds(result.latencySeconds)} seconds\n`);
+    fail("latency must be < 90 s");
+  }
+  process.stdout.write(`measured latency: ${formatSeconds(result.latencySeconds)} seconds\n`);
+  process.stdout.write(`later PR comments ignored: ${result.laterCommentsIgnored}\n`);
+  process.stdout.write("latency assertion passed\n");
 } else if (command === "smoke-pr-count") {
   const targetBranch = readOption("--target-branch");
   const minimumCount = readIntegerOption("--minimum-count");
@@ -161,7 +184,7 @@ if (command === "image-provenance") {
   process.stdout.write("soak log commit assertion passed\n");
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|latency-p95|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|latency-p95|latency-pr|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
   );
 }
 
@@ -335,6 +358,83 @@ function readLatencyMeasurements(content) {
 
 function formatSeconds(seconds) {
   return seconds.toFixed(3);
+}
+
+function evaluatePrLatency(content, expected) {
+  const metadata = readLatencyMetadata(content, expected);
+  if (metadata === undefined || metadata.changedLines < 1 || metadata.changedLines >= 500) {
+    return rejectedLatency("latency evidence is missing");
+  }
+
+  const webhookReceivedAt = readWebhookReceivedAt(content, expected.deliveryId);
+  if (webhookReceivedAt === undefined) {
+    return rejectedLatency("missing webhook receipt timestamp");
+  }
+
+  const commentTimes = readSovriPrCommentTimes(content, expected.prNumber);
+  if (commentTimes.length === 0) {
+    return rejectedLatency("missing first Sovri PR comment timestamp");
+  }
+
+  const firstCommentAt = commentTimes.toSorted((left, right) => left - right)[0];
+  return {
+    laterCommentsIgnored: commentTimes.length > 1,
+    latencySeconds: (firstCommentAt - webhookReceivedAt) / 1000,
+    outcome: "accepted",
+  };
+}
+
+function rejectedLatency(reason) {
+  return { outcome: "rejected", reason };
+}
+
+function readLatencyMetadata(content, expected) {
+  for (const line of content.split(/\r?\n/u)) {
+    const match = LATENCY_METADATA_PATTERN.exec(line);
+    if (
+      match?.groups === undefined ||
+      match.groups.prNumber !== expected.prNumber ||
+      match.groups.deliveryId !== expected.deliveryId
+    ) {
+      continue;
+    }
+
+    return {
+      changedLines: Number.parseInt(match.groups.changedLines, 10),
+    };
+  }
+
+  return undefined;
+}
+
+function readWebhookReceivedAt(content, deliveryId) {
+  for (const line of content.split(/\r?\n/u)) {
+    const match = WEBHOOK_RECEIPT_PATTERN.exec(line);
+    if (match?.groups === undefined || match.groups.deliveryId !== deliveryId) {
+      continue;
+    }
+
+    return parseTimestamp(match.groups.receivedAt);
+  }
+
+  return undefined;
+}
+
+function readSovriPrCommentTimes(content, prNumber) {
+  return content.split(/\r?\n/u).flatMap((line) => {
+    const match = SOVRI_PR_COMMENT_PATTERN.exec(line);
+    if (match?.groups === undefined || match.groups.prNumber !== prNumber) {
+      return [];
+    }
+
+    const timestamp = parseTimestamp(match.groups.createdAt);
+    return timestamp === undefined ? [] : [timestamp];
+  });
+}
+
+function parseTimestamp(value) {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? undefined : timestamp;
 }
 
 function evaluateSmokePrCount(content, expected) {
