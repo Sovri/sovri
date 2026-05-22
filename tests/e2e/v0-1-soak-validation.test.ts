@@ -709,6 +709,39 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stderr).toContain('PR 105 is excluded because it does not target "main"');
   });
 
+  it("classifies five qualifying PRs as the target smoke count", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "Smoke PR: 101 target_branch=main draft=false changed_lines=128",
+        "Smoke PR: 102 target_branch=main draft=false changed_lines=240",
+        "Smoke PR: 103 target_branch=main draft=false changed_lines=499",
+        "Smoke PR: 104 target_branch=main draft=false changed_lines=42",
+        "Smoke PR: 105 target_branch=main draft=false changed_lines=312",
+      ].join("\n"),
+    );
+
+    // Given the smoke run contains five non-draft PRs on main below 500 changed lines
+    // When the smoke PR count is evaluated
+    const result = runValidator([
+      "smoke-pr-count",
+      "--target-branch",
+      "main",
+      "--minimum-count",
+      "4",
+      "--target-count",
+      "5",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then the qualifying PR count is 5
+    // And the smoke run is classified as "target count reached"
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("qualifying PR count: 5");
+    expect(result.stdout).toContain("smoke run classification: target count reached");
+    expect(result.stdout).toContain("smoke PR count assertion passed");
+  });
+
   it.each(["not-a-number", "4oops", "-1"])(
     "rejects malformed minimum smoke PR count argument %s",
     (minimumCount) => {
