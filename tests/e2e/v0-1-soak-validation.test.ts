@@ -106,6 +106,35 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("Anthropic key wiring assertion passed");
   });
+
+  it("keeps the Anthropic API key value out of captured provider logs", () => {
+    const soakLogPath = writeSoakLog(
+      [
+        "ANTHROPIC_API_KEY configured value: ANTHROPIC_API_KEY_SENTINEL_60",
+        "PR: 101",
+        "Anthropic HTTP status: 401",
+        'Captured log: provider=anthropic level=error message="provider call failed"',
+      ].join("\n"),
+    );
+
+    // Given `ANTHROPIC_API_KEY` is "ANTHROPIC_API_KEY_SENTINEL_60"
+    // And Anthropic returns HTTP 401 for PR 101
+    // When Sovri records the failed provider call
+    const result = runValidator([
+      "provider-logs",
+      "--provider",
+      "anthropic",
+      "--secret",
+      "ANTHROPIC_API_KEY_SENTINEL_60",
+      "--soak-log",
+      soakLogPath,
+    ]);
+
+    // Then no captured log line contains "ANTHROPIC_API_KEY_SENTINEL_60"
+    // And the provider error log includes the provider name "anthropic"
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("provider log assertion passed");
+  });
 });
 
 function runValidator(args: readonly string[]): ReturnType<typeof spawnSync> {

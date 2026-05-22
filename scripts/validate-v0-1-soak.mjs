@@ -34,8 +34,19 @@ if (command === "image-provenance") {
   } else {
     fail("Anthropic key wiring evidence is incomplete");
   }
+} else if (command === "provider-logs") {
+  const provider = readOption("--provider");
+  const secret = readOption("--secret");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (hasProviderErrorLogWithoutSecret(soakLog, { provider, secret })) {
+    process.stdout.write("provider log assertion passed\n");
+  } else {
+    fail("provider log assertion failed");
+  }
 } else {
-  fail("usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key> [options]");
+  fail("usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs> [options]");
 }
 
 function hasAcceptedImageProvenance(content, mode) {
@@ -69,6 +80,17 @@ function hasSuccessfulAnthropicWiring(content, expected) {
     content.includes(`Changed lines: ${expected.changedLines}`) &&
     content.includes("Structured Anthropic response received: true") &&
     content.includes("First PR comment posted: true")
+  );
+}
+
+function hasProviderErrorLogWithoutSecret(content, expected) {
+  const capturedLogLines = content
+    .split(/\r?\n/u)
+    .filter((line) => line.startsWith("Captured log:"));
+  return (
+    capturedLogLines.length > 0 &&
+    capturedLogLines.every((line) => !line.includes(expected.secret)) &&
+    capturedLogLines.some((line) => line.includes(`provider=${expected.provider}`))
   );
 }
 
