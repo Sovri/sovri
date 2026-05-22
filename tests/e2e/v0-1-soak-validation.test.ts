@@ -1287,6 +1287,35 @@ describe("v0.1 soak evidence validation", () => {
     expect(result.stdout).toContain("private key startup failure assertion passed");
   });
 
+  it.each(["APP_ID", "WEBHOOK_SECRET", "PRIVATE_KEY"])(
+    "rejects startup evidence when %s is omitted",
+    (variable) => {
+      const soakLogPath = writeSoakLog(
+        [
+          `Runtime environment omitted: ${variable}`,
+          "Community bot startup: failed before webhook processing",
+          `Startup failure reason: ${variable} is required`,
+          "Webhook processing: not started",
+        ].join("\n"),
+      );
+
+      // Given the runtime environment omits "<variable>"
+      // When the Community bot starts
+      const result = runValidator([
+        "runtime-startup-failure",
+        "--variable",
+        variable,
+        "--soak-log",
+        soakLogPath,
+      ]);
+
+      // Then startup fails before processing webhooks
+      // And the failure mentions "<variable>"
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("runtime startup failure assertion passed");
+    },
+  );
+
   it.each(["not-a-num", "12.34", "-123", "0"])(
     "accepts malformed APP_ID startup failure evidence for %s",
     (appId) => {
