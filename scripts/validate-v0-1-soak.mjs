@@ -45,8 +45,23 @@ if (command === "image-provenance") {
   } else {
     fail("provider log assertion failed");
   }
+} else if (command === "log-secrets") {
+  const secretName = readOption("--secret-name");
+  const secretValue = readOption("--secret-value");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+  const capturedLogLines = readCapturedLogLines(soakLog);
+
+  if (capturedLogLines.length === 0) {
+    fail("captured logs are missing");
+  }
+  if (capturedLogsContain(capturedLogLines, secretValue)) {
+    fail(`log secret assertion failed: ${secretName}`);
+  }
 } else {
-  fail("usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs> [options]");
+  fail(
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets> [options]",
+  );
 }
 
 function hasAcceptedImageProvenance(content, mode) {
@@ -84,14 +99,20 @@ function hasSuccessfulAnthropicWiring(content, expected) {
 }
 
 function hasProviderErrorLogWithoutSecret(content, expected) {
-  const capturedLogLines = content
-    .split(/\r?\n/u)
-    .filter((line) => line.startsWith("Captured log:"));
+  const capturedLogLines = readCapturedLogLines(content);
   return (
     capturedLogLines.length > 0 &&
     capturedLogLines.every((line) => !line.includes(expected.secret)) &&
     capturedLogLines.some((line) => line.includes(`provider=${expected.provider}`))
   );
+}
+
+function readCapturedLogLines(content) {
+  return content.split(/\r?\n/u).filter((line) => line.startsWith("Captured log:"));
+}
+
+function capturedLogsContain(capturedLogLines, needle) {
+  return capturedLogLines.some((line) => line.includes(needle));
 }
 
 function readOption(name) {
