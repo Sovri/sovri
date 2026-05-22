@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(e2e)`: add wrong GitHub webhook secret rejection evidence coverage
+  for the v0.1 smoke run (#1057).
+
 - `test(e2e)`: add latency-sample PR qualification coverage using GitHub
   additions plus deletions for the changed-line boundary (#1046).
 

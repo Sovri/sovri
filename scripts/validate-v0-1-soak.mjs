@@ -113,6 +113,16 @@ if (command === "image-provenance") {
     fail(`GitHub App installation assertion failed: ${result.reason}`);
   }
   process.stdout.write("GitHub App installation assertion passed\n");
+} else if (command === "webhook-secret") {
+  const prNumber = readOption("--pr");
+  const repoFullName = readOption("--repo");
+  const soakLogPath = readOption("--soak-log");
+  const soakLog = readFileSync(soakLogPath, "utf8");
+
+  if (!hasWrongWebhookSecretRejectionEvidence(soakLog, { prNumber, repoFullName })) {
+    fail("GitHub credential wiring assertion failed: webhook rejection evidence is incomplete");
+  }
+  process.stdout.write("webhook secret rejection assertion passed\n");
 } else if (command === "private-key-newlines") {
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
@@ -278,7 +288,7 @@ if (command === "image-provenance") {
   process.stdout.write("soak log commit assertion passed\n");
 } else {
   fail(
-    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|private-key-newlines|private-key-startup-failure|app-id-startup-failure|runtime-startup-failure|latency-pr-filter|latency-p95|latency-pr|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
+    "usage: validate-v0-1-soak.mjs <image-provenance|anthropic-key|provider-logs|log-secrets|no-crash|github-app-installation|webhook-secret|private-key-newlines|private-key-startup-failure|app-id-startup-failure|runtime-startup-failure|latency-pr-filter|latency-p95|latency-pr|smoke-pr-count|soak-log-content|soak-log-commit> [options]",
   );
 }
 
@@ -478,6 +488,20 @@ function hasRequiredPullRequestApiAccess(content, repoFullName) {
   });
 
   return [...fileAccessPrs].some((prNumber) => reviewAccessPrs.has(prNumber));
+}
+
+function hasWrongWebhookSecretRejectionEvidence(content, expected) {
+  const lines = content.split(/\r?\n/u);
+  return [
+    "WEBHOOK_SECRET configured: true",
+    `Repository: ${expected.repoFullName}`,
+    `PR: ${expected.prNumber}`,
+    `GitHub webhook delivered: pull_request.opened repo=${expected.repoFullName} signed=false`,
+    "Webhook signature verification: rejected",
+    "Review work started: false",
+    "First PR comment posted: false",
+    "GitHub credential wiring assertion: failed",
+  ].every((expectedLine) => lines.includes(expectedLine));
 }
 
 function readGitHubApiAccessPrs(content, expected) {
