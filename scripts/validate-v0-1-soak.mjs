@@ -143,17 +143,26 @@ if (command === "image-provenance") {
 } else if (command === "smoke-pr-count") {
   const targetBranch = readOption("--target-branch");
   const minimumCount = readIntegerOption("--minimum-count");
+  const targetCount = readOptionalIntegerOption("--target-count");
   const soakLogPath = readOption("--soak-log");
   const soakLog = readFileSync(soakLogPath, "utf8");
   const result = evaluateSmokePrCount(soakLog, { targetBranch });
+  const classification = classifySmokeRun(result.qualifyingCount, {
+    minimumCount,
+    targetCount,
+  });
 
   if (result.qualifyingCount < minimumCount) {
     process.stderr.write(`qualifying PR count: ${result.qualifyingCount}\n`);
+    process.stderr.write(`smoke run classification: ${classification}\n`);
     for (const exclusion of result.exclusions) {
       process.stderr.write(`PR ${exclusion.pr} is excluded because ${exclusion.reason}\n`);
     }
     fail(`smoke PR count assertion failed: at least ${minimumCount} qualifying PRs`);
   }
+  process.stdout.write(`qualifying PR count: ${result.qualifyingCount}\n`);
+  process.stdout.write(`smoke run classification: ${classification}\n`);
+  process.stdout.write("smoke PR count assertion passed\n");
 } else if (command === "soak-log-content") {
   const repoFullName = readOption("--repo");
   const qualifyingPrs = readOptions("--qualifying-pr");
@@ -462,6 +471,17 @@ function evaluateSmokePrCount(content, expected) {
   }
 
   return { exclusions, qualifyingCount };
+}
+
+function classifySmokeRun(qualifyingCount, expected) {
+  if (expected.targetCount !== undefined && qualifyingCount >= expected.targetCount) {
+    return "target count reached";
+  }
+  if (qualifyingCount >= expected.minimumCount) {
+    return "minimum count reached";
+  }
+
+  return "below minimum count";
 }
 
 function readSmokePrRows(content) {
@@ -859,6 +879,24 @@ function readOptions(name) {
 
 function readIntegerOption(name) {
   const rawValue = readOption(name);
+  return parseIntegerOption(name, rawValue);
+}
+
+function readOptionalIntegerOption(name) {
+  const index = args.indexOf(name);
+  if (index < 0) {
+    return undefined;
+  }
+
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    fail(`${name} is malformed`);
+  }
+
+  return parseIntegerOption(name, value);
+}
+
+function parseIntegerOption(name, rawValue) {
   if (!/^\d+$/u.test(rawValue)) {
     fail(`${name} is invalid`);
   }
