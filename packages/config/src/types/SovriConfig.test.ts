@@ -152,6 +152,30 @@ describe("SovriConfigSchema — happy paths", () => {
   });
 });
 
+// v0.2 widens the refine to accept both `anthropic` and `mistral`. Each
+// scenario sub-issue under US #1162 adds the matching assertions here. The
+// v0.1 narrow block below is kept until its assertions are flipped by the
+// `mistral` acceptance scenario; once flipped, the v0.1 block is retired.
+describe("SovriConfigSchema — v0.2 refine widening (anthropic + mistral allow-list)", () => {
+  // Issue #1163, R-01 nominal.
+  // Scenario:
+  //   Given the .sovri.yml has llm.provider "anthropic"
+  //   When SovriConfigSchema.safeParse() runs on the config
+  //   Then the result is success=true
+  //   And the parsed config has llm.provider equal to "anthropic"
+  it("R-01 nominal — provider=anthropic passes safeParse with success=true", () => {
+    const result = SovriConfigSchema.safeParse({
+      ...minimalConfig,
+      llm: { ...minimalConfig.llm, provider: "anthropic" },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.llm.provider).toBe("anthropic");
+    }
+  });
+});
+
 describe("SovriConfigSchema — provider refinement (v0.1 narrow)", () => {
   it.each(["mistral", "openai", "openai-compatible"] satisfies readonly Provider[])(
     "rejects provider=%s with a forward-compatible error message",

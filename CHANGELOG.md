@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: regression-guard test asserting `provider=anthropic`
+  still passes the v0.2 refine widening via `SovriConfigSchema.safeParse()`
+  (R-01 nominal, ATDD scenario sub-issue #1163 under US #1162).
+
 - `feat(scripts)`: `findMarkdownHeadingLine` now splits on both LF
   and CRLF line endings, so a CRLF-encoded README closes its fenced
   block on the closing-fence line instead of trapping a stray `\r`
