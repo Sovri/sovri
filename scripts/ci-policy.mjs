@@ -2158,6 +2158,14 @@ const runPromoteChangelog = (args) => {
   const body = changelog.slice(bodyStart, bodyEnd);
   const after = changelog.slice(bodyEnd);
 
+  if (!hasMarkdownBulletEntry(body)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(
+      "Refusing to release with empty Unreleased\nAdd at least one bullet under [Unreleased] before promoting",
+      1,
+    );
+  }
+
   const promoted = `${before}\n\n${releasedHeading}${body}${after}`;
 
   writeFileSync(changelogPath, promoted);

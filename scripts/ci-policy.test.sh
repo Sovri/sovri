@@ -12129,6 +12129,83 @@ $(printf '%s\n' "$body_after_unreleased" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_promote_changelog_empty_unreleased_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec original_changelog
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with an empty `## [Unreleased]` section
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+  original_changelog=$(cat "$changelog_path")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer runs promote-changelog for v0.1.0
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses with a non-zero exit
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "promote_changelog=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: missing promote_changelog=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the error mentions "Refusing to release with empty Unreleased"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Refusing to release with empty Unreleased"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: missing 'Refusing to release with empty Unreleased' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And CHANGELOG.md is not modified
+  if [ "$(cat "$changelog_path")" != "$original_changelog" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: CHANGELOG.md was modified despite refusal"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_promote_changelog_duplicate_version_case() {
   local root changelog_path stdout stderr stdout_file stderr_file ec
 
@@ -12819,6 +12896,7 @@ run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slas
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
 run_release_extract_notes_malformed_heading_case "## [v0.1.0] - 2026-05-23" "prefixed-v"
 run_promote_changelog_nominal_case
+run_promote_changelog_empty_unreleased_case
 run_promote_changelog_duplicate_version_case
 run_promote_changelog_invalid_calendar_date_case "2026-13-40"
 run_promote_changelog_invalid_calendar_date_case "2026-02-30"

@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(scripts)`: `promote-changelog` now refuses to write a release
+  section when `## [Unreleased]` has no bullet entries; the gate fires
+  before any file mutation and surfaces
+  `Refusing to release with empty Unreleased` (plus
+  `Add at least one bullet under [Unreleased] before promoting`) so an
+  empty promotion cannot slip past the post-promote `release-verify-tag`
+  branches (per codex P1 review on PR #1159).
+
 - `feat(scripts)`: add `release-verify-commit-subject` subcommand to
   `scripts/ci-policy.mjs` that runs `git -C <repo> log -1 --pretty=%s`
   and rejects HEAD subjects that do not equal
