@@ -266,6 +266,38 @@ describe("SovriConfigSchema — v0.2 refine widening (anthropic + mistral allow-
       expect(openaiMessage).toBe(openaiCompatibleMessage);
     }
   });
+
+  // Issue #1170, R-04 technical (safeParse exposes the provider refine
+  // failure via result.error.issues with a structured path array, not a
+  // dotted string).
+  // Scenario:
+  //   Given the .sovri.yml has llm.provider "openai"
+  //   When SovriConfigSchema.safeParse() runs on the config
+  //   Then the result is success=false
+  //   And result.error.issues has at least one entry with path
+  //     ["llm", "provider"]
+  //   And that entry.message equals
+  //     "Only 'anthropic' and 'mistral' are enabled in this release."
+  it("R-04 technical — safeParse error.issues exposes path=['llm','provider'] with the v0.2 message", () => {
+    const result = SovriConfigSchema.safeParse({
+      ...minimalConfig,
+      llm: { ...minimalConfig.llm, provider: "openai" },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const providerIssue = result.error.issues.find(
+        (issue) =>
+          issue.path.length === 2 && issue.path[0] === "llm" && issue.path[1] === "provider",
+      );
+
+      expect(providerIssue).toBeDefined();
+      expect(providerIssue?.path).toEqual(["llm", "provider"]);
+      expect(providerIssue?.message).toBe(
+        "Only 'anthropic' and 'mistral' are enabled in this release.",
+      );
+    }
+  });
 });
 
 describe("SovriConfigSchema — provider refinement (v0.2 widened — rejected set)", () => {
