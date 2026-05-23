@@ -21,6 +21,100 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(scripts)`: `findMarkdownHeadingLine` now splits on both LF
+  and CRLF line endings, so a CRLF-encoded README closes its fenced
+  block on the closing-fence line instead of trapping a stray `\r`
+  in the closer trailer (per coderabbitai Major review on PR #1159).
+
+- `feat(scripts)`: the shared release-heading suffix regex now
+  **requires** the `- YYYY-MM-DD` date on the same line as the
+  `## [X.Y.Z]` heading. `hasChangelogReleaseSection` and
+  `getChangelogReleaseSection` both delegate to
+  `findChangelogReleaseHeadingMatch`, so `release-verify-tag` and
+  `release-extract-notes` reject every bare-heading or
+  newline-separated shape uniformly (per chatgpt-codex-connector P1
+  + coderabbitai Major reviews on PR #1159).
+
+- `feat(scripts)`: `findMarkdownHeadingLine` now tracks the opening
+  fence delimiter (backtick or tilde) **and its length**, and only
+  closes the fenced block when a matching delimiter of the same
+  family with at least the same length and no trailing info string
+  appears. A `~~~` line inside a backtick-fenced block, a triple
+  ` ``` ` inside a four-backtick block, and a ` ```javascript `
+  candidate closer all leave the block open, so a fake `## Install`
+  inside the same code block cannot fool
+  `readme-references-release` (per chatgpt-codex-connector and
+  coderabbitai reviews on PR #1159).
+
+- `chore(ci)`: `.github/workflows/release.yml` `Extract release notes`
+  step now shells out to
+  `node scripts/ci-policy.mjs release-extract-notes` instead of
+  carrying an inline `indexOf("## [<version>]")` extractor. The
+  dedicated subcommand uses the strict
+  `## [<version>](optional - YYYY-MM-DD)` regex shared with
+  `release-verify-tag`, so promoted dated headings no longer leak the
+  ` - YYYY-MM-DD` suffix as the first line of `release-notes.md` (per
+  codex P2 review on PR #1159).
+
+- `feat(scripts)`: `promote-changelog` now refuses to write a release
+  section when `## [Unreleased]` has no bullet entries; the gate fires
+  before any file mutation and surfaces
+  `Refusing to release with empty Unreleased` (plus
+  `Add at least one bullet under [Unreleased] before promoting`) so an
+  empty promotion cannot slip past the post-promote `release-verify-tag`
+  branches (per codex P1 review on PR #1159).
+
+- `feat(scripts)`: add `release-verify-commit-subject` subcommand to
+  `scripts/ci-policy.mjs` that runs `git -C <repo> log -1 --pretty=%s`
+  and rejects HEAD subjects that do not equal
+  `chore(release): v<X.Y.Z>`, with the targeted remediation hint
+  `Commit subject must equal chore(release): v<X.Y.Z>` (#1134).
+
+- `feat(scripts)`: add `release-verify-tag-annotation` subcommand to
+  `scripts/ci-policy.mjs` that runs `git -C <repo> cat-file -t <tag>`
+  and rejects lightweight tags with
+  `verify_tag_annotation=fail` on stdout plus the actionable
+  remediation hint `Recreate the tag with git tag -a <tag> -m
+  "Release v<version>"` on stderr (#1133).
+
+- `feat(scripts)`: `readme-references-release` now emits the targeted
+  `Repository path must be <image>` remediation hint when the README
+  contains a `docker pull <other-repo>:v<version>` snippet whose
+  repository path does not match the expected image (#1131).
+
+- `feat(scripts)`: add `readme-references-release` subcommand to
+  `scripts/ci-policy.mjs` that checks the root `README.md` contains
+  the literal `docker pull <image>:v<version>` snippet and an
+  `## Install` section within the first 200 lines; root README now
+  includes the canonical `docker pull
+  ghcr.io/mpiton/sovri/community-bot:v0.1.0` snippet under
+  `## Install` (#1129).
+
+- `feat(scripts)`: `release-verify-tag` now produces an actionable
+  `Refusing to release with empty Unreleased` failure (with the
+  `Add at least one bullet under [Unreleased] before tagging`
+  remediation hint) when the engineer tags a release whose
+  `## [Unreleased]` body is empty and no `## [X.Y.Z]` section exists
+  yet (#1119).
+
+- `feat(scripts)`: add `release-extract-notes` subcommand to
+  `scripts/ci-policy.mjs` that prints the body of `## [X.Y.Z]` (with
+  optional `- YYYY-MM-DD` suffix) and fails with
+  `Missing changelog section ## [X.Y.Z]` for any malformed heading
+  (DD-MM-YYYY, slash separator, missing brackets, prefixed `v`)
+  (#1117).
+
+- `feat(scripts)`: `release-verify-tag` now rejects a CHANGELOG where the
+  release section exists but `[Unreleased]` still contains bullet
+  entries; the inconsistent state surfaces as
+  `[Unreleased] still has entries after release section` instead of
+  silently passing (#1116).
+
+- `feat(scripts)`: add `promote-changelog` subcommand to
+  `scripts/ci-policy.mjs` that rewrites `CHANGELOG.md` for a release by
+  moving every `[Unreleased]` entry under a new `[X.Y.Z] - YYYY-MM-DD`
+  heading while preserving the empty `[Unreleased]` section (#1115).
+
 - `test(e2e)`: add unrecorded image provenance failure coverage and
   validator messaging for the v0.1 smoke run (#1016).
 

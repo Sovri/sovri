@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync, realpathSync, statSync, writeSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { readFileSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { argv, exit } from "node:process";
 
@@ -137,6 +138,16 @@ const releaseVerifyTagUsage =
   "Usage: node scripts/ci-policy.mjs release-verify-tag --tag <vX.Y.Z> --package-files <comma-separated-package-json-paths> --changelog <path>";
 const releaseBuildAndPushUsage =
   "Usage: node scripts/ci-policy.mjs release-build-and-push --workflow <path>";
+const releaseExtractNotesUsage =
+  "Usage: node scripts/ci-policy.mjs release-extract-notes --changelog <path> --version <X.Y.Z>";
+const releaseVerifyTagAnnotationUsage =
+  "Usage: node scripts/ci-policy.mjs release-verify-tag-annotation --tag <vX.Y.Z> --repo <path>";
+const releaseVerifyCommitSubjectUsage =
+  "Usage: node scripts/ci-policy.mjs release-verify-commit-subject --tag <vX.Y.Z> --repo <path>";
+const readmeReferencesReleaseUsage =
+  "Usage: node scripts/ci-policy.mjs readme-references-release --readme <path> --image <repository> --version <X.Y.Z>";
+const promoteChangelogUsage =
+  "Usage: node scripts/ci-policy.mjs promote-changelog --version <X.Y.Z> --date <YYYY-MM-DD> --changelog <path>";
 const cosignDeferralUsage =
   "Usage: node scripts/ci-policy.mjs cosign-deferral --workflow <path> --changelog <path>";
 const actionPinningUsage = "Usage: node scripts/ci-policy.mjs action-pinning --workflow <path>";
@@ -170,7 +181,7 @@ const changelogRemediationMessageUsage =
   "Usage: node scripts/ci-policy.mjs changelog-remediation-message --message <text>";
 const changelogDocumentationOnlyAssertUsage =
   "Usage: node scripts/ci-policy.mjs changelog-documentation-only-assert --changed-files <comma-separated-paths> --gate-result <success|failure>";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${codeqlDurationBudgetUsage}\n${codeqlWorkflowConfigUsage}\n${dependencyReviewWorkflowConfigUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${codeqlDurationBudgetUsage}\n${codeqlWorkflowConfigUsage}\n${dependencyReviewWorkflowConfigUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${releaseExtractNotesUsage}\n${releaseVerifyTagAnnotationUsage}\n${releaseVerifyCommitSubjectUsage}\n${readmeReferencesReleaseUsage}\n${promoteChangelogUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -1808,8 +1819,32 @@ const readTextFile = (path, label) => {
   }
 };
 
+const CHANGELOG_RELEASE_HEADING_DATE_SUFFIX = "[ \\t]*-[ \\t]*\\d{4}-\\d{2}-\\d{2}";
+
+const findChangelogReleaseHeadingMatch = (changelog, version) => {
+  const pattern = new RegExp(
+    `^## \\[${escapeRegExp(version)}\\]${CHANGELOG_RELEASE_HEADING_DATE_SUFFIX}[ \\t]*$`,
+    "m",
+  );
+  const match = pattern.exec(changelog);
+  if (match === null || match.index === undefined) return null;
+  return match;
+};
+
 const hasChangelogReleaseSection = (changelog, version) =>
-  new RegExp(`^## \\[${escapeRegExp(version)}\\]\\s*$`, "m").test(changelog);
+  findChangelogReleaseHeadingMatch(changelog, version) !== null;
+
+const getChangelogUnreleasedBody = (changelog) => {
+  const match = /^## \[Unreleased\]\s*$/m.exec(changelog);
+  if (match === null || match.index === undefined) return null;
+  const bodyStart = match.index + match[0].length;
+  const nextHeading = changelog.slice(bodyStart).match(/\n## \[[^\]]+\]/);
+  const bodyEnd =
+    nextHeading?.index === undefined ? changelog.length : bodyStart + nextHeading.index;
+  return changelog.slice(bodyStart, bodyEnd);
+};
+
+const hasMarkdownBulletEntry = (body) => /^\s*(?:[-*+]|\d+[.)])\s+\S/m.test(body);
 
 const runReleaseVerifyTag = (args) => {
   const options = parseOptions(args);
@@ -1850,8 +1885,22 @@ const runReleaseVerifyTag = (args) => {
   const changelogPath = readRequiredOption(options, "changelog", releaseVerifyTagUsage);
   const changelog = readTextFile(changelogPath, "changelog");
   if (!hasChangelogReleaseSection(changelog, expectedVersion)) {
+    const unreleasedBody = getChangelogUnreleasedBody(changelog);
+    if (unreleasedBody !== null && !hasMarkdownBulletEntry(unreleasedBody)) {
+      writeStdout("verify_tag=fail\n");
+      fail(
+        "Refusing to release with empty Unreleased\nAdd at least one bullet under [Unreleased] before tagging",
+        1,
+      );
+    }
     writeStdout("verify_tag=fail\n");
     fail(`changelog section mismatch\nmissing changelog section ## [${expectedVersion}]`, 1);
+  }
+
+  const unreleasedBody = getChangelogUnreleasedBody(changelog);
+  if (unreleasedBody !== null && hasMarkdownBulletEntry(unreleasedBody)) {
+    writeStdout("verify_tag=fail\n");
+    fail("changelog inconsistent\n[Unreleased] still has entries after release section", 1);
   }
 
   writeStdout("verify_tag=pass\nboundary_reason=tag has one leading v and exact version\n");
@@ -1930,9 +1979,232 @@ const runReleaseBuildAndPush = (args) => {
   );
 };
 
+const README_INSTALL_HEADING_MAX_LINES = 200;
+
+const findMarkdownHeadingLine = (markdown, headingPattern) => {
+  const lines = markdown.split(/\r?\n/);
+  let openFence = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const fenceMatch = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fenceMatch !== null) {
+      const fence = fenceMatch[1];
+      const trailer = fenceMatch[2] ?? "";
+      const marker = fence[0];
+      if (openFence === null) {
+        openFence = { marker, length: fence.length };
+        continue;
+      }
+      if (
+        openFence.marker === marker &&
+        fence.length >= openFence.length &&
+        /^[ \t]*$/.test(trailer)
+      ) {
+        openFence = null;
+      }
+      continue;
+    }
+    if (openFence === null && headingPattern.test(line)) {
+      return index + 1;
+    }
+  }
+  return null;
+};
+
+const runReadmeReferencesRelease = (args) => {
+  const options = parseOptions(args);
+  const readmePath = readRequiredOption(options, "readme", readmeReferencesReleaseUsage);
+  const image = readRequiredOption(options, "image", readmeReferencesReleaseUsage);
+  const version = readRequiredOption(options, "version", readmeReferencesReleaseUsage);
+
+  const readme = readTextFile(readmePath, "readme");
+  const pullSnippet = `docker pull ${image}:v${version}`;
+  if (!readme.includes(pullSnippet)) {
+    writeStdout("readme_references_release=fail\n");
+    const otherRepoPattern = new RegExp(`docker pull \\S+:v${escapeRegExp(version)}\\b`);
+    if (otherRepoPattern.test(readme)) {
+      fail(`README references a different repository path\nRepository path must be ${image}`, 1);
+    }
+    fail(
+      `README is missing the literal snippet \`${pullSnippet}\`\nAdd a docker pull snippet pinned to v${version} in ${readmePath}`,
+      1,
+    );
+  }
+
+  const installHeading = "## Install";
+  const installHeadingLine = findMarkdownHeadingLine(readme, /^## Install\s*$/);
+  if (installHeadingLine === null) {
+    writeStdout("readme_references_release=fail\n");
+    fail(`README is missing the \`${installHeading}\` section heading`, 1);
+  }
+
+  if (installHeadingLine > README_INSTALL_HEADING_MAX_LINES) {
+    writeStdout("readme_references_release=fail\n");
+    fail(
+      `\`${installHeading}\` heading must appear within the first ${README_INSTALL_HEADING_MAX_LINES} lines (found at line ${installHeadingLine})`,
+      1,
+    );
+  }
+
+  writeStdout("readme_references_release=pass\n");
+};
+
+const runReleaseVerifyTagAnnotation = (args) => {
+  const options = parseOptions(args);
+  const tag = readRequiredOption(options, "tag", releaseVerifyTagAnnotationUsage);
+  const repo = readRequiredOption(options, "repo", releaseVerifyTagAnnotationUsage);
+
+  const result = spawnSync("git", ["-C", repo, "cat-file", "-t", tag], {
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    writeStdout("verify_tag_annotation=fail\n");
+    fail(`git cat-file -t ${tag} failed in ${repo}\n${(result.stderr ?? "").trim()}`, 1);
+  }
+
+  const objectType = (result.stdout ?? "").trim();
+  if (objectType !== "tag") {
+    const version = tag.replace(/^v/, "");
+    writeStdout(`verify_tag_annotation=fail\ntag_object_type=${objectType}\n`);
+    fail(
+      `${tag} is not an annotated tag (cat-file -t returned ${objectType})\nRecreate the tag with git tag -a ${tag} -m "Release v${version}"`,
+      1,
+    );
+  }
+
+  writeStdout("verify_tag_annotation=pass\ntag_object_type=tag\n");
+};
+
+const RELEASE_TAG_PATTERN = /^v\d+\.\d+\.\d+$/;
+
+const runReleaseVerifyCommitSubject = (args) => {
+  const options = parseOptions(args);
+  const tag = readRequiredOption(options, "tag", releaseVerifyCommitSubjectUsage);
+  const repo = readRequiredOption(options, "repo", releaseVerifyCommitSubjectUsage);
+
+  if (!RELEASE_TAG_PATTERN.test(tag)) {
+    writeStdout("verify_commit_subject=fail\n");
+    fail(`tag ${tag} must match vX.Y.Z`, 1);
+  }
+
+  const version = tag.slice(1);
+  const expectedSubject = `chore(release): v${version}`;
+
+  const result = spawnSync("git", ["-C", repo, "log", "-1", "--pretty=%s", `${tag}^{commit}`], {
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    writeStdout("verify_commit_subject=fail\n");
+    fail(
+      `git log -1 --pretty=%s ${tag}^{commit} failed in ${repo}\n${(result.stderr ?? "").trim()}`,
+      1,
+    );
+  }
+
+  const subject = (result.stdout ?? "").replace(/\n$/, "");
+  if (subject !== expectedSubject) {
+    writeStdout(`verify_commit_subject=fail\ntag_subject=${subject}\n`);
+    fail(
+      `tagged commit subject is "${subject}", expected "${expectedSubject}"\nCommit subject must equal ${expectedSubject}`,
+      1,
+    );
+  }
+
+  writeStdout(`verify_commit_subject=pass\ntag_subject=${subject}\n`);
+};
+
+const runReleaseExtractNotes = (args) => {
+  const options = parseOptions(args);
+  const changelogPath = readRequiredOption(options, "changelog", releaseExtractNotesUsage);
+  const version = readRequiredOption(options, "version", releaseExtractNotesUsage);
+
+  const changelog = readTextFile(changelogPath, "changelog");
+  if (!hasChangelogReleaseSection(changelog, version)) {
+    fail(`Missing changelog section ## [${version}]`, 1);
+  }
+
+  const body = getChangelogReleaseSection(changelog, version).trim();
+  writeStdout(`${body}\n`);
+};
+
+const PROMOTE_CHANGELOG_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+const PROMOTE_CHANGELOG_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidCalendarDate = (value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month &&
+    parsed.getUTCDate() === day
+  );
+};
+
+const runPromoteChangelog = (args) => {
+  const options = parseOptions(args);
+  const version = readRequiredOption(options, "version", promoteChangelogUsage);
+  const date = readRequiredOption(options, "date", promoteChangelogUsage);
+  const changelogPath = readRequiredOption(options, "changelog", promoteChangelogUsage);
+
+  if (!PROMOTE_CHANGELOG_VERSION_PATTERN.test(version)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`version must be X.Y.Z, got ${version}`, 1);
+  }
+  if (!PROMOTE_CHANGELOG_DATE_PATTERN.test(date)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`date must be YYYY-MM-DD, got ${date}`, 1);
+  }
+  if (!isValidCalendarDate(date)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`date ${date} is not a valid calendar date`, 1);
+  }
+
+  const changelog = readTextFile(changelogPath, "changelog");
+  const unreleasedMatch = /^## \[Unreleased\]\s*$/m.exec(changelog);
+  if (unreleasedMatch === null || unreleasedMatch.index === undefined) {
+    writeStdout("promote_changelog=fail\n");
+    fail("missing ## [Unreleased] heading", 1);
+  }
+
+  const releasedHeading = `## [${version}] - ${date}`;
+  const existingReleasePattern = new RegExp(`^## \\[${escapeRegExp(version)}\\]`, "m");
+  if (existingReleasePattern.test(changelog)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`version ${version} already has a section in changelog`, 1);
+  }
+
+  const bodyStart = unreleasedMatch.index + unreleasedMatch[0].length;
+  const nextHeadingRelativeMatch = changelog.slice(bodyStart).match(/\n## \[[^\]]+\]/);
+  const bodyEnd =
+    nextHeadingRelativeMatch?.index === undefined
+      ? changelog.length
+      : bodyStart + nextHeadingRelativeMatch.index;
+
+  const before = changelog.slice(0, bodyStart);
+  const body = changelog.slice(bodyStart, bodyEnd);
+  const after = changelog.slice(bodyEnd);
+
+  if (!hasMarkdownBulletEntry(body)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(
+      "Refusing to release with empty Unreleased\nAdd at least one bullet under [Unreleased] before promoting",
+      1,
+    );
+  }
+
+  const promoted = `${before}\n\n${releasedHeading}${body}${after}`;
+
+  writeFileSync(changelogPath, promoted);
+  writeStdout("promote_changelog=pass\n");
+};
+
 const getChangelogReleaseSection = (changelog, version) => {
-  const headingPattern = new RegExp(`^## \\[${escapeRegExp(version)}\\]\\s*$`, "m");
-  const headingMatch = headingPattern.exec(changelog);
+  const headingMatch = findChangelogReleaseHeadingMatch(changelog, version);
   if (headingMatch === null || headingMatch.index === undefined) return "";
 
   const sectionStart = headingMatch.index + headingMatch[0].length;
@@ -3289,6 +3561,16 @@ if (command === "duration-budget") {
   runReleaseVerifyTag(args);
 } else if (command === "release-build-and-push") {
   runReleaseBuildAndPush(args);
+} else if (command === "release-extract-notes") {
+  runReleaseExtractNotes(args);
+} else if (command === "release-verify-tag-annotation") {
+  runReleaseVerifyTagAnnotation(args);
+} else if (command === "release-verify-commit-subject") {
+  runReleaseVerifyCommitSubject(args);
+} else if (command === "readme-references-release") {
+  runReadmeReferencesRelease(args);
+} else if (command === "promote-changelog") {
+  runPromoteChangelog(args);
 } else if (command === "cosign-deferral") {
   runCosignDeferral(args);
 } else if (command === "action-pinning") {

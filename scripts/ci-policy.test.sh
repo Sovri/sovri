@@ -10363,6 +10363,57 @@ run_release_pipeline_failed_job_case() {
     --gh-release "$([ "$job_name" = gh-release ] && printf failure || printf success)"
 }
 
+run_release_yml_uses_v_star_filter_case() {
+  local repo_root="${SCRIPT_DIR%/scripts}"
+  local workflow_path="$repo_root/.github/workflows/release.yml"
+  local unprefixed_tag="0.1.0"
+
+  if ! [ -f "$workflow_path" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-yml-uses-v-star-filter: workflow file missing at ${workflow_path}"
+    return
+  fi
+
+  # And no GitHub Release exists for "0.1.0" -- guarded by GitHub: a tag like
+  # "0.1.0" (without leading v) cannot match the `v*` filter declared in the
+  # workflow's `on: push: tags` block. Lock that contract here.
+  if ! grep -Eq "^[[:space:]]*-[[:space:]]*['\"]?v\\*['\"]?[[:space:]]*$" "$workflow_path"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-yml-uses-v-star-filter: workflow does not declare 'v*' in on.push.tags
+$(grep -nE 'tags:' "$workflow_path" | sed 's/^/        /')"
+    return
+  fi
+
+  case "$unprefixed_tag" in
+    v*)
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ release-yml-uses-v-star-filter: tag '${unprefixed_tag}' unexpectedly matches v* glob"
+      return
+      ;;
+  esac
+
+  run_ci_policy_success_case "release trigger on real workflow" "release_trigger=pass" \
+    release-trigger --workflow "$workflow_path"
+}
+
+run_release_pipeline_outline_failure_case() {
+  local label="$1"
+  local verify_tag="$2"
+  local build_push="$3"
+  local sbom="$4"
+  local gh_release="$5"
+
+  run_ci_policy_failure_case "release pipeline outline failed ${label}" "release_pipeline_result=failed" \
+    release-pipeline-result \
+    --verify-tag "$verify_tag" \
+    --build-and-push "$build_push" \
+    --sbom "$sbom" \
+    --gh-release "$gh_release"
+}
+
 run_release_pipeline_idempotent_case() {
   run_ci_policy_success_case "release pipeline idempotent rerun" "release_update=existing-release-updated" \
     release-pipeline-result \
@@ -10466,7 +10517,14 @@ write_release_metadata_fixture() {
     printf '{ "version": "%s" }\n' "$core_version" >"$root/${package_path}/package.json"
   done
   printf '{ "version": "%s" }\n' "$bot_version" >"$root/apps/community-bot/package.json"
-  printf '# Changelog\n\n%s\n\n- Release notes.\n' "$changelog_heading" >"$root/CHANGELOG.md"
+  # release-verify-tag now requires the dated `## [X.Y.Z] - YYYY-MM-DD` form,
+  # so bare `## [X.Y.Z]` heading fixtures are auto-extended with a stable
+  # placeholder date.
+  local final_heading="$changelog_heading"
+  if printf '%s' "$changelog_heading" | grep -Eq '^## \[[^]]+\]$'; then
+    final_heading="$changelog_heading - 2026-05-23"
+  fi
+  printf '# Changelog\n\n%s\n\n- Release notes.\n' "$final_heading" >"$root/CHANGELOG.md"
 }
 
 release_metadata_package_files() {
@@ -10551,6 +10609,1698 @@ run_release_verify_tag_normalization_case() {
   rm -rf "$root"
 }
 
+run_release_extract_notes_malformed_heading_case() {
+  local heading="$1"
+  local label="$2"
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given the engineer wrote the heading "<heading>"
+  cat >"$changelog_path" <<MD
+# Changelog
+
+## [Unreleased]
+
+${heading}
+
+### Added
+
+- Some release note.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the release workflow extracts release notes (via release-extract-notes)
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the extraction fails with the error "Missing changelog section ## [0.1.0]"
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes malformed-heading '${label}': expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "Missing changelog section ## [0.1.0]"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes malformed-heading '${label}': missing 'Missing changelog section ## [0.1.0]' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_retag_force_overwrite_case() {
+  local root tag_type tag_subject tag_commit head_commit
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".wrong"
+    git add .wrong
+    git commit --quiet -m "chore(release): v0.1.0"
+    # Given the engineer previously ran `git tag -a v0.1.0 -m "Release v0.1.0"` on the wrong commit
+    git tag -a v0.1.0 -m "Release v0.1.0"
+
+    : >".fix"
+    git add .fix
+    git commit --quiet --amend --no-edit
+
+    # When the engineer runs `git tag -f -a v0.1.0 -m "Release v0.1.0"` on the corrected HEAD
+    git tag -f -a v0.1.0 -m "Release v0.1.0" >/dev/null
+  )
+
+  tag_type=$(cd "$root" && git cat-file -t v0.1.0)
+  tag_subject=$(cd "$root" && git tag -l --format='%(contents:subject)' v0.1.0)
+  tag_commit=$(cd "$root" && git rev-parse 'v0.1.0^{commit}')
+  head_commit=$(cd "$root" && git rev-parse HEAD)
+
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-force-overwrite: cat-file -t outputs '${tag_type}', expected 'tag'"
+    rm -rf "$root"
+    return
+  fi
+  if [ "$tag_subject" != "Release v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-force-overwrite: tag subject is '${tag_subject}', expected 'Release v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+  if [ "$tag_commit" != "$head_commit" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-force-overwrite: tag commit ${tag_commit} != HEAD ${head_commit}"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_retag_delete_recreate_case() {
+  local root wrong_commit head_commit tag_type tag_subject tag_commit
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".wrong"
+    git add .wrong
+    # Given the engineer previously ran `git tag -a v0.1.0 -m "Release v0.1.0"` on the wrong commit
+    git commit --quiet -m "chore(release): v0.1.0"
+    git tag -a v0.1.0 -m "Release v0.1.0"
+
+    : >".fix"
+    git add .fix
+    git commit --quiet --amend --no-edit
+    # Note: the tag still points at the original (now stale) commit; HEAD has moved.
+
+    # When the engineer runs `git tag -d v0.1.0`
+    git tag -d v0.1.0 >/dev/null
+    # And the engineer runs `git tag -a v0.1.0 -m "Release v0.1.0"` on the corrected HEAD
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  tag_type=$(cd "$root" && git cat-file -t v0.1.0)
+  tag_subject=$(cd "$root" && git tag -l --format='%(contents:subject)' v0.1.0)
+  tag_commit=$(cd "$root" && git rev-parse 'v0.1.0^{commit}')
+  head_commit=$(cd "$root" && git rev-parse HEAD)
+
+  # Then `git cat-file -t v0.1.0` outputs "tag"
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-delete-recreate: cat-file -t outputs '${tag_type}', expected 'tag'"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git tag -l --format="%(contents:subject)" v0.1.0` outputs "Release v0.1.0"
+  if [ "$tag_subject" != "Release v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-delete-recreate: tag subject is '${tag_subject}', expected 'Release v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git rev-parse v0.1.0^{commit}` matches `git rev-parse HEAD`
+  if [ "$tag_commit" != "$head_commit" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-retag-delete-recreate: tag commit ${tag_commit} != HEAD ${head_commit}"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_tag_version_mismatch_case() {
+  local root package_files tag_type stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    # When the engineer runs `git tag -a v0.2.0 -m "Release v0.2.0"`
+    git tag -a v0.2.0 -m "Release v0.2.0"
+  )
+
+  tag_type=$(cd "$root" && git cat-file -t v0.2.0)
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: v0.2.0 should be an annotated tag (got '${tag_type}')"
+    rm -rf "$root"
+    return
+  fi
+
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Then release-verify-tag with --tag v0.2.0 against packages at 0.1.0 exits non-zero
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.2.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: missing verify_tag=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "version"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: stderr missing version-mismatch hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_commit_subject_wrong_case() {
+  local root subject stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    # When the engineer runs `git commit -m "release 0.1.0"`
+    git commit --quiet -m "release 0.1.0"
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  subject=$(cd "$root" && git log -1 --pretty=%s)
+  if [ "$subject" != "release 0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: HEAD subject is '${subject}', expected 'release 0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-commit-subject \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_commit_subject=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: missing verify_commit_subject=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "Commit subject must equal chore(release): v0.1.0"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: missing remediation hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_commit_subject_correct_case() {
+  local root stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-commit-subject \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject correct: expected exit 0, got ${ec}
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_commit_subject=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject correct: missing verify_commit_subject=pass
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_tag_annotation_lightweight_case() {
+  local root tag_type stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    # When the engineer runs `git tag v0.1.0` without the -a flag
+    git tag v0.1.0
+  )
+
+  tag_type=$(cd "$root" && git cat-file -t v0.1.0)
+
+  # Then `git cat-file -t v0.1.0` outputs "commit"
+  if [ "$tag_type" != "commit" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation lightweight: cat-file -t outputs '${tag_type}', expected 'commit'"
+    rm -rf "$root"
+    return
+  fi
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # And the rule R-04 verifier flags the lightweight tag
+  node "$SCRIPT" release-verify-tag-annotation \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation lightweight: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag_annotation=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation lightweight: missing verify_tag_annotation=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the remediation hint reads "Recreate the tag with git tag -a v0.1.0 -m \"Release v0.1.0\""
+  if ! printf '%s\n' "$stderr" | grep -Fq 'Recreate the tag with git tag -a v0.1.0 -m "Release v0.1.0"'; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation lightweight: missing remediation hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_tag_annotation_annotated_case() {
+  local root stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-tag-annotation \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation annotated: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag_annotation=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag-annotation annotated: missing verify_tag_annotation=pass
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+setup_release_tag_workspace() {
+  local root="$1"
+
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+  cat >"$root/CHANGELOG.md" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-05-23
+
+### Added
+
+- Release entry.
+MD
+
+  (
+    cd "$root"
+    git init --quiet --initial-branch=main
+    git config user.email "atdd@sovri.test"
+    git config user.name "ATDD"
+    git config commit.gpgsign false
+    git config tag.gpgsign false
+    git add .
+    git commit --quiet -m "chore(release): prepare v0.1.0"
+  )
+}
+
+run_release_commit_and_annotated_tag_case() {
+  local root subject tag_type tag_subject head_sha
+  root=$(mktemp -d)
+
+  # Given every package + apps/community-bot reports 0.1.0
+  # And CHANGELOG.md contains "## [0.1.0] - 2026-05-23"
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    # When the engineer runs `git commit -m "chore(release): v0.1.0"`
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    # And the engineer runs `git tag -a v0.1.0 -m "Release v0.1.0"`
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  subject=$(cd "$root" && git log -1 --pretty=%s)
+  tag_type=$(cd "$root" && git cat-file -t v0.1.0)
+  tag_subject=$(cd "$root" && git tag -l --format='%(contents:subject)' v0.1.0)
+  head_sha=$(cd "$root" && git rev-parse HEAD)
+
+  # Then `git log -1 --pretty=%s` outputs exactly "chore(release): v0.1.0"
+  if [ "$subject" != "chore(release): v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: HEAD subject is '${subject}', expected 'chore(release): v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git cat-file -t v0.1.0` outputs "tag"
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: tag type is '${tag_type}', expected 'tag' (annotated)"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git tag -l --format="%(contents:subject)" v0.1.0` outputs "Release v0.1.0"
+  if [ "$tag_subject" != "Release v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: tag subject is '${tag_subject}', expected 'Release v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  if [ -z "$head_sha" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: HEAD has no SHA"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `release-verify-tag` accepts the workspace produced by the procedure
+  local package_files verify_stdout verify_stderr verify_stdout_file verify_stderr_file verify_ec
+  package_files=$(release_metadata_package_files "$root")
+  verify_stdout_file=$(mktemp)
+  verify_stderr_file=$(mktemp)
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$verify_stdout_file" 2>"$verify_stderr_file" && verify_ec=0 || verify_ec=$?
+  verify_stdout=$(cat "$verify_stdout_file" 2>/dev/null || true)
+  verify_stderr=$(cat "$verify_stderr_file" 2>/dev/null || true)
+  rm -f "$verify_stdout_file" "$verify_stderr_file"
+
+  if [ "$verify_ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: release-verify-tag rejected the post-state
+      stdout:
+$(printf '%s\n' "$verify_stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$verify_stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$verify_stdout" | grep -Fq "verify_tag=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: missing verify_tag=pass after the release procedure
+$(printf '%s\n' "$verify_stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_wrong_repo_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given "README.md" contains `docker pull ghcr.io/mpiton/community-bot:v0.1.0`
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+## Install
+
+```bash
+docker pull ghcr.io/mpiton/community-bot:v0.1.0
+```
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the release engineer verifies the documentation
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the rule R-02 is reported as violated
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release wrong-repo: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release wrong-repo: missing readme_references_release=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the remediation hint reads "Repository path must be ghcr.io/mpiton/sovri/community-bot"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Repository path must be ghcr.io/mpiton/sovri/community-bot"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release wrong-repo: missing 'Repository path must be ...' hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_latest_only_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given "README.md" instructs users to run `docker pull ghcr.io/mpiton/sovri/community-bot:latest`
+  # And "README.md" does not contain the string "v0.1.0"
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+## Install
+
+```bash
+docker pull ghcr.io/mpiton/sovri/community-bot:latest
+```
+
+End of file.
+MD
+
+  if grep -Fq "v0.1.0" "$readme_path"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release latest-only: fixture unexpectedly contains 'v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the release engineer verifies the documentation
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the rule R-02 is reported as violated (signal: readme_references_release=fail)
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release latest-only: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release latest-only: missing readme_references_release=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the remediation hint reads "Add a docker pull snippet pinned to v0.1.0 in README.md"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Add a docker pull snippet pinned to v0.1.0 in"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release latest-only: missing remediation hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_crlf_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a CRLF-encoded README where the docker pull snippet sits inside a
+  # closed fenced block and the actual `## Install` heading follows after it.
+  # The heading scan must still close the fence on the CRLF closing line.
+  printf '# Some Project\r\n\r\n```\r\necho "preamble"\r\n```\r\n\r\n## Install\r\n\r\n```bash\r\ndocker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0\r\n```\r\n' >"$readme_path"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release crlf: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release crlf: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_extract_notes_newline_suffix_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with a two-line `## [0.1.0]\n- 2026-05-23` malformed
+  # heading. The date suffix lives on its own line so the heading is not a
+  # valid `## [X.Y.Z] - YYYY-MM-DD`; both release-verify-tag and
+  # release-extract-notes must reject it instead of treating
+  # `- 2026-05-23` as the start of the release body.
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0]
+- 2026-05-23
+
+### Added
+
+- Some entry.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes newline-suffix: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "Missing changelog section ## [0.1.0]"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes newline-suffix: missing 'Missing changelog section ## [0.1.0]' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_longer_fence_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README whose fence is opened with FOUR backticks and contains an
+  # inner THREE-backtick line plus a fake `## Install`. CommonMark requires the
+  # closer to have at least as many markers as the opener, so the inner ```
+  # must not close the block.
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+````markdown
+```text
+## Install
+```
+
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+````
+
+```bash
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+```
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release longer-fence: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release longer-fence: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_closing_fence_info_string_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README whose only `## Install` heading lives inside a fenced block,
+  # and a candidate closing fence carries an info string. CommonMark rejects
+  # closers with trailing info, so the fenced block must stay open and the
+  # inner `## Install` must not be promoted to a real heading.
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+```
+## Install
+```javascript
+
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+```
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release closing-fence-info-string: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release closing-fence-info-string: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_mixed_fence_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README whose backtick-fenced block contains a `~~~` line and a fake `## Install`
+  # The matching-delimiter rule requires the backtick fence to stay open across the
+  # tilde line, so the inner `## Install` must not be treated as a real Markdown heading.
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+```markdown
+~~~
+## Install
+
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+~~~
+```
+
+```bash
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+```
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release mixed-fence: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release mixed-fence: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_tilde_fenced_heading_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README whose only "## Install" line lives inside a tilde-fenced code block
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+The author shows what the heading should look like inside a tilde fence:
+
+~~~markdown
+## Install
+
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+~~~
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release tilde-fenced-heading: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release tilde-fenced-heading: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_fenced_heading_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README whose only "## Install" line lives inside a fenced code block
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+The author shows what the heading should look like but never inserts a real one:
+
+```markdown
+## Install
+
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+```
+
+End of file.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release fenced-heading: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release fenced-heading: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_inline_mention_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a README that mentions "## Install" inline but has no real Markdown heading
+  cat >"$readme_path" <<'MD'
+# Some Project
+
+The phrase "## Install" should exist as a heading in this file, but the author
+never converted it into one. The docker snippet is present below.
+
+```bash
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0
+```
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then readme-references-release must reject the file because there is no actual heading
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release inline-mention: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release inline-mention: missing readme_references_release=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "## Install"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release inline-mention: missing install heading hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_readme_references_release_nominal_case() {
+  local stdout stderr stdout_file stderr_file ec
+  local repo_root="${SCRIPT_DIR%/scripts}"
+  local readme_path="$repo_root/README.md"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When a contributor opens "README.md" on the default branch
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the file contains the literal snippet `docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0`
+  # And the file contains the section heading "## Install" within the first 200 lines.
+  # Both assertions are wrapped inside the readme-references-release subcommand and surface
+  # as exit 0 + `readme_references_release=pass` on success.
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release nominal: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release nominal: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
+run_release_extract_notes_release_notes_md_case() {
+  local root changelog_path notes_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+  notes_path="$root/release-notes.md"
+
+  # Given "CHANGELOG.md" contains the heading "## [0.1.0] - 2026-05-23" followed by entries
+  # and the next "## [" heading immediately follows the section body
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-05-23
+
+### Added
+
+- First promoted entry for v0.1.0.
+- Second promoted entry for v0.1.0.
+
+### Fixed
+
+- A fix that belongs in v0.1.0.
+
+## [0.0.1] - 2026-01-01
+
+### Added
+
+- Initial release.
+
+## [0.0.0] - 2025-12-15
+
+- Bootstrap.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the workflow extracts release notes for tag "v0.1.0"
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$notes_path" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: expected exit 0, got ${ec}
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # Then the extracted "release-notes.md" is non-empty
+  if [ ! -s "$notes_path" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: file is empty"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the extracted notes stop before the next "## [" heading
+  if grep -Eq '^## \[' "$notes_path"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: leaked a '## [' heading into the extracted notes
+$(sed 's/^/        /' "$notes_path")"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the body of [0.1.0] is fully present
+  for needle in \
+    "- First promoted entry for v0.1.0." \
+    "- Second promoted entry for v0.1.0." \
+    "- A fix that belongs in v0.1.0."; do
+    if ! grep -Fq -- "$needle" "$notes_path"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: missing entry '${needle}'
+$(sed 's/^/        /' "$notes_path")"
+      rm -rf "$root"
+      return
+    fi
+  done
+
+  # And the prior version section is NOT in the extracted notes
+  for forbidden in "- Initial release." "- Bootstrap."; do
+    if grep -Fq -- "$forbidden" "$notes_path"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: prior-version content leaked '${forbidden}'
+$(sed 's/^/        /' "$notes_path")"
+      rm -rf "$root"
+      return
+    fi
+  done
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_extract_notes_nominal_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-05-23
+
+### Added
+
+- Promoted entry one.
+- Promoted entry two.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes nominal: expected exit 0, got ${ec}
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "Promoted entry one."; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes nominal: missing 'Promoted entry one.' in extracted notes
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "Promoted entry two."; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes nominal: missing 'Promoted entry two.' in extracted notes
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if printf '%s\n' "$stdout" | grep -Fq "Initial release."; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes nominal: leaked 'Initial release.' from prior version section
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_tag_unreleased_populated_marker_case() {
+  local bullet_marker="$1"
+  local marker_label="$2"
+  local root package_files stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+
+  # Given the engineer added "## [0.1.0] - 2026-05-23" but did not move any entry
+  # And "## [Unreleased]" still contains a populated entry using the given Markdown bullet marker
+  cat >"$root/CHANGELOG.md" <<MD
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+${bullet_marker} Forgotten entry using ${marker_label} bullet.
+
+## [0.1.0] - 2026-05-23
+
+MD
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-populated-marker '${bullet_marker}': expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "[Unreleased] still has entries after release section"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-populated-marker '${bullet_marker}': missing populated-Unreleased error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_tag_empty_unreleased_refusal_case() {
+  local root package_files stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+
+  # Given "CHANGELOG.md" contains "## [Unreleased]" followed by zero bullet entries
+  # And the engineer attempts to tag "v0.1.0" (so no `## [0.1.0]` section exists yet)
+  cat >"$root/CHANGELOG.md" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer runs `node scripts/ci-policy.mjs release-verify-tag --tag v0.1.0 ...`
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the command exits with a non-zero status
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag empty-unreleased-refusal: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag empty-unreleased-refusal: missing verify_tag=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the error contains the string "Refusing to release with empty Unreleased"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Refusing to release with empty Unreleased"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag empty-unreleased-refusal: missing 'Refusing to release with empty Unreleased' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the remediation hint reads "Add at least one bullet under [Unreleased] before tagging"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Add at least one bullet under [Unreleased] before tagging"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag empty-unreleased-refusal: missing remediation hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_tag_unreleased_still_populated_case() {
+  local root package_files stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+
+  # Given the engineer added "## [0.1.0] - 2026-05-23" but did not move any entry
+  # And "## [Unreleased]" still contains 12 bullet entries
+  cat >"$root/CHANGELOG.md" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Entry one.
+- Entry two.
+- Entry three.
+- Entry four.
+- Entry five.
+- Entry six.
+- Entry seven.
+- Entry eight.
+- Entry nine.
+- Entry ten.
+- Entry eleven.
+- Entry twelve.
+
+## [0.1.0] - 2026-05-23
+
+MD
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer runs `node scripts/ci-policy.mjs release-verify-tag --tag v0.1.0 ...`
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the command exits with a non-zero status
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-still-populated: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the rule R-03 is reported as violated (signal: verify_tag=fail on stdout)
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-still-populated: missing verify_tag=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "[Unreleased] still has entries after release section"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-still-populated: missing populated-Unreleased error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_verify_tag_format_case() {
   local git_tag="$1"
   local root package_files
@@ -10562,6 +12312,435 @@ run_release_verify_tag_format_case() {
   run_ci_policy_failure_case "release verify tag format ${git_tag}" "tag must use vX.Y.Z format" \
     release-verify-tag --tag "$git_tag" --package-files "$package_files" --changelog "$root/CHANGELOG.md"
 
+  rm -rf "$root"
+}
+
+run_promote_changelog_nominal_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec promoted body_after_release body_after_unreleased
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given the prior "## [Unreleased]" section contains entries under "### Added"
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Foo widget shipped.
+- Bar gadget configured.
+
+## [0.0.1] - 2026-01-01
+
+### Added
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer rewrites "CHANGELOG.md" for the v0.1.0 release
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "promote_changelog=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  promoted=$(cat "$changelog_path")
+
+  # Then a section heading "## [0.1.0] - 2026-05-23" exists
+  if ! printf '%s\n' "$promoted" | grep -Fxq "## [0.1.0] - 2026-05-23"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: missing release heading '## [0.1.0] - 2026-05-23'
+$(printf '%s\n' "$promoted" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And every entry previously under "## [Unreleased]" appears under "## [0.1.0] - 2026-05-23"
+  body_after_release=$(printf '%s\n' "$promoted" | awk '
+    /^## \[0\.1\.0\] - 2026-05-23/ { in_release=1; next }
+    /^## \[/ && in_release { in_release=0 }
+    in_release { print }
+  ')
+  if ! printf '%s\n' "$body_after_release" | grep -Fq -- "- Foo widget shipped."; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: 'Foo widget' entry not under [0.1.0] section
+$(printf '%s\n' "$body_after_release" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+  if ! printf '%s\n' "$body_after_release" | grep -Fq -- "- Bar gadget configured."; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: 'Bar gadget' entry not under [0.1.0] section
+$(printf '%s\n' "$body_after_release" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the "## [Unreleased]" heading still exists and contains no bullet entries
+  if ! printf '%s\n' "$promoted" | grep -Fxq "## [Unreleased]"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: '## [Unreleased]' heading missing
+$(printf '%s\n' "$promoted" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+  body_after_unreleased=$(printf '%s\n' "$promoted" | awk '
+    /^## \[Unreleased\]/ { in_unreleased=1; next }
+    /^## \[/ && in_unreleased { in_unreleased=0 }
+    in_unreleased { print }
+  ')
+  if printf '%s\n' "$body_after_unreleased" | grep -Eq "^- "; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog nominal: [Unreleased] body still contains bullet entries
+$(printf '%s\n' "$body_after_unreleased" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_promote_changelog_empty_unreleased_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec original_changelog
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with an empty `## [Unreleased]` section
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+  original_changelog=$(cat "$changelog_path")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer runs promote-changelog for v0.1.0
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses with a non-zero exit
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "promote_changelog=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: missing promote_changelog=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the error mentions "Refusing to release with empty Unreleased"
+  if ! printf '%s\n' "$stderr" | grep -Fq "Refusing to release with empty Unreleased"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: missing 'Refusing to release with empty Unreleased' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # And CHANGELOG.md is not modified
+  if [ "$(cat "$changelog_path")" != "$original_changelog" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog empty-unreleased: CHANGELOG.md was modified despite refusal"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_promote_changelog_duplicate_version_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given the changelog already has a "## [0.1.0]" section from a previous run
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Foo widget shipped.
+
+## [0.1.0] - 2026-05-22
+
+### Added
+
+- Earlier promotion artifact.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer re-runs promote-changelog for the same version
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses with a non-zero exit and a duplicate-version message
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "promote_changelog=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: missing fail assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "version 0.1.0 already has a section in changelog"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: missing duplicate-version error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_promote_changelog_invalid_calendar_date_case() {
+  local date="$1"
+  local root changelog_path stdout stderr stdout_file stderr_file ec original_changelog
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with an [Unreleased] entry ready for promotion
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Sample entry.
+MD
+  original_changelog=$(cat "$changelog_path")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer passes a date that is well-formed but not a real calendar date
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date "$date" \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses without rewriting CHANGELOG.md
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "date ${date} is not a valid calendar date"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: missing 'not a valid calendar date' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if [ "$(cat "$changelog_path")" != "$original_changelog" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: CHANGELOG.md was modified despite failed validation"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_promote_changelog_then_verify_tag_case() {
+  local root package_files stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+
+  # Given a workspace with v0.1.0 in every package and a CHANGELOG with Unreleased entries
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+  cat >"$root/CHANGELOG.md" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Feature shipped.
+MD
+  package_files=$(release_metadata_package_files "$root")
+
+  # When the engineer promotes Unreleased to [0.1.0] - 2026-05-23
+  local promote_stdout_file promote_stderr_file promote_ec
+  promote_stdout_file=$(mktemp)
+  promote_stderr_file=$(mktemp)
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$root/CHANGELOG.md" \
+    >"$promote_stdout_file" 2>"$promote_stderr_file" && promote_ec=0 || promote_ec=$?
+  if [ "$promote_ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-then-verify-tag: promote-changelog exited ${promote_ec}
+      stdout:
+$(sed 's/^/        /' "$promote_stdout_file")
+      stderr:
+$(sed 's/^/        /' "$promote_stderr_file")"
+    rm -f "$promote_stdout_file" "$promote_stderr_file"
+    rm -rf "$root"
+    return
+  fi
+  rm -f "$promote_stdout_file" "$promote_stderr_file"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # And then runs release-verify-tag against the promoted CHANGELOG
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then release-verify-tag passes (the dated heading is recognized as ## [0.1.0])
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-then-verify-tag: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')
+      changelog:
+$(cat "$root/CHANGELOG.md" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-then-verify-tag: missing verify_tag=pass
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
   rm -rf "$root"
 }
 
@@ -10718,7 +12897,13 @@ write_cosign_fixture() {
   local workflow_body="$4"
 
   mkdir -p "$root"
-  printf '# Changelog\n\n%s\n%s\n\n## [Unreleased]\n%s\n' "$changelog_heading" "$changelog_body" "$changelog_body" >"$root/CHANGELOG.md"
+  # Auto-extend bare `## [X.Y.Z]` headings with the canonical dated form so the
+  # release-heading regex (now date-required) accepts the fixture.
+  local final_heading="$changelog_heading"
+  if printf '%s' "$changelog_heading" | grep -Eq '^## \[[^]]+\]$'; then
+    final_heading="$changelog_heading - 2026-05-23"
+  fi
+  printf '# Changelog\n\n%s\n%s\n\n## [Unreleased]\n%s\n' "$final_heading" "$changelog_body" "$changelog_body" >"$root/CHANGELOG.md"
   printf '%s\n' "$workflow_body" >"$root/release.yml"
 }
 
@@ -10987,6 +13172,11 @@ run_release_pipeline_failed_job_case verify-tag
 run_release_pipeline_failed_job_case build-and-push
 run_release_pipeline_failed_job_case sbom
 run_release_pipeline_failed_job_case gh-release
+run_release_pipeline_outline_failure_case verify-tag failure skipped skipped skipped
+run_release_pipeline_outline_failure_case build-and-push success failure success skipped
+run_release_pipeline_outline_failure_case sbom success success failure skipped
+run_release_pipeline_outline_failure_case gh-release success success success failure
+run_release_yml_uses_v_star_filter_case
 run_release_pipeline_idempotent_case
 run_release_trigger_push_tags_case
 run_release_trigger_missing_tags_case
@@ -11009,6 +13199,44 @@ run_release_verify_tag_normalization_case "0.1.0" rejected "tag lacks required v
 run_release_verify_tag_normalization_case "vv0.1.0" rejected "tag has two leading v prefixes"
 run_release_verify_tag_format_case "v0.1"
 run_release_verify_tag_format_case "v0.1.0-rc.1"
+run_release_verify_tag_empty_unreleased_refusal_case
+run_release_verify_tag_unreleased_still_populated_case
+run_release_verify_tag_unreleased_populated_marker_case "*" "asterisk"
+run_release_verify_tag_unreleased_populated_marker_case "+" "plus"
+run_release_verify_tag_unreleased_populated_marker_case "1." "numbered-dot"
+run_release_verify_tag_unreleased_populated_marker_case "1)" "numbered-paren"
+run_release_extract_notes_nominal_case
+run_release_extract_notes_release_notes_md_case
+run_readme_references_release_nominal_case
+run_readme_references_release_inline_mention_case
+run_readme_references_release_fenced_heading_case
+run_readme_references_release_tilde_fenced_heading_case
+run_readme_references_release_mixed_fence_case
+run_readme_references_release_longer_fence_case
+run_readme_references_release_closing_fence_info_string_case
+run_readme_references_release_crlf_case
+run_release_extract_notes_newline_suffix_case
+run_readme_references_release_latest_only_case
+run_readme_references_release_wrong_repo_case
+run_release_commit_and_annotated_tag_case
+run_release_verify_tag_annotation_annotated_case
+run_release_verify_tag_annotation_lightweight_case
+run_release_verify_commit_subject_correct_case
+run_release_verify_commit_subject_wrong_case
+run_release_tag_version_mismatch_case
+run_release_retag_delete_recreate_case
+run_release_retag_force_overwrite_case
+run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
+run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
+run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
+run_release_extract_notes_malformed_heading_case "## [v0.1.0] - 2026-05-23" "prefixed-v"
+run_promote_changelog_nominal_case
+run_promote_changelog_empty_unreleased_case
+run_promote_changelog_duplicate_version_case
+run_promote_changelog_invalid_calendar_date_case "2026-13-40"
+run_promote_changelog_invalid_calendar_date_case "2026-02-30"
+run_promote_changelog_invalid_calendar_date_case "2026-04-31"
+run_promote_changelog_then_verify_tag_case
 run_release_build_and_push_case
 run_release_build_dynamic_tags_case
 run_release_build_push_false_case
