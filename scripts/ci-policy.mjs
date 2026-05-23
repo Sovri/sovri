@@ -142,6 +142,8 @@ const releaseExtractNotesUsage =
   "Usage: node scripts/ci-policy.mjs release-extract-notes --changelog <path> --version <X.Y.Z>";
 const releaseVerifyTagAnnotationUsage =
   "Usage: node scripts/ci-policy.mjs release-verify-tag-annotation --tag <vX.Y.Z> --repo <path>";
+const releaseVerifyCommitSubjectUsage =
+  "Usage: node scripts/ci-policy.mjs release-verify-commit-subject --tag <vX.Y.Z> --repo <path>";
 const readmeReferencesReleaseUsage =
   "Usage: node scripts/ci-policy.mjs readme-references-release --readme <path> --image <repository> --version <X.Y.Z>";
 const promoteChangelogUsage =
@@ -179,7 +181,7 @@ const changelogRemediationMessageUsage =
   "Usage: node scripts/ci-policy.mjs changelog-remediation-message --message <text>";
 const changelogDocumentationOnlyAssertUsage =
   "Usage: node scripts/ci-policy.mjs changelog-documentation-only-assert --changed-files <comma-separated-paths> --gate-result <success|failure>";
-const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${codeqlDurationBudgetUsage}\n${codeqlWorkflowConfigUsage}\n${dependencyReviewWorkflowConfigUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${releaseExtractNotesUsage}\n${releaseVerifyTagAnnotationUsage}\n${readmeReferencesReleaseUsage}\n${promoteChangelogUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
+const usage = `${durationBudgetUsage}\n${secretsDurationBudgetUsage}\n${forbiddenJobsDurationBudgetUsage}\n${buildDockerDurationBudgetUsage}\n${codeqlDurationBudgetUsage}\n${codeqlWorkflowConfigUsage}\n${dependencyReviewWorkflowConfigUsage}\n${dockerBuildActionUsage}\n${dockerSetupActionPinningUsage}\n${buildDockerNeedsUsage}\n${buildDockerSchedulerUsage}\n${releasePipelineResultUsage}\n${releaseTriggerUsage}\n${releaseVerifyTagUsage}\n${releaseBuildAndPushUsage}\n${releaseExtractNotesUsage}\n${releaseVerifyTagAnnotationUsage}\n${releaseVerifyCommitSubjectUsage}\n${readmeReferencesReleaseUsage}\n${promoteChangelogUsage}\n${cosignDeferralUsage}\n${actionPinningUsage}\n${gitleaksActionPinningUsage}\n${auditGateUsage}\n${trivyVulnerabilityGateUsage}\n${trivyScanConfigUsage}\n${trivyStepCompletionUsage}\n${trivySarifUploadConfigUsage}\n${trivySarifUploadAfterFailureUsage}\n${secretsCheckoutDepthUsage}\n${secretsFixtureEvidenceUsage}\n${secretsNoSecretsReuseUsage}\n${changelogTriggerUsage}\n${changelogDiffUsage}\n${changelogCiOnlyAssertUsage}\n${changelogRemediationMessageUsage}\n${changelogDocumentationOnlyAssertUsage}`;
 
 const fail = (message, code) => {
   writeStderr(`${message}\n`);
@@ -2052,6 +2054,34 @@ const runReleaseVerifyTagAnnotation = (args) => {
   writeStdout("verify_tag_annotation=pass\ntag_object_type=tag\n");
 };
 
+const runReleaseVerifyCommitSubject = (args) => {
+  const options = parseOptions(args);
+  const tag = readRequiredOption(options, "tag", releaseVerifyCommitSubjectUsage);
+  const repo = readRequiredOption(options, "repo", releaseVerifyCommitSubjectUsage);
+
+  const version = tag.replace(/^v/, "");
+  const expectedSubject = `chore(release): v${version}`;
+
+  const result = spawnSync("git", ["-C", repo, "log", "-1", "--pretty=%s"], {
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    writeStdout("verify_commit_subject=fail\n");
+    fail(`git log -1 --pretty=%s failed in ${repo}\n${(result.stderr ?? "").trim()}`, 1);
+  }
+
+  const subject = (result.stdout ?? "").replace(/\n$/, "");
+  if (subject !== expectedSubject) {
+    writeStdout(`verify_commit_subject=fail\nhead_subject=${subject}\n`);
+    fail(
+      `HEAD subject is "${subject}", expected "${expectedSubject}"\nCommit subject must equal ${expectedSubject}`,
+      1,
+    );
+  }
+
+  writeStdout(`verify_commit_subject=pass\nhead_subject=${subject}\n`);
+};
+
 const runReleaseExtractNotes = (args) => {
   const options = parseOptions(args);
   const changelogPath = readRequiredOption(options, "changelog", releaseExtractNotesUsage);
@@ -3500,6 +3530,8 @@ if (command === "duration-budget") {
   runReleaseExtractNotes(args);
 } else if (command === "release-verify-tag-annotation") {
   runReleaseVerifyTagAnnotation(args);
+} else if (command === "release-verify-commit-subject") {
+  runReleaseVerifyCommitSubject(args);
 } else if (command === "readme-references-release") {
   runReadmeReferencesRelease(args);
 } else if (command === "promote-changelog") {

@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(scripts)`: add `release-verify-commit-subject` subcommand to
+  `scripts/ci-policy.mjs` that runs `git -C <repo> log -1 --pretty=%s`
+  and rejects HEAD subjects that do not equal
+  `chore(release): v<X.Y.Z>`, with the targeted remediation hint
+  `Commit subject must equal chore(release): v<X.Y.Z>` (#1134).
+
 - `feat(scripts)`: add `release-verify-tag-annotation` subcommand to
   `scripts/ci-policy.mjs` that runs `git -C <repo> cat-file -t <tag>`
   and rejects lightweight tags with
