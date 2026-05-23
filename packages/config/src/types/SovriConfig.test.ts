@@ -174,6 +174,24 @@ describe("SovriConfigSchema — v0.2 refine widening (anthropic + mistral allow-
       expect(result.data.llm.provider).toBe("anthropic");
     }
   });
+
+  // Issue #1164, R-01 nominal.
+  // Scenario:
+  //   Given the .sovri.yml has llm.provider "mistral"
+  //   When SovriConfigSchema.safeParse() runs on the config
+  //   Then the result is success=true
+  //   And the parsed config has llm.provider equal to "mistral"
+  it("R-01 nominal — provider=mistral passes safeParse with success=true", () => {
+    const result = SovriConfigSchema.safeParse({
+      ...minimalConfig,
+      llm: { ...minimalConfig.llm, provider: "mistral" },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.llm.provider).toBe("mistral");
+    }
+  });
 });
 
 describe("SovriConfigSchema — provider refinement (v0.1 narrow)", () => {

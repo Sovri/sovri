@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: failing test asserting `provider=mistral` is accepted
+  by `SovriConfigSchema.safeParse()` with `success=true` and parsed
+  `llm.provider` equal to `"mistral"`. Red until the v0.2 widen flips
+  the refine to the `{anthropic, mistral}` allow-list (R-01 nominal,
+  ATDD scenario sub-issue #1164 under US #1162).
+
 - `test(config)`: regression-guard test asserting `provider=anthropic`
   still passes the v0.2 refine widening via `SovriConfigSchema.safeParse()`
   (R-01 nominal, ATDD scenario sub-issue #1163 under US #1162).
