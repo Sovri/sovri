@@ -1819,13 +1819,25 @@ const readTextFile = (path, label) => {
   }
 };
 
-const CHANGELOG_RELEASE_HEADING_DATE_SUFFIX = "(?:\\s*-\\s*\\d{4}-\\d{2}-\\d{2})?";
+const CHANGELOG_RELEASE_HEADING_DATE_SUFFIX = "(?:[ \\t]*-[ \\t]*\\d{4}-\\d{2}-\\d{2})?";
 
-const hasChangelogReleaseSection = (changelog, version) =>
-  new RegExp(
+const findChangelogReleaseHeadingMatch = (changelog, version) => {
+  const pattern = new RegExp(
     `^## \\[${escapeRegExp(version)}\\]${CHANGELOG_RELEASE_HEADING_DATE_SUFFIX}\\s*$`,
     "m",
-  ).test(changelog);
+  );
+  const match = pattern.exec(changelog);
+  if (match === null || match.index === undefined) return null;
+  const after = changelog.slice(match.index + match[0].length);
+  const nextLine = after.replace(/^\r?\n/, "").split(/\r?\n/, 1)[0] ?? "";
+  if (/^[ \t]*-[ \t]*\d{4}-\d{2}-\d{2}[ \t]*$/.test(nextLine)) {
+    return null;
+  }
+  return match;
+};
+
+const hasChangelogReleaseSection = (changelog, version) =>
+  findChangelogReleaseHeadingMatch(changelog, version) !== null;
 
 const getChangelogUnreleasedBody = (changelog) => {
   const match = /^## \[Unreleased\]\s*$/m.exec(changelog);
@@ -1975,7 +1987,7 @@ const runReleaseBuildAndPush = (args) => {
 const README_INSTALL_HEADING_MAX_LINES = 200;
 
 const findMarkdownHeadingLine = (markdown, headingPattern) => {
-  const lines = markdown.split("\n");
+  const lines = markdown.split(/\r?\n/);
   let openFence = null;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -2197,11 +2209,7 @@ const runPromoteChangelog = (args) => {
 };
 
 const getChangelogReleaseSection = (changelog, version) => {
-  const headingPattern = new RegExp(
-    `^## \\[${escapeRegExp(version)}\\]${CHANGELOG_RELEASE_HEADING_DATE_SUFFIX}\\s*$`,
-    "m",
-  );
-  const headingMatch = headingPattern.exec(changelog);
+  const headingMatch = findChangelogReleaseHeadingMatch(changelog, version);
   if (headingMatch === null || headingMatch.index === undefined) return "";
 
   const sectionStart = headingMatch.index + headingMatch[0].length;

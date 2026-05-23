@@ -11356,6 +11356,118 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_readme_references_release_crlf_case() {
+  local root readme_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  readme_path="$root/README.md"
+
+  # Given a CRLF-encoded README where the docker pull snippet sits inside a
+  # closed fenced block and the actual `## Install` heading follows after it.
+  # The heading scan must still close the fence on the CRLF closing line.
+  printf '# Some Project\r\n\r\n```\r\necho "preamble"\r\n```\r\n\r\n## Install\r\n\r\n```bash\r\ndocker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0\r\n```\r\n' >"$readme_path"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release crlf: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release crlf: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_extract_notes_newline_suffix_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with a two-line `## [0.1.0]\n- 2026-05-23` malformed
+  # heading. The date suffix lives on its own line so the heading is not a
+  # valid `## [X.Y.Z] - YYYY-MM-DD`; both release-verify-tag and
+  # release-extract-notes must reject it instead of treating
+  # `- 2026-05-23` as the start of the release body.
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0]
+- 2026-05-23
+
+### Added
+
+- Some entry.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes newline-suffix: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "Missing changelog section ## [0.1.0]"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes newline-suffix: missing 'Missing changelog section ## [0.1.0]' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_readme_references_release_longer_fence_case() {
   local root readme_path stdout stderr stdout_file stderr_file ec
 
@@ -13089,6 +13201,8 @@ run_readme_references_release_tilde_fenced_heading_case
 run_readme_references_release_mixed_fence_case
 run_readme_references_release_longer_fence_case
 run_readme_references_release_closing_fence_info_string_case
+run_readme_references_release_crlf_case
+run_release_extract_notes_newline_suffix_case
 run_readme_references_release_latest_only_case
 run_readme_references_release_wrong_repo_case
 run_release_commit_and_annotated_tag_case

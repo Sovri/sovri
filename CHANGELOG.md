@@ -21,6 +21,22 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(scripts)`: `findMarkdownHeadingLine` now splits on both LF
+  and CRLF line endings, so a CRLF-encoded README closes its fenced
+  block on the closing-fence line instead of trapping a stray `\r`
+  in the closer trailer (per coderabbitai Major review on PR #1159).
+
+- `feat(scripts)`: the shared release-heading suffix regex now uses
+  `[ \t]*` instead of `\s*` around the hyphen, and a new
+  `findChangelogReleaseHeadingMatch` helper rejects the malformed
+  two-line shape `## [X.Y.Z]\n- YYYY-MM-DD` by looking at the line
+  immediately after the heading. `hasChangelogReleaseSection` and
+  `getChangelogReleaseSection` now share that helper, so
+  `release-verify-tag` and `release-extract-notes` reject the
+  newline-separated form instead of consuming the orphan date as
+  the first body line (per chatgpt-codex-connector P1 review on
+  PR #1159).
+
 - `feat(scripts)`: `findMarkdownHeadingLine` now tracks the opening
   fence delimiter (backtick or tilde) **and its length**, and only
   closes the fenced block when a matching delimiter of the same
