@@ -1125,11 +1125,18 @@ function hasCommittedSoakLogMetadata(content, expected) {
 }
 
 function hasUncommittedSoakLogStatus(content, relativePath) {
-  const statusCommand = `git status --short ${relativePath}`;
-  const untrackedStatus = `?? ${relativePath}`;
-  return content
-    .split(/\r?\n/u)
-    .some((line) => line.includes(statusCommand) && line.includes(untrackedStatus));
+  const prefix = `git status --short ${relativePath}:`;
+  return content.split(/\r?\n/u).some((line) => {
+    if (!line.startsWith(prefix)) {
+      return false;
+    }
+    const remainder = line.slice(prefix.length);
+    if (!remainder.endsWith(relativePath)) {
+      return false;
+    }
+    const statusToken = remainder.slice(0, -relativePath.length).trim();
+    return statusToken.length > 0;
+  });
 }
 
 function readMetadataValue(content, label) {

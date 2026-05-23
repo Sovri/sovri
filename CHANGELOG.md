@@ -199,6 +199,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `scripts(validate-v0-1-soak)`: detect any non-empty `git status --short`
+  output for the soak log (modified, staged, deleted, renamed) instead of only
+  the untracked `??` prefix, so the `soak-log-commit` rule correctly rejects
+  uncommitted edits (#1114 review feedback).
+
 - `test(e2e)`: accept GitHub App API access evidence for any PR number instead
   of hard-coding PR 101 (#1010 review feedback).
 
