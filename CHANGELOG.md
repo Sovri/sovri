@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: regression-guard asserting that
+  `SovriConfigSchema.safeParse({llm: {provider: "openai", ...}}).error.issues`
+  exposes a `llm.provider` issue with structured `path === ["llm",
+  "provider"]` (array, not joined string) and the documented v0.2
+  message. Pins the contract PR-comment renderers rely on to surface
+  field-level errors without re-parsing (R-04 technical, ATDD scenario
+  sub-issue #1170 under US #1162).
+
 - `test(config)`: strengthen the existing `gemini` rejection test inside
   the v0.2 widening describe block to assert (a) exactly one issue at
   path `llm.provider` and (b) `issue.code === "invalid_value"` — the Zod
