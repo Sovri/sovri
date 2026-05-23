@@ -1974,7 +1974,7 @@ const findMarkdownHeadingLine = (markdown, headingPattern) => {
   let insideFence = false;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (/^\s*```/.test(line)) {
+    if (/^\s*(?:```|~~~)/.test(line)) {
       insideFence = !insideFence;
       continue;
     }
