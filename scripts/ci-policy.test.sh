@@ -10551,6 +10551,71 @@ run_release_verify_tag_normalization_case() {
   rm -rf "$root"
 }
 
+run_release_verify_tag_unreleased_populated_marker_case() {
+  local bullet_marker="$1"
+  local marker_label="$2"
+  local root package_files stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+
+  # Given the engineer added "## [0.1.0] - 2026-05-23" but did not move any entry
+  # And "## [Unreleased]" still contains a populated entry using the given Markdown bullet marker
+  cat >"$root/CHANGELOG.md" <<MD
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+${bullet_marker} Forgotten entry using ${marker_label} bullet.
+
+## [0.1.0] - 2026-05-23
+
+MD
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-populated-marker '${bullet_marker}': expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "[Unreleased] still has entries after release section"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-tag unreleased-populated-marker '${bullet_marker}': missing populated-Unreleased error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_verify_tag_unreleased_still_populated_case() {
   local root package_files stdout stderr stdout_file stderr_file ec
 
@@ -11431,6 +11496,9 @@ run_release_verify_tag_normalization_case "vv0.1.0" rejected "tag has two leadin
 run_release_verify_tag_format_case "v0.1"
 run_release_verify_tag_format_case "v0.1.0-rc.1"
 run_release_verify_tag_unreleased_still_populated_case
+run_release_verify_tag_unreleased_populated_marker_case "*" "asterisk"
+run_release_verify_tag_unreleased_populated_marker_case "+" "plus"
+run_release_verify_tag_unreleased_populated_marker_case "1." "numbered"
 run_promote_changelog_nominal_case
 run_promote_changelog_duplicate_version_case
 run_promote_changelog_invalid_calendar_date_case "2026-13-40"
