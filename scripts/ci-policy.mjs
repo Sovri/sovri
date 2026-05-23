@@ -1958,6 +1958,12 @@ const runPromoteChangelog = (args) => {
   }
 
   const releasedHeading = `## [${version}] - ${date}`;
+  const existingReleasePattern = new RegExp(`^## \\[${escapeRegExp(version)}\\]`, "m");
+  if (existingReleasePattern.test(changelog)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`version ${version} already has a section in changelog`, 1);
+  }
+
   const bodyStart = unreleasedMatch.index + unreleasedMatch[0].length;
   const nextHeadingRelativeMatch = changelog.slice(bodyStart).match(/\n## \[[^\]]+\]/);
   const bodyEnd =

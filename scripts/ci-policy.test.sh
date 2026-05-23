@@ -10686,6 +10686,82 @@ $(printf '%s\n' "$body_after_unreleased" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_promote_changelog_duplicate_version_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given the changelog already has a "## [0.1.0]" section from a previous run
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Foo widget shipped.
+
+## [0.1.0] - 2026-05-22
+
+### Added
+
+- Earlier promotion artifact.
+
+## [0.0.1] - 2026-01-01
+
+- Initial release.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer re-runs promote-changelog for the same version
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date 2026-05-23 \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses with a non-zero exit and a duplicate-version message
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "promote_changelog=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: missing fail assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "version 0.1.0 already has a section in changelog"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog duplicate-version: missing duplicate-version error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 write_release_build_workflow() {
   local workflow_file="$1"
   local push_value="$2"
@@ -11131,6 +11207,7 @@ run_release_verify_tag_normalization_case "vv0.1.0" rejected "tag has two leadin
 run_release_verify_tag_format_case "v0.1"
 run_release_verify_tag_format_case "v0.1.0-rc.1"
 run_promote_changelog_nominal_case
+run_promote_changelog_duplicate_version_case
 run_release_build_and_push_case
 run_release_build_dynamic_tags_case
 run_release_build_push_false_case
