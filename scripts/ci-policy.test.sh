@@ -10613,6 +10613,136 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+setup_release_tag_workspace() {
+  local root="$1"
+
+  mkdir -p "$root/packages/core" "$root/packages/review-engine" "$root/packages/llm-providers" \
+    "$root/packages/config" "$root/packages/observability" "$root/apps/community-bot"
+  for package_path in packages/core packages/review-engine packages/llm-providers packages/config packages/observability; do
+    printf '{ "version": "0.1.0" }\n' >"$root/${package_path}/package.json"
+  done
+  printf '{ "version": "0.1.0" }\n' >"$root/apps/community-bot/package.json"
+  cat >"$root/CHANGELOG.md" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-05-23
+
+### Added
+
+- Release entry.
+MD
+
+  (
+    cd "$root"
+    git init --quiet --initial-branch=main
+    git config user.email "atdd@sovri.test"
+    git config user.name "ATDD"
+    git config commit.gpgsign false
+    git config tag.gpgsign false
+    git add .
+    git commit --quiet -m "chore(release): prepare v0.1.0"
+  )
+}
+
+run_release_commit_and_annotated_tag_case() {
+  local root subject tag_type tag_subject head_sha
+  root=$(mktemp -d)
+
+  # Given every package + apps/community-bot reports 0.1.0
+  # And CHANGELOG.md contains "## [0.1.0] - 2026-05-23"
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    # When the engineer runs `git commit -m "chore(release): v0.1.0"`
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    # And the engineer runs `git tag -a v0.1.0 -m "Release v0.1.0"`
+    git tag -a v0.1.0 -m "Release v0.1.0"
+  )
+
+  subject=$(cd "$root" && git log -1 --pretty=%s)
+  tag_type=$(cd "$root" && git cat-file -t v0.1.0)
+  tag_subject=$(cd "$root" && git tag -l --format='%(contents:subject)' v0.1.0)
+  head_sha=$(cd "$root" && git rev-parse HEAD)
+
+  # Then `git log -1 --pretty=%s` outputs exactly "chore(release): v0.1.0"
+  if [ "$subject" != "chore(release): v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: HEAD subject is '${subject}', expected 'chore(release): v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git cat-file -t v0.1.0` outputs "tag"
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: tag type is '${tag_type}', expected 'tag' (annotated)"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `git tag -l --format="%(contents:subject)" v0.1.0` outputs "Release v0.1.0"
+  if [ "$tag_subject" != "Release v0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: tag subject is '${tag_subject}', expected 'Release v0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  if [ -z "$head_sha" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: HEAD has no SHA"
+    rm -rf "$root"
+    return
+  fi
+
+  # And `release-verify-tag` accepts the workspace produced by the procedure
+  local package_files verify_stdout verify_stderr verify_stdout_file verify_stderr_file verify_ec
+  package_files=$(release_metadata_package_files "$root")
+  verify_stdout_file=$(mktemp)
+  verify_stderr_file=$(mktemp)
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.1.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$verify_stdout_file" 2>"$verify_stderr_file" && verify_ec=0 || verify_ec=$?
+  verify_stdout=$(cat "$verify_stdout_file" 2>/dev/null || true)
+  verify_stderr=$(cat "$verify_stderr_file" 2>/dev/null || true)
+  rm -f "$verify_stdout_file" "$verify_stderr_file"
+
+  if [ "$verify_ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: release-verify-tag rejected the post-state
+      stdout:
+$(printf '%s\n' "$verify_stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$verify_stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$verify_stdout" | grep -Fq "verify_tag=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-commit-and-annotated-tag: missing verify_tag=pass after the release procedure
+$(printf '%s\n' "$verify_stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_readme_references_release_wrong_repo_case() {
   local root readme_path stdout stderr stdout_file stderr_file ec
 
@@ -12203,6 +12333,7 @@ run_readme_references_release_fenced_heading_case
 run_readme_references_release_tilde_fenced_heading_case
 run_readme_references_release_latest_only_case
 run_readme_references_release_wrong_repo_case
+run_release_commit_and_annotated_tag_case
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
