@@ -10613,6 +10613,77 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_release_tag_version_mismatch_case() {
+  local root package_files tag_type stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+    # When the engineer runs `git tag -a v0.2.0 -m "Release v0.2.0"`
+    git tag -a v0.2.0 -m "Release v0.2.0"
+  )
+
+  tag_type=$(cd "$root" && git cat-file -t v0.2.0)
+  if [ "$tag_type" != "tag" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: v0.2.0 should be an annotated tag (got '${tag_type}')"
+    rm -rf "$root"
+    return
+  fi
+
+  package_files=$(release_metadata_package_files "$root")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # Then release-verify-tag with --tag v0.2.0 against packages at 0.1.0 exits non-zero
+  node "$SCRIPT" release-verify-tag \
+    --tag v0.2.0 \
+    --package-files "$package_files" \
+    --changelog "$root/CHANGELOG.md" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_tag=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: missing verify_tag=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "version"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-tag-version-mismatch: stderr missing version-mismatch hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_verify_commit_subject_wrong_case() {
   local root subject stdout stderr stdout_file stderr_file ec
   root=$(mktemp -d)
@@ -12572,6 +12643,7 @@ run_release_verify_tag_annotation_annotated_case
 run_release_verify_tag_annotation_lightweight_case
 run_release_verify_commit_subject_correct_case
 run_release_verify_commit_subject_wrong_case
+run_release_tag_version_mismatch_case
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
