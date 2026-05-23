@@ -10613,6 +10613,114 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_release_extract_notes_release_notes_md_case() {
+  local root changelog_path notes_path stdout stderr stdout_file stderr_file ec
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+  notes_path="$root/release-notes.md"
+
+  # Given "CHANGELOG.md" contains the heading "## [0.1.0] - 2026-05-23" followed by entries
+  # and the next "## [" heading immediately follows the section body
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+## [0.1.0] - 2026-05-23
+
+### Added
+
+- First promoted entry for v0.1.0.
+- Second promoted entry for v0.1.0.
+
+### Fixed
+
+- A fix that belongs in v0.1.0.
+
+## [0.0.1] - 2026-01-01
+
+### Added
+
+- Initial release.
+
+## [0.0.0] - 2025-12-15
+
+- Bootstrap.
+MD
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the workflow extracts release notes for tag "v0.1.0"
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    >"$notes_path" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: expected exit 0, got ${ec}
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # Then the extracted "release-notes.md" is non-empty
+  if [ ! -s "$notes_path" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: file is empty"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the extracted notes stop before the next "## [" heading
+  if grep -Eq '^## \[' "$notes_path"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: leaked a '## [' heading into the extracted notes
+$(sed 's/^/        /' "$notes_path")"
+    rm -rf "$root"
+    return
+  fi
+
+  # And the body of [0.1.0] is fully present
+  for needle in \
+    "- First promoted entry for v0.1.0." \
+    "- Second promoted entry for v0.1.0." \
+    "- A fix that belongs in v0.1.0."; do
+    if ! grep -Fq -- "$needle" "$notes_path"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: missing entry '${needle}'
+$(sed 's/^/        /' "$notes_path")"
+      rm -rf "$root"
+      return
+    fi
+  done
+
+  # And the prior version section is NOT in the extracted notes
+  for forbidden in "- Initial release." "- Bootstrap."; do
+    if grep -Fq -- "$forbidden" "$notes_path"; then
+      FAIL=$((FAIL + 1))
+      FAILURES="${FAILURES}
+  ✗ release-extract-notes release-notes.md: prior-version content leaked '${forbidden}'
+$(sed 's/^/        /' "$notes_path")"
+      rm -rf "$root"
+      return
+    fi
+  done
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_extract_notes_nominal_case() {
   local root changelog_path stdout stderr stdout_file stderr_file ec
 
@@ -11639,6 +11747,7 @@ run_release_verify_tag_unreleased_populated_marker_case "+" "plus"
 run_release_verify_tag_unreleased_populated_marker_case "1." "numbered-dot"
 run_release_verify_tag_unreleased_populated_marker_case "1)" "numbered-paren"
 run_release_extract_notes_nominal_case
+run_release_extract_notes_release_notes_md_case
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
