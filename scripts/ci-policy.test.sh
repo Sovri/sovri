@@ -10613,6 +10613,119 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_release_verify_commit_subject_wrong_case() {
+  local root subject stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    # When the engineer runs `git commit -m "release 0.1.0"`
+    git commit --quiet -m "release 0.1.0"
+  )
+
+  subject=$(cd "$root" && git log -1 --pretty=%s)
+  if [ "$subject" != "release 0.1.0" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: HEAD subject is '${subject}', expected 'release 0.1.0'"
+    rm -rf "$root"
+    return
+  fi
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-commit-subject \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -eq 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: expected non-zero exit, got 0
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_commit_subject=fail"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: missing verify_commit_subject=fail
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "Commit subject must equal chore(release): v0.1.0"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject wrong: missing remediation hint
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_verify_commit_subject_correct_case() {
+  local root stdout stderr stdout_file stderr_file ec
+  root=$(mktemp -d)
+  setup_release_tag_workspace "$root"
+
+  (
+    cd "$root"
+    : >".bump"
+    git add .bump
+    git commit --quiet -m "chore(release): v0.1.0"
+  )
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-verify-commit-subject \
+    --tag v0.1.0 \
+    --repo "$root" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject correct: expected exit 0, got ${ec}
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "verify_commit_subject=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-verify-commit-subject correct: missing verify_commit_subject=pass
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_verify_tag_annotation_lightweight_case() {
   local root tag_type stdout stderr stdout_file stderr_file ec
   root=$(mktemp -d)
@@ -12457,6 +12570,8 @@ run_readme_references_release_wrong_repo_case
 run_release_commit_and_annotated_tag_case
 run_release_verify_tag_annotation_annotated_case
 run_release_verify_tag_annotation_lightweight_case
+run_release_verify_commit_subject_correct_case
+run_release_verify_commit_subject_wrong_case
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
