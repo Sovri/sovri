@@ -26,7 +26,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `["anthropic", "mistral", "openai", "openai-compatible"]`. Pins the
   ADR-005 wide-enum / narrow-refine pattern at the runtime layer so any
   accidental drop or addition trips a test rather than a downstream
-  switch/case (R-03 nominal, ATDD scenario sub-issue #1167 under US #1162).
+  switch/case. The assertion lives inside the `describe("ProviderSchema")`
+  block alongside the other enum-shape assertions, per the file's "one
+  describe = one subject" convention (R-03 nominal, ATDD scenario
+  sub-issue #1167 under US #1162).
 
 - `test(config)`: regression-guard asserting that the
   `SovriConfigSchema.safeParse()` rejection message for `llm.provider`
