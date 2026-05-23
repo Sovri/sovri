@@ -10613,6 +10613,51 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_readme_references_release_nominal_case() {
+  local stdout stderr stdout_file stderr_file ec
+  local repo_root="${SCRIPT_DIR%/scripts}"
+  local readme_path="$repo_root/README.md"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When a contributor opens "README.md" on the default branch
+  node "$SCRIPT" readme-references-release \
+    --readme "$readme_path" \
+    --image ghcr.io/mpiton/sovri/community-bot \
+    --version 0.1.0 \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then the file contains the literal snippet `docker pull ghcr.io/mpiton/sovri/community-bot:v0.1.0`
+  # And the file contains the section heading "## Install" within the first 200 lines.
+  # Both assertions are wrapped inside the readme-references-release subcommand and surface
+  # as exit 0 + `readme_references_release=pass` on success.
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release nominal: expected exit 0, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  if ! printf '%s\n' "$stdout" | grep -Fq "readme_references_release=pass"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ readme-references-release nominal: missing pass assertion
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 run_release_extract_notes_release_notes_md_case() {
   local root changelog_path notes_path stdout stderr stdout_file stderr_file ec
 
@@ -11831,6 +11876,7 @@ run_release_verify_tag_unreleased_populated_marker_case "1." "numbered-dot"
 run_release_verify_tag_unreleased_populated_marker_case "1)" "numbered-paren"
 run_release_extract_notes_nominal_case
 run_release_extract_notes_release_notes_md_case
+run_readme_references_release_nominal_case
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 23-05-2026" "dd-mm-yyyy"
 run_release_extract_notes_malformed_heading_case "## [0.1.0] - 2026/05/23" "slash-separator"
 run_release_extract_notes_malformed_heading_case "## 0.1.0 - 2026-05-23" "missing-brackets"
