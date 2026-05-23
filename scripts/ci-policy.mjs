@@ -1819,20 +1819,15 @@ const readTextFile = (path, label) => {
   }
 };
 
-const CHANGELOG_RELEASE_HEADING_DATE_SUFFIX = "(?:[ \\t]*-[ \\t]*\\d{4}-\\d{2}-\\d{2})?";
+const CHANGELOG_RELEASE_HEADING_DATE_SUFFIX = "[ \\t]*-[ \\t]*\\d{4}-\\d{2}-\\d{2}";
 
 const findChangelogReleaseHeadingMatch = (changelog, version) => {
   const pattern = new RegExp(
-    `^## \\[${escapeRegExp(version)}\\]${CHANGELOG_RELEASE_HEADING_DATE_SUFFIX}\\s*$`,
+    `^## \\[${escapeRegExp(version)}\\]${CHANGELOG_RELEASE_HEADING_DATE_SUFFIX}[ \\t]*$`,
     "m",
   );
   const match = pattern.exec(changelog);
   if (match === null || match.index === undefined) return null;
-  const after = changelog.slice(match.index + match[0].length);
-  const nextLine = after.replace(/^\r?\n/, "").split(/\r?\n/, 1)[0] ?? "";
-  if (/^[ \t]*-[ \t]*\d{4}-\d{2}-\d{2}[ \t]*$/.test(nextLine)) {
-    return null;
-  }
   return match;
 };
 

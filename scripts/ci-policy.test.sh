@@ -10517,7 +10517,14 @@ write_release_metadata_fixture() {
     printf '{ "version": "%s" }\n' "$core_version" >"$root/${package_path}/package.json"
   done
   printf '{ "version": "%s" }\n' "$bot_version" >"$root/apps/community-bot/package.json"
-  printf '# Changelog\n\n%s\n\n- Release notes.\n' "$changelog_heading" >"$root/CHANGELOG.md"
+  # release-verify-tag now requires the dated `## [X.Y.Z] - YYYY-MM-DD` form,
+  # so bare `## [X.Y.Z]` heading fixtures are auto-extended with a stable
+  # placeholder date.
+  local final_heading="$changelog_heading"
+  if printf '%s' "$changelog_heading" | grep -Eq '^## \[[^]]+\]$'; then
+    final_heading="$changelog_heading - 2026-05-23"
+  fi
+  printf '# Changelog\n\n%s\n\n- Release notes.\n' "$final_heading" >"$root/CHANGELOG.md"
 }
 
 release_metadata_package_files() {
@@ -12890,7 +12897,13 @@ write_cosign_fixture() {
   local workflow_body="$4"
 
   mkdir -p "$root"
-  printf '# Changelog\n\n%s\n%s\n\n## [Unreleased]\n%s\n' "$changelog_heading" "$changelog_body" "$changelog_body" >"$root/CHANGELOG.md"
+  # Auto-extend bare `## [X.Y.Z]` headings with the canonical dated form so the
+  # release-heading regex (now date-required) accepts the fixture.
+  local final_heading="$changelog_heading"
+  if printf '%s' "$changelog_heading" | grep -Eq '^## \[[^]]+\]$'; then
+    final_heading="$changelog_heading - 2026-05-23"
+  fi
+  printf '# Changelog\n\n%s\n%s\n\n## [Unreleased]\n%s\n' "$final_heading" "$changelog_body" "$changelog_body" >"$root/CHANGELOG.md"
   printf '%s\n' "$workflow_body" >"$root/release.yml"
 }
 
