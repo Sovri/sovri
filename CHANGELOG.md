@@ -19,7 +19,202 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `test(e2e)`: add unrecorded image provenance failure coverage and
+  validator messaging for the v0.1 smoke run (#1016).
+
+- `test(e2e)`: add complete nominal soak-log row coverage for every
+  qualifying PR and an explicit content assertion pass message (#1019).
+
+- `test(e2e)`: add nominal committed soak-log evidence coverage with PR
+  rows for v0.1 task evidence validation (#1050).
+
+- `test(e2e)`: add redacted secret placeholder coverage for captured log
+  secret validation (#1035).
+
+- `test(e2e)`: add no-crash coverage and validator support for contextual
+  process exit evidence during the smoke PR set, including latest in-range
+  evidence precedence (#1030).
+
+- `test(e2e)`: add synchronize-event smoke PR count coverage and validator
+  support for deduplicating repeated events by PR (#1042).
+
+- `test(e2e)`: add missing webhook receipt timestamp coverage for v0.1
+  latency evidence validation (#1047).
+
+- `test(e2e)`: add three-PR below-minimum smoke-count coverage for v0.1
+  smoke PR validation (#1039).
+
+- `test(e2e)`: add wrong GHCR image repository rejection coverage for
+  v0.1 image provenance validation (#1017).
+
+- `test(e2e)`: add nominal GitHub credential wiring evidence coverage for
+  signed webhook acceptance and installation token availability (#1054).
+
+- `test(e2e)`: add manual quality rating scale and minimum threshold
+  coverage for v0.1 soak-log validation (#1023).
+
+- `test(e2e)`: add wrong GitHub webhook secret rejection evidence coverage
+  for the v0.1 smoke run (#1057).
+
+- `test(e2e)`: add latency-sample PR qualification coverage using GitHub
+  additions plus deletions for the changed-line boundary (#1046).
+
+- `test(e2e)`: add missing Docker restart-count evidence coverage for the
+  no-crash smoke assertion (#1032).
+
+- `test(e2e)`: add missing GitHub App webhook subscription coverage for
+  pull_request and issue_comment installation evidence (#1014).
+
+- `test(e2e)`: add missing GitHub App permission coverage for
+  pull_requests, contents, issues, and metadata installation evidence (#1013).
+
+- `test(e2e)`: aggregate target repository evidence rows across multiple
+  complete soak-log tables (#1022).
+
+- `test(e2e)`: ensure soak-log validation selects the complete evidence
+  table for the target repository when other repository tables appear first
+  (#1022).
+
+- `test(e2e)`: restrict soak-log field, duplicate, latency, finding-count,
+  and row-count checks to the complete PR evidence table (#1022).
+
+- `test(e2e)`: add missing required soak-log field coverage for PR URL,
+  latency, finding count, manual quality rating, and unrelated leading
+  Markdown tables (#1022).
+
+- `test(e2e)`: add missing target repository GitHub App installation failure
+  coverage for the v0.1 smoke run (#1011).
+
+- `test(e2e)`: add missing qualifying PR evidence row coverage and row-only
+  soak validator support for the v0.1 smoke log (#1020).
+
+- `test(e2e)`: add missing GitHub runtime credential startup failure
+  evidence coverage and validator support for the v0.1 smoke run (#1055).
+
+- `test(e2e)`: add missing first Sovri PR comment latency failure coverage
+  for the v0.1 smoke run (#1048).
+
+- `test(e2e)`: add missing captured Docker logs failure coverage for the v0.1
+  smoke run (#1036).
+
+- `test(e2e)`: add unset Anthropic API key evidence coverage for the v0.1
+  smoke run (#1006).
+
+- `test(e2e)`: add malformed APP_ID startup failure coverage, runtime
+  validation, and soak evidence validator support with missing-value,
+  whitespace, and oversized-number guards (#1056).
+
+- `test(e2e)`: add committed soak-log evidence coverage and validator support
+  for rejecting untracked local soak logs (#1051).
+
+- `test(e2e)`: add local-build image provenance coverage for missing source
+  commit evidence and validator failure reason support (#1018).
+
+- `test(e2e)`: add soak-log latency duration validation coverage and validator
+  support for invalid latency values (#1025).
+
+- `test(e2e)`: add invalid private key startup failure evidence coverage and
+  validator support for fixture and non-fixture credential values (#1059).
+
+- `test(e2e)`: add individual smoke PR qualification matrix coverage and
+  validator output for included and excluded reasons (#1041).
+
+- `test(e2e)`: add no-crash failure coverage for `/health` returning 503 during
+  the smoke PR set (#1029).
+
+- `test(e2e)`: add nominal GitHub App installation evidence coverage and
+  validator checks for required permissions, webhook subscriptions, signed PR
+  webhook delivery, and required GitHub API access (#1010).
+
+- `test(e2e)`: add four-PR minimum smoke-count coverage for the
+  `minimum count reached` classification (#1038).
+
+- `test(e2e)`: add four-PR p95 latency acceptance coverage for the strict
+  below-90-second smoke target (#1044).
+
+- `test(e2e)`: add four-PR no-crash acceptance coverage with explicit
+  no-exit event evidence (#1027).
+
+- `test(e2e)`: add five-PR target smoke-count coverage and validator output
+  for qualifying count plus target/minimum classification (#1037).
+
+- `test(e2e)`: add five-PR p95 latency acceptance coverage for the strict
+  below-90-second smoke target (#1043).
+
+- `test(e2e)`: add five-PR no-crash smoke evidence coverage and validator
+  support for per-review health checks plus no-exit events (#1026).
+
+- `test(e2e)`: add first-comment latency measurement coverage and validator
+  support (#1049).
+
+- `test(e2e)`: add non-negative soak-log finding count coverage and validator
+  support (#1024).
+
+- `test(e2e)`: add strict p95 latency boundary coverage and validator support
+  for the 90-second limit (#1045).
+
+- `test(e2e)`: add escaped private key newline startup evidence coverage and
+  validator support (#1058).
+
+- `test(e2e)`: add empty committed soak-log evidence coverage and
+  validator support (#1053).
+
+- `test(e2e)`: add empty Anthropic API key smoke evidence coverage and
+  validator support (#1009).
+
+- `test(e2e)`: add duplicate soak evidence row rejection coverage and
+  validator support for qualifying PRs (#1021).
+
+- `test(e2e)`: add smoke PR count exclusion and strict malformed
+  minimum-count coverage plus validator support for draft, 500-line, and
+  wrong-branch PRs (#1040).
+
+- `test(e2e)`: add GitHub App identity and repository-binding rejection
+  coverage plus validator support for the smoke installation assertion (#1012).
+
+- `test(e2e)`: add crash evidence matrix, missing evidence, and latest-line
+  outcome coverage for no-crash smoke validation (#1031).
+
+- `test(e2e)`: add no-crash restart plus missing, truncated, and malformed
+  restart evidence failure coverage for the smoke PR set (#1028).
+
+- `test(e2e)`: add clean captured log metadata success coverage and malformed
+  repeated secret argument rejection (#1033).
+
+- `test(e2e)`: add captured log raw-secret and missing-log failure coverage
+  (#1034).
+
+- `test(e2e)`: add Anthropic provider log secret-redaction smoke coverage
+  (#1008).
+
+- `test(e2e)`: add parameterized successful Anthropic smoke review evidence
+  coverage (#1005).
+
+- `test(e2e)`: add Anthropic authentication failure smoke evidence coverage
+  (#1007).
+
+- `test(e2e)`: add v0.1 soak image provenance acceptance coverage (#1015).
+
 ### Fixed
+
+- `scripts(validate-v0-1-soak)`: detect any non-empty `git status --short`
+  output for the soak log (modified, staged, deleted, renamed) instead of only
+  the untracked `??` prefix, so the `soak-log-commit` rule correctly rejects
+  uncommitted edits (#1114 review feedback).
+
+- `test(e2e)`: accept GitHub App API access evidence for any PR number instead
+  of hard-coding PR 101 (#1010 review feedback).
+
+- `test(e2e)`: reject impossible negative PR latency evidence when comment
+  timestamps precede webhook receipt timestamps (#1049 review feedback).
+
+- `test(e2e)`: ignore stale pre-webhook PR comments when measuring first-comment
+  latency (#1049 review feedback).
+
+- `test(e2e)`: require committed soak-log metadata and PR evidence rows to
+  match the expected repository exactly (#1053).
 
 - `test(msw)`: shared Anthropic handler now returns `anthropic-empty.json` for
   non-`json_schema` requests so the structured-output branch is exercised
