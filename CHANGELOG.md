@@ -77,20 +77,6 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   v0.2 string `Only 'anthropic' and 'mistral' are enabled in this
   release.` (R-02 violation, ATDD scenario sub-issue #1165 under US #1162).
 
-### Changed
-
-- `feat(config)`: widen `LlmSchema.provider` `.refine()` from the v0.1
-  single-value `value === "anthropic"` to the v0.2 allow-list
-  `value === "anthropic" || value === "mistral"`. Rejection message
-  becomes `Only 'anthropic' and 'mistral' are enabled in this release.`.
-  `ProviderSchema` enum stays unchanged (wide enum, narrow refine —
-  ADR-005). Stale v0.1 assertions in `SovriConfig.test.ts` and
-  `loader.test.ts` (plus the `schema-violation-bad-provider` fixture)
-  flip from `mistral` to `openai` to keep the refine-rejection coverage
-  intact (R-01 nominal, ATDD scenario sub-issue #1164 under US #1162).
-
-### Added
-
 - `test(config)`: failing test asserting `provider=mistral` is accepted
   by `SovriConfigSchema.safeParse()` with `success=true` and parsed
   `llm.provider` equal to `"mistral"`. Red until the v0.2 widen flips
@@ -2855,6 +2841,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   incident (TanStack, Mistral SDK and OpenSearch compromised). Note that
   Dependabot security-update PRs bypass cooldown by design; merge-time
   review remains enforced by branch protection and human approval.
+
+### Changed
+
+- `feat(config)`: widen `LlmSchema.provider` `.refine()` from the v0.1
+  single-value `value === "anthropic"` to the v0.2 allow-list
+  `value === "anthropic" || value === "mistral"`. Rejection message
+  becomes `Only 'anthropic' and 'mistral' are enabled in this release.`.
+  `ProviderSchema` enum stays unchanged (wide enum, narrow refine —
+  ADR-005). Stale v0.1 assertions in `SovriConfig.test.ts` and
+  `loader.test.ts` (plus the `schema-violation-bad-provider` fixture)
+  flip from `mistral` to `openai` to keep the refine-rejection coverage
+  intact (R-01 nominal, ATDD scenario sub-issue #1164 under US #1162).
 
 ---
 
