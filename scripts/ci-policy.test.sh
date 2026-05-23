@@ -10762,6 +10762,73 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_promote_changelog_invalid_calendar_date_case() {
+  local date="$1"
+  local root changelog_path stdout stderr stdout_file stderr_file ec original_changelog
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # Given a CHANGELOG with an [Unreleased] entry ready for promotion
+  cat >"$changelog_path" <<'MD'
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Sample entry.
+MD
+  original_changelog=$(cat "$changelog_path")
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  # When the engineer passes a date that is well-formed but not a real calendar date
+  node "$SCRIPT" promote-changelog \
+    --version 0.1.0 \
+    --date "$date" \
+    --changelog "$changelog_path" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  # Then promote-changelog refuses without rewriting CHANGELOG.md
+  if [ "$ec" -ne 1 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: expected exit 1, got ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if ! printf '%s\n' "$stderr" | grep -Fq "date ${date} is not a valid calendar date"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: missing 'not a valid calendar date' error
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  if [ "$(cat "$changelog_path")" != "$original_changelog" ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ promote-changelog invalid-calendar-date ${date}: CHANGELOG.md was modified despite failed validation"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_promote_changelog_then_verify_tag_case() {
   local root package_files stdout stderr stdout_file stderr_file ec
 
@@ -11279,6 +11346,9 @@ run_release_verify_tag_format_case "v0.1"
 run_release_verify_tag_format_case "v0.1.0-rc.1"
 run_promote_changelog_nominal_case
 run_promote_changelog_duplicate_version_case
+run_promote_changelog_invalid_calendar_date_case "2026-13-40"
+run_promote_changelog_invalid_calendar_date_case "2026-02-30"
+run_promote_changelog_invalid_calendar_date_case "2026-04-31"
 run_promote_changelog_then_verify_tag_case
 run_release_build_and_push_case
 run_release_build_dynamic_tags_case

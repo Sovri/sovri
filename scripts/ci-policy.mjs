@@ -1940,6 +1940,21 @@ const runReleaseBuildAndPush = (args) => {
 const PROMOTE_CHANGELOG_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const PROMOTE_CHANGELOG_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+const isValidCalendarDate = (value) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() + 1 === month &&
+    parsed.getUTCDate() === day
+  );
+};
+
 const runPromoteChangelog = (args) => {
   const options = parseOptions(args);
   const version = readRequiredOption(options, "version", promoteChangelogUsage);
@@ -1953,6 +1968,10 @@ const runPromoteChangelog = (args) => {
   if (!PROMOTE_CHANGELOG_DATE_PATTERN.test(date)) {
     writeStdout("promote_changelog=fail\n");
     fail(`date must be YYYY-MM-DD, got ${date}`, 1);
+  }
+  if (!isValidCalendarDate(date)) {
+    writeStdout("promote_changelog=fail\n");
+    fail(`date ${date} is not a valid calendar date`, 1);
   }
 
   const changelog = readTextFile(changelogPath, "changelog");
