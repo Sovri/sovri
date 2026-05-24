@@ -2,12 +2,14 @@
 // Copyright 2026 Sovri SAS
 
 import type { Diff, FileChange } from "@sovri/core";
+import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { describe, expect, it, vi } from "vitest";
 
 type FilterDiffByIgnores = (diff: Diff, patterns: readonly string[]) => Diff;
 
 const FilterModulePath = "./filter.js";
+const FilterSourceUrl = new URL("./filter.ts", import.meta.url);
 const LargeDiffFileCount = 500;
 const Sha = "2222222222222222222222222222222222222222";
 
@@ -18,6 +20,10 @@ async function loadFilterDiffByIgnores(): Promise<FilterDiffByIgnores> {
   }
 
   return module.filterDiffByIgnores;
+}
+
+async function readFilterSource(): Promise<string> {
+  return readFile(FilterSourceUrl, "utf8");
 }
 
 function isFilterModule(value: unknown): value is { filterDiffByIgnores: FilterDiffByIgnores } {
@@ -613,5 +619,16 @@ describe("filterDiffByIgnores", () => {
     expect(returnedPaths).toContain("dist/community-bot.js");
     // And no file is removed because node:path.posix.matchesGlob does not treat a leading "!" as pattern negation
     expect(returnedPaths).toEqual(diff.files.map((file) => file.path));
+  });
+
+  it("imports and calls the Node POSIX path matcher", async () => {
+    // Given filter.ts exists
+    // When the implementation imports its matcher
+    const source = await readFilterSource();
+
+    // Then it imports "posix" from "node:path"
+    expect(source).toContain('import { posix } from "node:path";');
+    // And it calls "posix.matchesGlob"
+    expect(source).toContain("posix.matchesGlob");
   });
 });
