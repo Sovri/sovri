@@ -84,7 +84,11 @@ has_install_lifecycle_script() {
 const fs = require("node:fs");
 const json = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
 const scripts = json.scripts ?? {};
-process.exit(scripts.preinstall || scripts.install || scripts.postinstall ? 0 : 1);
+const hasLifecycle =
+  Object.prototype.hasOwnProperty.call(scripts, "preinstall") ||
+  Object.prototype.hasOwnProperty.call(scripts, "install") ||
+  Object.prototype.hasOwnProperty.call(scripts, "postinstall");
+process.exit(hasLifecycle ? 0 : 1);
 ' "$1"
 }
 
@@ -367,18 +371,30 @@ run_non_allowlisted_license_blocks_update() {
 
 run_license_verification_uses_ci_gate() {
   local label="license verification uses the same gate as CI"
-  local temp_dir fixture stderr_file
+  local temp_dir fixture stderr_file fake_bin
   temp_dir=$(mktemp -d)
   fixture="$temp_dir/licenses.json"
   stderr_file="$temp_dir/stderr"
+  fake_bin="$temp_dir/pnpm"
   printf '{"Apache-2.0":[{"name":"@mistralai/mistralai","versions":["2.2.1"],"paths":["/store/mistral"],"license":"Apache-2.0"}],"MIT":[{"name":"ws","versions":["8.21.0"],"paths":["/store/ws"],"license":"MIT"},{"name":"zod","versions":["4.4.3"],"paths":["/store/zod"],"license":"MIT"}],"ISC":[{"name":"zod-to-json-schema","versions":["3.25.2"],"paths":["/store/zod-to-json-schema"],"license":"ISC"}]}\n' >"$fixture"
+
+  cat >"$fake_bin" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = "licenses" ] && [ "$2" = "list" ] && [ "$3" = "--json" ]; then
+  cat "$MISTRAL_LICENSE_FIXTURE"
+  exit 0
+fi
+exit 2
+SH
+  chmod +x "$fake_bin"
 
   # Given the workspace has the updated "pnpm-lock.yaml"
   # When "node scripts/check-licenses.mjs" runs without an input fixture
   # Then it invokes "pnpm licenses list --json"
   # And it exits with status 0
   # And it prints an "OK:" summary
-  if ! node "$ROOT/scripts/check-licenses.mjs" --input "$fixture" 2>"$stderr_file"; then
+  if ! PATH="$temp_dir:$PATH" MISTRAL_LICENSE_FIXTURE="$fixture" \
+    node "$ROOT/scripts/check-licenses.mjs" 2>"$stderr_file"; then
     record_failure "$label" "CI license gate fixture failed"
     rm -rf "$temp_dir"
     return

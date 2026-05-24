@@ -21,6 +21,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test(supply-chain)`: `scripts/mistral-sdk-policy.test.sh`
+  `has_install_lifecycle_script` now uses `Object.prototype.hasOwnProperty`
+  for `preinstall` / `install` / `postinstall` key presence instead of
+  truthiness, so a package declaring `"preinstall": ""` is still flagged
+  as carrying a lifecycle script. `run_license_verification_uses_ci_gate`
+  now exercises the no-`--input` branch of `scripts/check-licenses.mjs`
+  by mocking `pnpm licenses list --json` via a `PATH`-prepended shim
+  fed from `MISTRAL_LICENSE_FIXTURE`, so the test actually covers the
+  `spawnSync` path that CI hits (PR #1238 review feedback from CodeRabbit
+  on `scripts/mistral-sdk-policy.test.sh:82-88` and `:368-381`).
+
 - `fix(llm-providers)`: `retryWithBackoff` now routes synchronous
   throws from `fn` through the retry pipeline. The `fn` invocation
   moved inside the `runAttempt` `try` block so a non-async caller that
