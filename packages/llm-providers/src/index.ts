@@ -20,6 +20,8 @@ export {
   type AnthropicResponseErrorOptions,
 } from "./errors.js";
 
+export { createProviderFromConfig } from "./factory.js";
+
 export {
   AnthropicProvider,
   DEFAULT_ANTHROPIC_MAX_TOKENS,
