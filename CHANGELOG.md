@@ -25,7 +25,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   helper contract so empty ignore patterns preserve every diff file and
   patch, including generated-file patches, while returning a fresh
   `Diff` object without mutating the input, exported from the
-  review-engine diff module and package index.
+  review-engine diff module and package index. Empty diff inputs also
+  remain empty when ignore patterns are present.
 
 ### Fixed
 
