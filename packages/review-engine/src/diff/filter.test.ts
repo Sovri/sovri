@@ -346,6 +346,36 @@ describe("filterDiffByIgnores", () => {
     expect(returnedPaths).toContain("src/domain/review.ts");
   });
 
+  it("uses OR semantics when multiple ignore patterns are provided", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = diffWithPaths([
+      "src/domain/review.ts",
+      "dist/community-bot.js",
+      "app.lock",
+      "pnpm-lock.yaml",
+      "README.md",
+    ]);
+
+    // Given ignore patterns are ["dist/**", "*.lock"]
+    const patterns: readonly string[] = ["dist/**", "*.lock"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has files ["src/domain/review.ts", "pnpm-lock.yaml", "README.md"]
+    expect(filtered.files.map((file) => file.path)).toEqual([
+      "src/domain/review.ts",
+      "pnpm-lock.yaml",
+      "README.md",
+    ]);
+    // And the returned unified_diff omits "diff --git a/dist/community-bot.js b/dist/community-bot.js"
+    expect(filtered.unified_diff).not.toContain(
+      "diff --git a/dist/community-bot.js b/dist/community-bot.js",
+    );
+    // And the returned unified_diff omits "diff --git a/app.lock b/app.lock"
+    expect(filtered.unified_diff).not.toContain("diff --git a/app.lock b/app.lock");
+  });
+
   it.each([
     ["*.lock", "app.lock", "pnpm-lock.yaml"],
     ["**/*.lock", "app.lock", "pnpm-lock.yaml"],
