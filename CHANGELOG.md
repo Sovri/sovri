@@ -19,7 +19,231 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- `fix(llm-providers)`: `retryWithBackoff` now routes synchronous
+  throws from `fn` through the retry pipeline. The `fn` invocation
+  moved inside the `runAttempt` `try` block so a non-async caller that
+  throws before returning a `Promise` flows through `isRetryable`
+  dispatch, the attempt cap, the budget-vs-sleep guard, durations
+  capture, and the typed-error wrapping. The `deadlineTimer` is now
+  declared as a `let` in the outer scope so the `finally` block can
+  conditionally call `clearTimeout` only when the timer was actually
+  scheduled. The tie-breaking ordering at the exact deadline boundary
+  is preserved — `fn`'s internal `setTimeout` still registers before
+  the helper's deadline `setTimeout` (PR #1217 review feedback from
+  codex and CodeRabbit on `retry.ts:77/83`).
+
+### Changed
+
+- `feat(llm-providers)`: `AnthropicProvider.retry.ts` now consumes the
+  generic `retryWithBackoff` helper. The provider keeps its own
+  Anthropic-specific `isRetryable` predicate (mirroring the v0.1 SDK
+  policy — retry on `APIConnectionError` + HTTP 408/409/429/5xx,
+  reject `APIConnectionTimeoutError` so it surfaces immediately as a
+  timeout) and maps the helper's typed terminal errors back into the
+  provider error hierarchy (`RetryExhaustedError → AnthropicRetryError`
+  with `cause`-derived `status` / `requestId`,
+  `RetryTimeoutError → AnthropicTimeoutError`, non-retryable rethrows
+  → `AnthropicAuthError` / `AnthropicResponseError` via the existing
+  `normalizeAnthropicError` mapper). The provider tracks per-attempt
+  durations through a closure-scoped array so non-retryable error
+  paths preserve the v0.1 `attemptDurationsMs` contract. The retry
+  loop, backoff calculation, jitter, deadline scheduling, and abort
+  controller lifecycle are now owned by the helper. Zero regression on
+  the existing 122 `AnthropicProvider.*.test.ts` cases (R-05 + R-03
+  satisfied).
+
 ### Added
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  the AttemptContext `AbortSignal` exposed to `fn` becomes aborted at
+  the per-attempt budget boundary. With `timeoutMs: 200` and a fn that
+  awaits the signal, the captured signal must show `aborted === true`
+  after `advanceTimersByTimeAsync(200)`, and the helper must throw
+  `RetryTimeoutError` once. Pins the abort-via-AttemptContext path
+  separately from #1189's RetryTimeoutError-shape assertions (R-03
+  technical limit, ATDD scenario sub-issue #1199 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `retryWithBackoff` shrinks the per-attempt budget across recursion.
+  With `timeoutMs: 5000`, an attempt-1 rejection after 800 ms, and a
+  500 ms backoff sleep (0 % jitter), the AttemptContext captured on
+  attempt 2 must show `timeoutMs === 3700` (exact: `5000 - 800 - 500`).
+  Any future change that froze the budget at the configured value (no
+  recompute on recurse) would break (R-01 nominal, ATDD scenario
+  sub-issue #1198 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `retryWithBackoff` forwards the full configured `opts.timeoutMs` to
+  `AttemptContext.timeoutMs` on the first attempt. The test uses
+  `timeoutMs: 5000` and a captures-on-every-attempt `fn` that resolves
+  `"ok"` immediately, then asserts the captured context shows
+  `timeoutMs === 5000`, `attempt === 1`, and a fresh non-aborted
+  `AbortSignal`. Complements #1184 (which used 60000 ms) and guards
+  the drift-free budget propagation through the public entry (R-01
+  nominal, ATDD scenario sub-issue #1197 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard pinning the
+  second retry delay at the endpoints of the ±20 % jitter band around
+  the 1000 ms exponential step. Two outline rows drive
+  `Math.random.mockReturnValueOnce(firstRandom).mockReturnValueOnce(secondRandom)`
+  to produce `(−20 %, +20 %) → (400 ms, 1200 ms)` and
+  `(+20 %, −20 %) → (600 ms, 800 ms)` across attempts 1→2 and 2→3.
+  Validates the jitter formula across both consecutive draws (R-03
+  violation, ATDD scenario sub-issue #1196 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard pinning the
+  first retry delay at the exact endpoints of the ±20 % jitter band.
+  Drives `Math.random` to `0 / 0.5 / 1` (yielding jitter factors of
+  `-20 % / 0 % / +20 %` on the helper's `(random*2-1)*0.2` formula)
+  and asserts the helper waits exactly `400 ms / 500 ms / 600 ms`
+  between attempt 1 and attempt 2 before resolving `"ok"` (R-03
+  violation, ATDD scenario sub-issue #1195 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `retryWithBackoff` respects the `opts.maxAttempts` cap for every
+  documented value (1, 2, 3, 5). The `vitest` `it.each` outline drives
+  `fn` to reject `"E_TRANSIENT"` on every call against the parametric
+  cap, advances fake time through `2^(attempt-1)` ms backoffs, then
+  asserts the typed error fires after exactly `maxAttempts` invocations
+  with a matching-length durations array. Current impl satisfies every
+  example with no production-code diff; the test pins the breadth so a
+  future change that hardcoded a specific cap (e.g. always 3) would
+  break visibly (R-02 violation, ATDD scenario sub-issue #1194 under
+  US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `RetryExhaustedError.attemptDurationsMs` preserves each per-attempt
+  duration in order across exhausted retries. The test schedules
+  attempt 1 to reject after 40 ms, attempt 2 after 55 ms, attempt 3
+  after 70 ms (with deterministic 0 % jitter for the 500 ms and
+  1000 ms backoffs) and asserts the typed error carries
+  `[40, 55, 70]`. The cap-hit path landed under #1192 already
+  accumulates durations correctly; this test pins the value-by-value
+  contract so any future change to the duration capture would break
+  visibly (R-06 violation, ATDD scenario sub-issue #1193 under US
+  #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now caps retries at
+  `opts.maxAttempts`. When the catch block has classified the failure
+  as retryable but the current attempt index is already at the cap,
+  the helper throws `RetryExhaustedError("Operation failed after <N>
+  attempts", { cause, attemptDurationsMs })` carrying the last
+  attempt's cause and the accumulated per-attempt durations. The
+  matching acceptance test schedules three E_TRANSIENT failures
+  against a 3-attempt cap (with deterministic 0 % jitter so the 500 ms
+  + 1000 ms backoffs are exact) and asserts the typed error fires with
+  the correct message, three durations, the third Error instance as
+  cause, and `fn` invoked exactly three times (R-06 violation +
+  R-02 maxAttempts, ATDD scenario sub-issue #1192 under US #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now treats a response that
+  arrives at exactly `timeoutMs` as success, matching the v0.1 boundary
+  contract pinned by `AnthropicProvider.retry.test.ts`. The `runAttempt`
+  body calls `fn` BEFORE scheduling the deadline `setTimeout`, so the
+  operation's internal timer (registered synchronously inside its
+  Promise executor) wins any tie at the exact boundary. A parametric
+  vitest outline verifies 999 ms / 1000 ms / 1001 ms responses against
+  a 1000 ms timeout: the first two resolve `"ok"`, the third throws
+  `RetryTimeoutError` (R-02 timeoutMs + R-03 deadline limit, ATDD
+  scenario sub-issue #1191 under US #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now surfaces the timeout
+  before scheduling a retry that cannot fit. When the catch block has
+  classified the failure as retryable, the helper compares the next
+  nominal backoff (`nextRetryDelayMs(opts.baseDelayMs, attempt)`)
+  against the remaining budget (`deadlineMs - Date.now()`). If the
+  budget cannot accommodate the sleep, the helper throws
+  `RetryTimeoutError("Operation timed out after <N> ms", { cause,
+  attemptDurationsMs })` carrying the rejected attempt's cause and the
+  accumulated durations. The retry sleep and recursive call are
+  reached only when the budget can still fit the sleep. The matching
+  acceptance test uses fake timers to schedule an attempt-1 rejection
+  600 ms into an 800 ms timeout (with 500 ms base delay and 0 % jitter)
+  and asserts the typed error fires with `attemptDurationsMs === [600]`
+  and `cause === eTransient` (R-03 deadline + R-06 violation, ATDD
+  scenario sub-issue #1190 under US #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now enforces an aggregate
+  `timeoutMs` deadline. The helper schedules a per-attempt
+  `setTimeout(() => controller.abort(), budgetMs)` and tracks
+  `attemptDurationsMs` across recursion. When the controller's signal
+  fires (deadline elapsed during `fn`) or when the next attempt's
+  remaining budget is `<= 0` (deadline already past), the helper
+  throws `RetryTimeoutError("Operation timed out after <N> ms", { cause,
+  attemptDurationsMs })`. The function entry pins `budgetMs =
+  opts.timeoutMs` for attempt 1 so AttemptContext.timeoutMs is exactly
+  the configured value (no `Date.now()` drift); attempts 2+ get
+  `deadlineMs - Date.now()` against the original deadline. The matching
+  acceptance test uses `vi.useFakeTimers()` to advance fake time
+  exactly 200 ms after invoking the helper with a 200 ms timeout and
+  asserts the signal aborts, the typed error fires, and exactly one
+  attempt was executed (R-06 violation + R-03 deadline, ATDD scenario
+  sub-issue #1189 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `retryWithBackoff` rethrows any caller-classified non-retryable HTTP
+  token (`HTTP_400`, `HTTP_401`, `HTTP_403`, `HTTP_404`, `HTTP_422`)
+  verbatim without wrapping. A `vitest` `it.each` outline mirrors the
+  Scenario Outline `Examples:` table. The `isRetryable`-dispatch branch
+  landed under #1187 already satisfies every example with no
+  production-code diff; the test pins the breadth so any future
+  regression that special-cased one of the documented non-retryable
+  statuses would break (R-06 violation, ATDD scenario sub-issue #1188
+  under US #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now consults
+  `opts.isRetryable(cause)` before scheduling a retry. When the
+  predicate returns `false`, the helper rethrows the original error
+  reference verbatim without wrapping it in `RetryExhaustedError` or
+  `RetryTimeoutError`. Adds the typed `RetryExhaustedError` and
+  `RetryTimeoutError` classes to the helper module (each exposing
+  `readonly attemptDurationsMs: readonly number[]` and
+  `cause: unknown`) and re-exports the full helper API
+  (`retryWithBackoff`, `AttemptContext`, `RetryOptions`,
+  `RetryErrorOptions`, both error classes) from the
+  `@sovri/llm-providers` package barrel (R-04). The matching
+  acceptance test asserts object identity is preserved across the
+  rethrow, `fn` is called exactly once, and the rethrown error is not
+  an instance of either typed helper error (R-06 violation, ATDD
+  scenario sub-issue #1187 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
+  `retryWithBackoff` retries any caller-classified retryable token
+  (`HTTP_408`, `HTTP_409`, `HTTP_429`, `HTTP_500`, `HTTP_502`, `HTTP_503`,
+  `HTTP_504`, `HTTP_529`, `TRANSPORT`) once and resolves on the next
+  attempt. A `vitest` `it.each` outline mirrors the Scenario Outline
+  `Examples:` table. The current `runAttempt` recursion already satisfies
+  every example with no production-code diff; the test pins the breadth
+  so a future regression that special-cased any token would break (R-02
+  nominal, ATDD scenario sub-issue #1186 under US #1183).
+
+- `feat(llm-providers)`: `retryWithBackoff` now retries on failure.
+  Refactored to a recursive `runAttempt` helper that catches `fn`'s
+  rejection, computes the next backoff via
+  `baseDelayMs * 2^(attempt-1) * (1 ± 0.2 * random())`, sleeps, then
+  re-invokes `fn` with `attempt + 1` and a fresh `AbortController`. The
+  module-scoped `RETRY_JITTER_RATIO = 0.2` constant pins the ±20 %
+  jitter band. No `isRetryable` dispatch yet (deferred to #1187), no
+  `maxAttempts` cap (#1192), no aggregate-timeout deadline (#1189). The
+  matching acceptance test asserts that one retryable failure followed
+  by a successful attempt resolves with `"ok"` after exactly 500 ms of
+  backoff and 2 total invocations of `fn` (R-02 nominal, ATDD scenario
+  sub-issue #1185 under US #1183).
+
+- `feat(llm-providers)`: scaffold the new `retryWithBackoff(fn, opts)`
+  helper at `packages/llm-providers/src/helpers/retry.ts`. The helper
+  module exports the `AttemptContext` and `RetryOptions` interfaces plus
+  the function itself. The initial implementation honours the
+  happy-first-attempt scenario: it constructs a fresh `AbortController`,
+  calls `fn` once with an `AttemptContext` carrying `attempt === 1`,
+  `timeoutMs === opts.timeoutMs`, and the non-aborted `signal`, and
+  returns the resulting promise — no retry loop, no deadline scheduler,
+  no error wrapping yet (subsequent scenarios add each of those
+  behaviours under their own failing tests). A co-located vitest unit
+  test pins the contract (R-01 nominal, ATDD scenario sub-issue #1184
+  under US #1183).
 
 - `test(config)`: regression-guard asserting that `loadConfig()`
   surfaces the v0.2 provider refine failure through
