@@ -3,6 +3,7 @@
 
 import type { SovriConfig } from "@sovri/config";
 
+import { MissingApiKeyError, UnsupportedProviderError } from "./errors.js";
 import { AnthropicProvider } from "./providers/AnthropicProvider.js";
 import { MistralProvider } from "./providers/MistralProvider.js";
 import type { LLMProvider } from "./types/LLMProvider.js";
@@ -18,6 +19,10 @@ export function createProviderFromConfig(config: SovriConfig, env: NodeJS.Proces
       });
     case "mistral":
       return createMistralProvider(config, apiKey);
+    default:
+      throw new UnsupportedProviderError(config.llm.provider, {
+        cause: new Error("Provider is not supported by the provider factory"),
+      });
   }
 }
 
@@ -40,7 +45,9 @@ function readApiKey(apiKeySecret: string, env: NodeJS.ProcessEnv): string {
   const apiKey = env[apiKeySecret]?.trim();
 
   if (apiKey === undefined || apiKey.length === 0) {
-    throw new Error(`${apiKeySecret} must be set`);
+    throw new MissingApiKeyError(apiKeySecret, {
+      cause: new Error("API key environment variable is missing or blank"),
+    });
   }
 
   return apiKey;

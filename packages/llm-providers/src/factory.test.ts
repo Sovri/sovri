@@ -3,7 +3,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createProviderFromConfig, type LLMProvider } from "./index.js";
+import {
+  createProviderFromConfig,
+  MissingApiKeyError,
+  UnsupportedProviderError,
+  type LLMProvider,
+} from "./index.js";
 
 describe("createProviderFromConfig", () => {
   it.each([
@@ -39,10 +44,32 @@ describe("createProviderFromConfig", () => {
       expect(createdProvider.name).toBe(provider);
     },
   );
+
+  it("throws a typed missing-key error when the configured env var is absent", () => {
+    const config = createConfig({
+      provider: "mistral",
+      model: "mistral-large-latest",
+      apiKeySecret: "MISTRAL_API_KEY",
+    });
+
+    expect(() => createProviderFromConfig(config, {})).toThrow(MissingApiKeyError);
+  });
+
+  it("throws a typed unsupported-provider error for future provider values", () => {
+    const config = createConfig({
+      provider: "openai",
+      model: "gpt-4.1",
+      apiKeySecret: "OPENAI_API_KEY",
+    });
+
+    expect(() => createProviderFromConfig(config, { OPENAI_API_KEY: "test-key" })).toThrow(
+      UnsupportedProviderError,
+    );
+  });
 });
 
 function createConfig(llm: {
-  readonly provider: "anthropic" | "mistral";
+  readonly provider: "anthropic" | "mistral" | "openai" | "openai-compatible";
   readonly model: string;
   readonly apiKeySecret: string;
 }) {
