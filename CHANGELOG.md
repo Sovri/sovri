@@ -38,7 +38,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   current path, staying within the 50 ms local soft budget for a 500-file diff
   using median post-warmup samples, dropping ignored patches from large unified
   diffs, preserving every file and patch when no large-diff pattern matches, with
-  leading `!` treated literally rather than as gitignore negation.
+  prevalidated configuration patterns applied without returning validation
+  metadata, and leading `!` treated literally rather than as gitignore negation.
 
 ### Fixed
 
