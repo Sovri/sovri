@@ -90,6 +90,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: prompt construction now accepts the task-scoped
+  review modes `full`, `bugs-only`, and `minimal`. Full mode preserves the
+  v0.1 system prompt exactly, bugs-only mode focuses the model on
+  correctness issues, and minimal mode limits output to at most three
+  blocker or major findings. `reviewPullRequest` now forwards
+  `config.review.mode` into prompt construction, with golden prompt coverage
+  for the three supported modes.
+
 - `feat(llm-providers)`: add the shared provider factory entrypoint
   (`createProviderFromConfig`) for creating Anthropic and Mistral providers
   from Sovri LLM configuration, with acceptance coverage for the supported

@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
+import { buildReviewPrompt } from "./index.js";
 import {
   buildSystemPrompt,
   buildUserPrompt,
@@ -457,6 +458,87 @@ describe("buildUserPrompt", () => {
 });
 
 describe("buildSystemPrompt", () => {
+  it("emits distinct golden prompts for supported review modes with the same diff", () => {
+    // Given the same pull request diff is reviewed with each supported review mode.
+    const diff = `diff --git a/src/payment.ts b/src/payment.ts
+@@ -1,4 +1,5 @@
+ export function capture(amountCents: number): string {
++  const label = "urgent";
+   if (amountCents < 0) {
+     return "accepted";
+   }`;
+
+    const pullRequest = {
+      number: 42,
+      repoFullName: "acme/payments",
+      title: "Protect high-value transfers",
+      description: "Reject invalid transfer state.",
+    };
+
+    // When the maintainer builds a review prompt for each mode.
+    const prompts = {
+      full: buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "full" }).systemPrompt,
+      "bugs-only": buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "bugs-only" })
+        .systemPrompt,
+      minimal: buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "minimal" }).systemPrompt,
+    };
+
+    // Then the three system prompts are distinct golden outputs.
+    expect(new Set(Object.values(prompts)).size).toBe(3);
+    expect(prompts).toMatchInlineSnapshot(`
+      {
+        "bugs-only": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Focus on correctness bugs that can change runtime behavior. Ignore style-only findings and formatting nits. Ignore performance-only findings unless they cause incorrect behavior. Return structured JSON findings that match the requested schema.",
+        "full": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Return structured JSON findings that match the requested schema.",
+        "minimal": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Return at most 3 findings. Include only blocker or major severity findings. Suppress nits, style-only comments, and minor findings. Return structured JSON findings that match the requested schema.",
+      }
+    `);
+  });
+
+  it("emits correctness-focused guidance for bugs-only mode", () => {
+    // Given the review mode is "bugs-only".
+
+    // When the maintainer builds the system prompt.
+    const systemPrompt = buildSystemPrompt({ mode: "bugs-only" });
+
+    // Then the system prompt instructs the model to focus on correctness bugs.
+    expect(systemPrompt).toContain("Focus on correctness bugs");
+    // And the system prompt instructs the model to ignore style-only findings.
+    expect(systemPrompt).toContain("Ignore style-only findings");
+    // And the system prompt instructs the model to ignore performance-only findings.
+    expect(systemPrompt).toContain("Ignore performance-only findings");
+    // And the system prompt does not contain runtime pull request data.
+    expect(systemPrompt).not.toContain("src/payment.ts");
+  });
+
+  it("emits concise severe-finding guidance for minimal mode", () => {
+    // Given the review mode is "minimal".
+
+    // When the maintainer builds the system prompt.
+    const systemPrompt = buildSystemPrompt({ mode: "minimal" });
+
+    // Then the system prompt instructs the model to surface at most 3 findings.
+    expect(systemPrompt).toContain("at most 3 findings");
+    // And the system prompt limits findings to severity "blocker" or "major".
+    expect(systemPrompt).toContain("blocker or major");
+    // And the system prompt suppresses nits and minor findings.
+    expect(systemPrompt).toContain("Suppress nits");
+    expect(systemPrompt).toContain("minor findings");
+    // And the system prompt does not contain runtime pull request data.
+    expect(systemPrompt).not.toContain("src/auth.ts");
+  });
+
+  it("names the maximum finding count boundary for minimal mode", () => {
+    // Given the review mode is "minimal".
+
+    // When the maintainer checks the minimal-mode guidance.
+    const systemPrompt = buildSystemPrompt({ mode: "minimal" });
+
+    // Then the prompt instructs the model to report 3 findings at most.
+    expect(systemPrompt).toContain("at most 3 findings");
+    // And the prompt does not allow a fourth finding.
+    expect(systemPrompt).not.toContain("4 findings");
+  });
+
   it("returns the baseline static template for full review mode", () => {
     // Given the review config selects mode "full".
 
