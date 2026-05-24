@@ -307,4 +307,56 @@ describe("retryWithBackoff — timeout deadline abort", () => {
     // And exactly 1 attempt is executed
     expect(fn).toHaveBeenCalledTimes(1);
   });
+
+  it("throws RetryTimeoutError carrying the rejected cause when remaining budget cannot fit the backoff", async () => {
+    // Given the retry helper is configured with max 3 total attempts
+    // And the retry helper is configured with a base delay of 500 ms
+    // And the retry helper is configured with a timeout of 800 ms
+    // And the isRetryable predicate classifies error "E_TRANSIENT" as retryable
+    // And the jitter factor selected for the first retry delay is 0 percent
+    const opts: RetryOptions = {
+      maxAttempts: 3,
+      baseDelayMs: 500,
+      timeoutMs: 800,
+      isRetryable: (err) => err instanceof Error && err.message === "E_TRANSIENT",
+    };
+
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    // And the first attempt rejects with error "E_TRANSIENT" after 600 ms
+    const eTransient = new Error("E_TRANSIENT");
+    const fn = vi.fn(async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 600);
+      });
+      throw eTransient;
+    });
+
+    // When the caller invokes the retry helper once
+    const promise = retryWithBackoff(fn, opts);
+    const capturedError = promise.catch((error: unknown) => error);
+
+    // 600 ms elapse: attempt 1 finishes rejecting after the configured delay
+    await vi.advanceTimersByTimeAsync(600);
+
+    // The next attempt's nominal sleep is 500 ms but the remaining budget is
+    // only 200 ms, so the helper must surface the timeout without scheduling
+    // the retry. Advance past the would-be sleep boundary anyway to flush any
+    // pending microtask the impl may have queued.
+    await vi.advanceTimersByTimeAsync(500);
+
+    // Then the retry helper throws RetryTimeoutError
+    const error = await capturedError;
+    expect(error).toBeInstanceOf(RetryTimeoutError);
+
+    // And exactly 1 attempt is executed
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    // And the RetryTimeoutError exposes attemptDurationsMs equal to [600]
+    expect((error as RetryTimeoutError).attemptDurationsMs).toEqual([600]);
+
+    // And the RetryTimeoutError carries the rejected "E_TRANSIENT" error as cause
+    expect((error as RetryTimeoutError).cause).toBe(eTransient);
+  });
 });

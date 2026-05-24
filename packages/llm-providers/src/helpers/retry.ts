@@ -91,7 +91,16 @@ async function runAttempt<T>(
       throw cause;
     }
 
-    await sleep(nextRetryDelayMs(opts.baseDelayMs, attempt));
+    const sleepMs = nextRetryDelayMs(opts.baseDelayMs, attempt);
+
+    if (deadlineMs - Date.now() <= sleepMs) {
+      throw new RetryTimeoutError(`Operation timed out after ${String(opts.timeoutMs)} ms`, {
+        cause,
+        attemptDurationsMs: nextDurations,
+      });
+    }
+
+    await sleep(sleepMs);
 
     return runAttempt(fn, opts, attempt + 1, deadlineMs, nextDurations, deadlineMs - Date.now());
   } finally {
