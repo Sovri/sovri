@@ -92,6 +92,13 @@ index 3333333333333333333333333333333333333333..22222222222222222222222222222222
   };
 }
 
+function emptyDiff(): Diff {
+  return {
+    unified_diff: "",
+    files: [],
+  };
+}
+
 describe("filterDiffByIgnores", () => {
   it("keeps every file and patch when ignore patterns are empty", async () => {
     const filterDiffByIgnores = await loadFilterDiffByIgnores();
@@ -145,5 +152,22 @@ describe("filterDiffByIgnores", () => {
     expect(filtered).not.toBe(diff);
     // And the input Diff files remain ["src/app.ts", "dist/app.js"]
     expect(diff.files.map((file) => file.path)).toEqual(["src/app.ts", "dist/app.js"]);
+  });
+
+  it("keeps an empty Diff empty when ignore patterns are present", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+
+    // Given a Diff with unified_diff "" and no files
+    const diff = emptyDiff();
+    // And ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has no files
+    expect(filtered.files).toEqual([]);
+    // And the returned unified_diff is ""
+    expect(filtered.unified_diff).toBe("");
   });
 });
