@@ -524,7 +524,8 @@ describe("buildSystemPrompt", () => {
     expect(systemPrompt).toContain("Suppress nits");
     expect(systemPrompt).toContain("minor findings");
     // And the system prompt does not contain runtime pull request data.
-    expect(systemPrompt).not.toContain("src/auth.ts");
+    expect(systemPrompt).not.toContain("src/payment.ts");
+    expect(systemPrompt).not.toContain("Protect high-value transfers");
   });
 
   it("names the maximum finding count boundary for minimal mode", () => {

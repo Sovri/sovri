@@ -5,8 +5,12 @@ import type { Diff, PullRequest, Severity } from "@sovri/core";
 import type { GenerateStructuredParams, LLMProvider } from "@sovri/llm-providers";
 import { describe, expect, it } from "vitest";
 
-import { reviewPullRequest, type ReviewPullRequestConfig } from "./orchestrator.js";
-import { buildSystemPrompt, type ReviewPromptMode } from "./prompt/builder.js";
+import {
+  reviewPullRequest,
+  type ReviewPullRequestConfig,
+  type ReviewPullRequestConfigMode,
+} from "./orchestrator.js";
+import { buildSystemPrompt } from "./prompt/builder.js";
 
 class CapturingProvider implements LLMProvider {
   public readonly name = "test-provider";
@@ -58,9 +62,20 @@ describe("reviewPullRequest review mode plumbing", () => {
     // And no unsupported mode fallback is used.
     expect(provider.systemPrompt).not.toContain("at most 3 findings");
   });
+
+  it("accepts the legacy 'strict' config mode and routes it to the full-mode system prompt", async () => {
+    // Given a repository config still ships `review.mode: strict` from v0.1.
+    const provider = new CapturingProvider();
+
+    // When the orchestrator parses the input.
+    await reviewPullRequest({ pullRequest, diff, config: configForMode("strict") }, { provider });
+
+    // Then the provider receives the baseline full-mode system prompt instead of throwing.
+    expect(provider.systemPrompt).toBe(buildSystemPrompt({ mode: "full" }));
+  });
 });
 
-function configForMode(mode: ReviewPromptMode): ReviewPullRequestConfig {
+function configForMode(mode: ReviewPullRequestConfigMode): ReviewPullRequestConfig {
   return {
     ...baseConfig,
     review: {

@@ -93,10 +93,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(review-engine)`: prompt construction now accepts the task-scoped
   review modes `full`, `bugs-only`, and `minimal`. Full mode preserves the
   v0.1 system prompt exactly, bugs-only mode focuses the model on
-  correctness issues, and minimal mode limits output to at most three
-  blocker or major findings. `reviewPullRequest` now forwards
-  `config.review.mode` into prompt construction, with golden prompt coverage
-  for the three supported modes.
+  correctness issues while explicitly ignoring style-only and
+  performance-only guidance, and minimal mode limits output to at most
+  three blocker or major findings. `reviewPullRequest` now forwards
+  `config.review.mode` into prompt construction, with golden prompt
+  coverage for the three supported modes. The orchestrator config schema
+  also accepts the v0.1 `strict` mode value and maps it to `full` so
+  existing `.sovri.yml` files do not regress (PR #1346 review feedback
+  from Codex on `packages/review-engine/src/orchestrator.ts:50`).
 
 - `feat(llm-providers)`: add the shared provider factory entrypoint
   (`createProviderFromConfig`) for creating Anthropic and Mistral providers

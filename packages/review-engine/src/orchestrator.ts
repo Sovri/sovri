@@ -25,7 +25,6 @@ import { parseUnifiedDiff } from "./diff/index.js";
 import {
   buildReviewPrompt,
   ReviewPromptInputSchema,
-  ReviewPromptModeSchema,
   type ReviewPromptMode,
 } from "./prompt/index.js";
 import {
@@ -45,9 +44,17 @@ const TokenUsageSchema = z.object({
 const ZeroTokenUsage = TokenUsageSchema.parse({ prompt: 0, completion: 0 });
 const FindingBodyMaxLength = 2_000;
 
+// Mirrors the v0.1 config-layer review mode enum so `.sovri.yml` files
+// that still ship `mode: strict` keep parsing. The transform maps
+// `strict` to `full` because v0.1 strict had no prompt-level effect and
+// the supported prompt builder modes are full / bugs-only / minimal.
+const ReviewPullRequestConfigModeSchema = z
+  .enum(["full", "bugs-only", "strict", "minimal"])
+  .transform((mode): ReviewPromptMode => (mode === "strict" ? "full" : mode));
+
 const ReviewPullRequestConfigSchema = z.object({
   review: z.object({
-    mode: ReviewPromptModeSchema.default("full"),
+    mode: ReviewPullRequestConfigModeSchema.default("full"),
     severityThreshold: SeveritySchema,
   }),
   ignores: z.array(z.string()),
@@ -134,9 +141,11 @@ export interface ReviewEngineResult {
   readonly walkthroughMarkdown: string;
 }
 
+export type ReviewPullRequestConfigMode = z.input<typeof ReviewPullRequestConfigModeSchema>;
+
 export interface ReviewPullRequestConfig {
   readonly review: {
-    readonly mode?: ReviewPromptMode;
+    readonly mode?: ReviewPullRequestConfigMode;
     readonly severityThreshold: Severity;
   };
   readonly ignores: readonly string[];
