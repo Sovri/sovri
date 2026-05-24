@@ -17,11 +17,23 @@ export function createProviderFromConfig(config: SovriConfig, env: NodeJS.Proces
         model: config.llm.model,
       });
     case "mistral":
-      return new MistralProvider({
-        apiKey,
-        model: config.llm.model,
-      });
+      return createMistralProvider(config, apiKey);
   }
+}
+
+function createMistralProvider(config: SovriConfig, apiKey: string): MistralProvider {
+  if (config.llm.baseUrl !== undefined) {
+    return new MistralProvider({
+      apiKey,
+      baseUrl: config.llm.baseUrl,
+      model: config.llm.model,
+    });
+  }
+
+  return new MistralProvider({
+    apiKey,
+    model: config.llm.model,
+  });
 }
 
 function readApiKey(apiKeySecret: string, env: NodeJS.ProcessEnv): string {

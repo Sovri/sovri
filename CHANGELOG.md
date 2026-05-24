@@ -84,7 +84,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(llm-providers)`: add the shared provider factory entrypoint for
   creating Anthropic and Mistral providers from Sovri LLM configuration,
-  with acceptance coverage for the supported provider creation path.
+  with acceptance coverage for the supported provider creation path. The
+  Mistral factory path now also forwards configured custom base URLs to the
+  provider adapter.
 
 - `test(llm-providers)`: expand `MistralProvider` coverage with
   MSW-backed happy-path, token-usage, transient retry, exhausted 503,
