@@ -332,6 +332,23 @@ describe("filterDiffByIgnores", () => {
     expect(second.files.map((file) => file.path)).toEqual(["src/app.ts"]);
   });
 
+  it("applies validated configuration patterns without returning validation metadata", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    // And the patterns have already passed config-load validation
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then "dist/app.js" is removed from the returned Diff
+    expect(filtered.files.map((file) => file.path)).toEqual(["src/app.ts"]);
+    // And no validation result object is returned by the helper
+    expect(Reflect.has(filtered, "success")).toBe(false);
+  });
+
   it("does not depend on environment variables when filtering", async () => {
     const previousOverride = process.env.SOVRI_IGNORE_OVERRIDE;
     process.env.SOVRI_IGNORE_OVERRIDE = "src/**";
