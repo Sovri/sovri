@@ -37,7 +37,7 @@ function isFilterModule(value: unknown): value is { filterDiffByIgnores: FilterD
 
 function packageImportPattern(packageName: string): RegExp {
   return new RegExp(
-    `(?:from\\s+["']${packageName}["']|import\\(\\s*["']${packageName}["']\\s*\\))`,
+    `(?:from\\s+["']${packageName}["']|import\\s+["']${packageName}["']|import\\(\\s*["']${packageName}["']\\s*\\))`,
   );
 }
 
@@ -648,5 +648,11 @@ describe("filterDiffByIgnores", () => {
       // Then it does not import the third-party glob library
       expect(source).not.toMatch(packageImportPattern(packageName));
     }
+  });
+
+  it.each(ThirdPartyGlobLibraries)("detects side-effect imports of %s", (packageName) => {
+    const source = `import "${packageName}";`;
+
+    expect(source).toMatch(packageImportPattern(packageName));
   });
 });
