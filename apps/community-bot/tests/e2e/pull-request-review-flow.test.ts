@@ -15,6 +15,8 @@ import { server } from "../../../../tests/msw/server.js";
 
 const GitHubBaseUrl = "https://api.github.com";
 const AnthropicMessagesUrl = "https://api.anthropic.com/v1/messages";
+const MistralBaseUrl = "https://mistral.community-bot.test";
+const MistralChatUrl = `${MistralBaseUrl}/v1/chat/completions`;
 const Owner = "octo-org";
 const Repo = "sovri-target";
 const RepoFullName = `${Owner}/${Repo}`;
@@ -27,6 +29,7 @@ const OpenedDeliveryId = "8f1b9c2d-3e4f-45a6-91b2-123456789abc";
 const SynchronizeDeliveryId = "9f1b9c2d-3e4f-45a6-91b2-123456789abc";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
+const SecretMistralValue = "test-key";
 const SecretInstallationToken = "secret-installation-token-45";
 
 const IssueCommentCreateSchema = z.object({ body: z.string() }).passthrough();
@@ -60,6 +63,8 @@ type ObservedRuntime = {
   readonly anthropicRequests: unknown[];
   readonly issueCommentBodies: string[];
   readonly listFilesQueries: string[];
+  readonly mistralApiKeys: string[];
+  readonly mistralRequests: unknown[];
   readonly reviewRequests: ReviewRequest[];
 };
 
@@ -147,6 +152,37 @@ describe("community bot pull request review E2E ATDD", () => {
     // And no Anthropic credential is required outside the fixture
     expect(runtime.anthropicApiKeys).toEqual([SecretLlmValue]);
   });
+
+  it("uses the Mistral provider selected by repository configuration", async () => {
+    // Given the repository config file ".sovri.yml" declares llm.provider "mistral"
+    // And the repository config declares llm.model "mistral-large-latest"
+    // And the repository config declares llm.apiKeySecret "MISTRAL_API_KEY"
+    // And process env contains "MISTRAL_API_KEY" with value "test-key"
+    // And GitHub returns a unified diff for "apps/community-bot/src/github/pull-request-review.ts"
+    // And the Mistral API returns a valid structured review response
+    const runtime = await runReviewFlow({
+      action: "opened",
+      configContent: [
+        "llm:",
+        "  provider: mistral",
+        "  model: mistral-large-latest",
+        "  apiKeySecret: MISTRAL_API_KEY",
+        `  baseUrl: ${MistralBaseUrl}`,
+      ].join("\n"),
+      headSha: OpenedHeadSha,
+      mistralApiKey: SecretMistralValue,
+    });
+
+    // When the community bot handles the pull_request.opened webhook
+    // Then the review engine receives an LLM provider named "mistral"
+    expect(runtime.mistralRequests).toHaveLength(1);
+    // And the community bot posts one GitHub review for pull request 42
+    expect(runtime.reviewRequests).toHaveLength(1);
+    // And no Anthropic request is sent
+    expect(runtime.anthropicRequests).toEqual([]);
+    // And the Mistral request uses API key "test-key"
+    expect(runtime.mistralApiKeys[0]).toContain(SecretMistralValue);
+  }, 15_000);
 
   it("records an unhandled GitHub request with method and URL", async () => {
     // Given MSW has no handler for `GET https://api.github.com/rate_limit`
@@ -577,14 +613,17 @@ function publishedOutput(runtime: ObservedRuntime): string {
   return JSON.stringify({
     anthropicRequests: runtime.anthropicRequests,
     issueCommentBodies: runtime.issueCommentBodies,
+    mistralRequests: runtime.mistralRequests,
     reviewRequests: runtime.reviewRequests,
   });
 }
 
 async function runReviewFlow(values: {
   readonly action: "opened" | "synchronize";
+  readonly configContent?: string;
   readonly deliveryId?: string;
   readonly headSha: string;
+  readonly mistralApiKey?: string;
   readonly reviewStatus?: number;
 }): Promise<ObservedRuntime> {
   const runtime: ObservedRuntime = {
@@ -592,10 +631,18 @@ async function runReviewFlow(values: {
     anthropicRequests: [],
     issueCommentBodies: [],
     listFilesQueries: [],
+    mistralApiKeys: [],
+    mistralRequests: [],
     reviewRequests: [],
   };
   vi.stubEnv("ANTHROPIC_API_KEY", SecretLlmValue);
+  if (Object.hasOwn(values, "mistralApiKey")) {
+    vi.stubEnv("MISTRAL_API_KEY", values.mistralApiKey);
+  }
   installReviewFlowHandlers(runtime, values.reviewStatus ?? 200);
+  if (values.configContent !== undefined) {
+    installRepositoryConfigHandler(values.configContent);
+  }
   const probot = new Probot({
     githubToken: SecretInstallationToken,
     log: createLogger("community-bot.e2e-test"),
@@ -607,6 +654,14 @@ async function runReviewFlow(values: {
     payload: buildPullRequestPayload({ action: values.action, headSha: values.headSha }),
   });
   return runtime;
+}
+
+function installRepositoryConfigHandler(configContent: string): void {
+  server.use(
+    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, () =>
+      HttpResponse.text(configContent),
+    ),
+  );
 }
 
 function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: number): void {
@@ -660,6 +715,13 @@ function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: numbe
       runtime.anthropicApiKeys.push(request.headers.get("x-api-key") ?? "");
       runtime.anthropicRequests.push(await request.json());
       return anthropicMessageWithText(JSON.stringify(buildProviderResponse(3)));
+    }),
+    http.post(MistralChatUrl, async ({ request }) => {
+      runtime.mistralApiKeys.push(
+        request.headers.get("authorization") ?? request.headers.get("x-api-key") ?? "",
+      );
+      runtime.mistralRequests.push(await request.json());
+      return mistralChatCompletionWithText(JSON.stringify(buildProviderResponse(3)));
     }),
   );
 }
@@ -798,6 +860,23 @@ function anthropicMessageWithText(text: string) {
     stop_reason: "end_turn",
     stop_sequence: null,
     usage: { input_tokens: 812, output_tokens: 144 },
+  });
+}
+
+function mistralChatCompletionWithText(text: string) {
+  return HttpResponse.json({
+    id: "cmpl_test",
+    object: "chat.completion",
+    model: "mistral-large-latest",
+    created: 0,
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: text },
+        finish_reason: "stop",
+      },
+    ],
+    usage: { prompt_tokens: 812, completion_tokens: 144, total_tokens: 956 },
   });
 }
 

@@ -25,6 +25,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   configuration error comment on the pull request instead of the generic
   review-failed message, and the handler logs typed missing-key metadata
   with the GitHub delivery correlation ID without exposing secret values.
+  Community-bot E2E coverage now also verifies that a repository config
+  selecting Mistral sends the review request to the Mistral adapter rather
+  than falling back to Anthropic.
 
 - `fix(llm-providers)`: `MistralProvider` review hardening (PR #1267
   feedback from CodeRabbit and Codex). `createJsonSchemaDefinition` in
