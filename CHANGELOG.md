@@ -22,6 +22,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `test(llm-providers)`: triangulation regression guard pinning the
+  second retry delay at the endpoints of the ±20 % jitter band around
+  the 1000 ms exponential step. Two outline rows drive
+  `Math.random.mockReturnValueOnce(firstRandom).mockReturnValueOnce(secondRandom)`
+  to produce `(−20 %, +20 %) → (400 ms, 1200 ms)` and
+  `(+20 %, −20 %) → (600 ms, 800 ms)` across attempts 1→2 and 2→3.
+  Validates the jitter formula across both consecutive draws (R-03
+  violation, ATDD scenario sub-issue #1196 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard pinning the
   first retry delay at the exact endpoints of the ±20 % jitter band.
   Drives `Math.random` to `0 / 0.5 / 1` (yielding jitter factors of
   `-20 % / 0 % / +20 %` on the helper's `(random*2-1)*0.2` formula)
