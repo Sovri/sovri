@@ -21,6 +21,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(llm-providers)`: `retryWithBackoff` now retries on failure.
+  Refactored to a recursive `runAttempt` helper that catches `fn`'s
+  rejection, computes the next backoff via
+  `baseDelayMs * 2^(attempt-1) * (1 ± 0.2 * random())`, sleeps, then
+  re-invokes `fn` with `attempt + 1` and a fresh `AbortController`. The
+  module-scoped `RETRY_JITTER_RATIO = 0.2` constant pins the ±20 %
+  jitter band. No `isRetryable` dispatch yet (deferred to #1187), no
+  `maxAttempts` cap (#1192), no aggregate-timeout deadline (#1189). The
+  matching acceptance test asserts that one retryable failure followed
+  by a successful attempt resolves with `"ok"` after exactly 500 ms of
+  backoff and 2 total invocations of `fn` (R-02 nominal, ATDD scenario
+  sub-issue #1185 under US #1183).
+
 - `feat(llm-providers)`: scaffold the new `retryWithBackoff(fn, opts)`
   helper at `packages/llm-providers/src/helpers/retry.ts`. The helper
   module exports the `AttemptContext` and `RetryOptions` interfaces plus

@@ -61,3 +61,59 @@ describe("retryWithBackoff — happy first attempt", () => {
     expect(shortDelayCalls).toEqual([]);
   });
 });
+
+describe("retryWithBackoff — retry then success", () => {
+  it("retries one retryable failure and resolves on the next attempt", async () => {
+    // Given the retry helper is configured with max 3 total attempts
+    // And the retry helper is configured with a base delay of 500 ms
+    // And the retry helper is configured with a timeout of 60000 ms
+    // And the isRetryable predicate classifies error "E_TRANSIENT" as retryable
+    const opts: RetryOptions = {
+      maxAttempts: 3,
+      baseDelayMs: 500,
+      timeoutMs: 60_000,
+      isRetryable: (err) => err instanceof Error && err.message === "E_TRANSIENT",
+    };
+
+    // And the jitter factor selected for the first retry delay is 0 percent
+    //   (jitter formula `(Math.random() * 2 - 1) * 0.2` yields a 0 percent
+    //   factor when Math.random returns 0.5, leaving the nominal 500 ms
+    //   backoff unchanged)
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    // And the first attempt rejects with error "E_TRANSIENT"
+    // And the second attempt resolves with value "ok"
+    const captured: AttemptContext[] = [];
+    const fn = vi.fn(async (ctx: AttemptContext) => {
+      captured.push(ctx);
+      if (ctx.attempt === 1) {
+        throw new Error("E_TRANSIENT");
+      }
+      return "ok";
+    });
+
+    // When the caller invokes the retry helper once
+    const promise = retryWithBackoff(fn, opts);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // First attempt ran and rejected; backoff is pending.
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    // Then the retry helper waits 500 ms between the first and the second attempt
+    await vi.advanceTimersByTimeAsync(499);
+    expect(fn).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+
+    // And exactly 2 attempts are executed
+    expect(fn).toHaveBeenCalledTimes(2);
+
+    // And the retry helper returns "ok"
+    const result = await promise;
+    expect(result).toBe("ok");
+
+    // And the AttemptContext captured on attempt 2 reports attempt number 2
+    expect(captured[1]?.attempt).toBe(2);
+  });
+});
