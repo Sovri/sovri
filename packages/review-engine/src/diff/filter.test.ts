@@ -151,6 +151,21 @@ function largeMixedDiff(): Diff {
   return diffWithPaths(paths);
 }
 
+function median(values: readonly number[]): number {
+  if (values.length === 0) {
+    throw new TypeError("Cannot compute median of an empty sample set");
+  }
+
+  const sorted = values.toSorted((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const value = sorted[middle];
+  if (value === undefined) {
+    throw new TypeError("Median sample is missing");
+  }
+
+  return value;
+}
+
 function createPatch(path: string): string {
   return `diff --git a/${path} b/${path}
 index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
@@ -452,7 +467,7 @@ describe("filterDiffByIgnores", () => {
     // When filterDiffByIgnores receives the 500-file Diff and the patterns
     const diff = largeMixedDiff();
     let filtered = filterDiffByIgnores(diff, patterns);
-    let fastestDurationMs = Number.POSITIVE_INFINITY;
+    const durationSamplesMs: number[] = [];
 
     // Warm once so the soft-budget check is not dominated by first-call runtime noise.
     filterDiffByIgnores(diff, patterns);
@@ -460,7 +475,7 @@ describe("filterDiffByIgnores", () => {
       const start = performance.now();
       filtered = filterDiffByIgnores(diff, patterns);
       const durationMs = performance.now() - start;
-      fastestDurationMs = Math.min(fastestDurationMs, durationMs);
+      durationSamplesMs.push(durationMs);
     }
 
     // Then the returned Diff has 250 files
@@ -468,7 +483,7 @@ describe("filterDiffByIgnores", () => {
     // And every returned file path starts with "src/"
     expect(filtered.files.every((file) => file.path.startsWith("src/"))).toBe(true);
     // And the measured wall time is less than or equal to 50 ms on the local test process
-    expect(fastestDurationMs).toBeLessThanOrEqual(50);
+    expect(median(durationSamplesMs)).toBeLessThanOrEqual(50);
   });
 
   it.each([

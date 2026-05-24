@@ -36,8 +36,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   glob examples, applying multiple ignore patterns with OR semantics, removing
   every file and patch for catch-all `**`, matching renamed files by their
   current path, staying within the 50 ms local soft budget for a 500-file diff
-  using post-warmup samples, with leading `!` treated literally rather than as
-  gitignore negation.
+  using median post-warmup samples, with leading `!` treated literally rather
+  than as gitignore negation.
 
 ### Fixed
 
