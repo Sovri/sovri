@@ -751,4 +751,48 @@ describe("retryWithBackoff — per-attempt budget", () => {
     // And exactly 2 attempts are executed
     expect(fn).toHaveBeenCalledTimes(2);
   });
+
+  it("aborts the AttemptContext signal when the per-attempt budget is exhausted", async () => {
+    // Given the retry helper is configured with max 3 total attempts
+    // And the retry helper is configured with a base delay of 500 ms
+    // And the retry helper is configured with a timeout of 200 ms
+    const opts: RetryOptions = {
+      maxAttempts: 3,
+      baseDelayMs: 500,
+      timeoutMs: 200,
+      isRetryable: () => false,
+    };
+
+    vi.useFakeTimers();
+
+    // And the operation captures its AttemptContext on every attempt
+    // And the operation never resolves on its own and instead awaits its AttemptContext AbortSignal
+    const captured: AttemptContext[] = [];
+    const fn = vi.fn(async (ctx: AttemptContext) => {
+      captured.push(ctx);
+      return new Promise<never>((_, reject) => {
+        ctx.signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+
+    // When the caller invokes the retry helper once
+    const promise = retryWithBackoff(fn, opts);
+    const capturedError = promise.catch((error: unknown) => error);
+
+    // And 200 ms elapse
+    await vi.advanceTimersByTimeAsync(200);
+
+    // Then the AttemptContext captured on attempt 1 has an AbortSignal that becomes aborted at 200 ms
+    expect(captured[0]?.signal.aborted).toBe(true);
+
+    // And the retry helper throws RetryTimeoutError
+    expect(await capturedError).toBeInstanceOf(RetryTimeoutError);
+
+    // And exactly 1 attempt is executed
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 });

@@ -22,6 +22,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `test(llm-providers)`: triangulation regression guard asserting that
+  the AttemptContext `AbortSignal` exposed to `fn` becomes aborted at
+  the per-attempt budget boundary. With `timeoutMs: 200` and a fn that
+  awaits the signal, the captured signal must show `aborted === true`
+  after `advanceTimersByTimeAsync(200)`, and the helper must throw
+  `RetryTimeoutError` once. Pins the abort-via-AttemptContext path
+  separately from #1189's RetryTimeoutError-shape assertions (R-03
+  technical limit, ATDD scenario sub-issue #1199 under US #1183).
+
+- `test(llm-providers)`: triangulation regression guard asserting that
   `retryWithBackoff` shrinks the per-attempt budget across recursion.
   With `timeoutMs: 5000`, an attempt-1 rejection after 800 ms, and a
   500 ms backoff sleep (0 % jitter), the AttemptContext captured on
