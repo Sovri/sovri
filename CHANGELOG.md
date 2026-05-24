@@ -26,7 +26,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   patch, including generated-file patches, while returning a fresh
   `Diff` object without mutating the input, exported from the
   review-engine diff module and package index. Empty diff inputs also
-  remain empty when ignore patterns are present.
+  remain empty when ignore patterns are present, and acceptance coverage
+  now defines deterministic repeated-call filtering for non-empty ignore
+  patterns; the implementation applies POSIX glob filtering to both
+  `Diff.files` and the returned unified diff patches.
 
 ### Fixed
 
