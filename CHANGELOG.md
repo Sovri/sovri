@@ -21,6 +21,22 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(llm-providers)`: `retryWithBackoff` now surfaces the timeout
+  before scheduling a retry that cannot fit. When the catch block has
+  classified the failure as retryable, the helper compares the next
+  nominal backoff (`nextRetryDelayMs(opts.baseDelayMs, attempt)`)
+  against the remaining budget (`deadlineMs - Date.now()`). If the
+  budget cannot accommodate the sleep, the helper throws
+  `RetryTimeoutError("Operation timed out after <N> ms", { cause,
+  attemptDurationsMs })` carrying the rejected attempt's cause and the
+  accumulated durations. The retry sleep and recursive call are
+  reached only when the budget can still fit the sleep. The matching
+  acceptance test uses fake timers to schedule an attempt-1 rejection
+  600 ms into an 800 ms timeout (with 500 ms base delay and 0 % jitter)
+  and asserts the typed error fires with `attemptDurationsMs === [600]`
+  and `cause === eTransient` (R-03 deadline + R-06 violation, ATDD
+  scenario sub-issue #1190 under US #1183).
+
 - `feat(llm-providers)`: `retryWithBackoff` now enforces an aggregate
   `timeoutMs` deadline. The helper schedules a per-attempt
   `setTimeout(() => controller.abort(), budgetMs)` and tracks
