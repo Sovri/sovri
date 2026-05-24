@@ -108,6 +108,47 @@ function directoryGlobDiff(): Diff {
   };
 }
 
+function diffWithPaths(paths: readonly string[]): Diff {
+  const patches = paths.map(createPatch);
+
+  return {
+    unified_diff: patches.join("\n"),
+    files: paths.map((path, index) => createFileChange(path, patches[index] ?? "")),
+  };
+}
+
+function createPatch(path: string): string {
+  return `diff --git a/${path} b/${path}
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/${path}
++++ b/${path}
+@@ -1 +1,2 @@
+ old content
++new content for ${path}`;
+}
+
+function createFileChange(path: string, patch: string): FileChange {
+  return {
+    path,
+    previous_path: undefined,
+    status: "modified",
+    additions: 1,
+    deletions: 0,
+    sha: Sha,
+    patch,
+    hunks: [
+      {
+        old_start: 1,
+        old_lines: 1,
+        new_start: 1,
+        new_lines: 2,
+        header: "@@ -1 +1,2 @@",
+        lines: [" old content", `+new content for ${path}`],
+      },
+    ],
+  };
+}
+
 function renameDirectoryGlobFile(file: FileChange): FileChange {
   return {
     path: renameDirectoryGlobPath(file.path),
@@ -303,5 +344,27 @@ describe("filterDiffByIgnores", () => {
     expect(returnedPaths).not.toContain("dist/community-bot.js");
     // And "src/domain/review.ts" remains in the returned Diff
     expect(returnedPaths).toContain("src/domain/review.ts");
+  });
+
+  it.each([
+    ["*.lock", "app.lock", "pnpm-lock.yaml"],
+    ["**/*.lock", "app.lock", "pnpm-lock.yaml"],
+    ["{src,lib}/**", "src/domain/review.ts", "README.md"],
+    ["!(dist)/**", "src/domain/review.ts", "dist/community-bot.js"],
+  ])("applies Node POSIX glob pattern %s literally", async (pattern, removedPath, keptPath) => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = diffWithPaths([removedPath, keptPath]);
+
+    // Given ignore patterns are ["<pattern>"]
+    const patterns: readonly string[] = [pattern];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+    const returnedPaths = filtered.files.map((file) => file.path);
+
+    // Then "<removed_path>" is removed from the returned Diff
+    expect(returnedPaths).not.toContain(removedPath);
+    // And "<kept_path>" remains in the returned Diff
+    expect(returnedPaths).toContain(keptPath);
   });
 });
