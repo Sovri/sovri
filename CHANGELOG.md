@@ -21,6 +21,22 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(llm-providers)`: `retryWithBackoff` now consults
+  `opts.isRetryable(cause)` before scheduling a retry. When the
+  predicate returns `false`, the helper rethrows the original error
+  reference verbatim without wrapping it in `RetryExhaustedError` or
+  `RetryTimeoutError`. Adds the typed `RetryExhaustedError` and
+  `RetryTimeoutError` classes to the helper module (each exposing
+  `readonly attemptDurationsMs: readonly number[]` and
+  `cause: unknown`) and re-exports the full helper API
+  (`retryWithBackoff`, `AttemptContext`, `RetryOptions`,
+  `RetryErrorOptions`, both error classes) from the
+  `@sovri/llm-providers` package barrel (R-04). The matching
+  acceptance test asserts object identity is preserved across the
+  rethrow, `fn` is called exactly once, and the rethrown error is not
+  an instance of either typed helper error (R-06 violation, ATDD
+  scenario sub-issue #1187 under US #1183).
+
 - `test(llm-providers)`: triangulation regression guard asserting that
   `retryWithBackoff` retries any caller-classified retryable token
   (`HTTP_408`, `HTTP_409`, `HTTP_429`, `HTTP_500`, `HTTP_502`, `HTTP_503`,
