@@ -39,7 +39,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   using median post-warmup samples, dropping ignored patches from large unified
   diffs, preserving every file and patch when no large-diff pattern matches, with
   prevalidated configuration patterns applied without returning validation
-  metadata, and leading `!` treated literally rather than as gitignore negation.
+  metadata, invalid-looking unmatched patterns kept as a no-op without surfacing
+  config validation errors, and leading `!` treated literally rather than as
+  gitignore negation.
 
 ### Fixed
 
