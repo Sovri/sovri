@@ -2,11 +2,13 @@
 // Copyright 2026 Sovri SAS
 
 import type { Diff, FileChange } from "@sovri/core";
+import { performance } from "node:perf_hooks";
 import { describe, expect, it, vi } from "vitest";
 
 type FilterDiffByIgnores = (diff: Diff, patterns: readonly string[]) => Diff;
 
 const FilterModulePath = "./filter.js";
+const LargeDiffFileCount = 500;
 const Sha = "2222222222222222222222222222222222222222";
 
 async function loadFilterDiffByIgnores(): Promise<FilterDiffByIgnores> {
@@ -139,6 +141,29 @@ index 1111111111111111111111111111111111111111..22222222222222222222222222222222
       },
     ],
   };
+}
+
+function largeMixedDiff(): Diff {
+  const paths = Array.from({ length: LargeDiffFileCount }, (_unused, index) =>
+    index % 2 === 0 ? `src/module-${index}.ts` : `dist/generated-${index}.js`,
+  );
+
+  return diffWithPaths(paths);
+}
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) {
+    throw new TypeError("Cannot compute median of an empty sample set");
+  }
+
+  const sorted = values.toSorted((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const value = sorted[middle];
+  if (value === undefined) {
+    throw new TypeError("Median sample is missing");
+  }
+
+  return value;
 }
 
 function createPatch(path: string): string {
@@ -431,6 +456,34 @@ describe("filterDiffByIgnores", () => {
     expect(filtered.files.map((file) => file.path)).not.toContain("src/domain/review.ts");
     // And the returned unified_diff is ""
     expect(filtered.unified_diff).toBe("");
+  });
+
+  it("filters a 500-file diff within the soft budget", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the 500-file Diff and the patterns
+    const diff = largeMixedDiff();
+    let filtered = filterDiffByIgnores(diff, patterns);
+    const durationSamplesMs: number[] = [];
+
+    // Warm once so the soft-budget check is not dominated by first-call runtime noise.
+    filterDiffByIgnores(diff, patterns);
+    for (let sample = 0; sample < 5; sample += 1) {
+      const start = performance.now();
+      filtered = filterDiffByIgnores(diff, patterns);
+      const durationMs = performance.now() - start;
+      durationSamplesMs.push(durationMs);
+    }
+
+    // Then the returned Diff has 250 files
+    expect(filtered.files).toHaveLength(250);
+    // And every returned file path starts with "src/"
+    expect(filtered.files.every((file) => file.path.startsWith("src/"))).toBe(true);
+    // And the measured wall time is less than or equal to 50 ms on the local test process
+    expect(median(durationSamplesMs)).toBeLessThanOrEqual(50);
   });
 
   it.each([
