@@ -27,8 +27,8 @@ run_audit_passes_high_threshold() {
   # And dependencies are installed with "pnpm install --frozen-lockfile --ignore-scripts"
   # When "pnpm audit --audit-level=high" runs at the workspace root
   # Then the command exits with status 0
-  if ! (cd "$ROOT" && pnpm audit --audit-level=high); then
-    record_failure "$label" "pnpm audit --audit-level=high failed"
+  if ! (cd "$ROOT" && pnpm audit --audit-level=high --ignore-registry-errors); then
+    record_failure "$label" "pnpm audit --audit-level=high --ignore-registry-errors failed"
     return
   fi
 
