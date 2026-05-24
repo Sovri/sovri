@@ -78,6 +78,18 @@ describe("MistralProvider timeout handling", () => {
     }
   });
 
+  it("rejects immediately when waitForResponseOrAbort receives a pre-aborted signal", async () => {
+    // Given an AbortController whose signal is already aborted
+    const controller = new AbortController();
+    controller.abort();
+
+    // When waitForResponseOrAbort runs with that signal
+    const promise = waitForResponseOrAbort(1000, { signal: controller.signal });
+
+    // Then it rejects with an AbortError without waiting for the timer
+    await expect(promise).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("maps SDK timeout errors without retrying", async () => {
     const complete = vi.fn<MistralComplete>(async () => {
       throw new FakeRequestTimeoutError("timed out");

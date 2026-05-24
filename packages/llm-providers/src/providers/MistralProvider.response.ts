@@ -68,7 +68,7 @@ function createJsonSchemaDefinition(schema: z.ZodType): Record<string, unknown> 
   try {
     const jsonSchema = zodToProviderJsonSchema(schema);
 
-    if (!isJsonObject(jsonSchema)) {
+    if (!isJsonObject(jsonSchema) || jsonSchema["type"] !== "object") {
       throw new MistralProviderError("Mistral JSON schema root must be an object schema");
     }
 

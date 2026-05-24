@@ -186,4 +186,35 @@ describe("MistralProvider", () => {
     ).rejects.toThrow(MistralProviderError);
     expect(complete).not.toHaveBeenCalled();
   });
+
+  it("rejects schemas whose JSON Schema root is not an object", async () => {
+    // Given the requested response schema is z.string() (scalar root)
+    const complete = vi.fn<MistralComplete>();
+    const provider = new MistralProvider({
+      apiKey: TestApiKey,
+      client: clientFromComplete(complete),
+    });
+
+    // When generateStructured is called
+    // Then construction fails before any SDK call
+    await expect(
+      provider.generateStructured({ ...generateParams, schema: z.string() }),
+    ).rejects.toMatchObject({
+      name: "MistralProviderError",
+      message: expect.stringContaining("object schema"),
+    });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it("normalizes whitespace-padded models", () => {
+    // Given the model option has surrounding whitespace
+    const provider = new MistralProvider({
+      apiKey: TestApiKey,
+      client: fakeClient(),
+      model: "  mistral-large-latest  ",
+    });
+
+    // Then the stored model is trimmed
+    expect(provider.model).toBe("mistral-large-latest");
+  });
 });

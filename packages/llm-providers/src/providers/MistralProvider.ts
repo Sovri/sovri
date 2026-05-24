@@ -134,12 +134,12 @@ function resolveApiKey(apiKey: string): string {
 }
 
 function resolveModel(model: string | undefined): string {
-  const resolvedModel = model ?? DEFAULT_MISTRAL_MODEL;
-  if (resolvedModel.trim().length === 0) {
+  const trimmed = (model ?? DEFAULT_MISTRAL_MODEL).trim();
+  if (trimmed.length === 0) {
     throw new MistralProviderError("Mistral model must be a non-empty value");
   }
 
-  return resolvedModel;
+  return trimmed;
 }
 
 function resolveBaseUrl(baseUrl: string | undefined): string | undefined {

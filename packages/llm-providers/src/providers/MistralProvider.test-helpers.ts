@@ -127,11 +127,20 @@ export function waitForResponseOrAbort(
   options: MistralRequestOptions,
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    options?.signal?.addEventListener(
-      "abort",
-      () => reject(new DOMException("The operation was aborted.", "AbortError")),
-      { once: true },
-    );
-    setTimeout(() => resolve(mistralCompletion(validStructuredResponse)), responseMs);
+    if (options?.signal?.aborted === true) {
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+      return;
+    }
+
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      reject(new DOMException("The operation was aborted.", "AbortError"));
+    };
+
+    options?.signal?.addEventListener("abort", onAbort, { once: true });
+    const timer = setTimeout(() => {
+      options?.signal?.removeEventListener("abort", onAbort);
+      resolve(mistralCompletion(validStructuredResponse));
+    }, responseMs);
   });
 }
