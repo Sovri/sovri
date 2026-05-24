@@ -3,11 +3,19 @@
 
 import { z } from "zod";
 
-import { buildSystemPrompt, buildUserPrompt, PullRequestPromptContextSchema } from "./builder.js";
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  PullRequestPromptContextSchema,
+  ReviewPromptModeSchema,
+} from "./builder.js";
+
+export { ReviewPromptModeSchema, type ReviewPromptMode } from "./builder.js";
 
 export const ReviewPromptInputSchema = z.strictObject({
   unifiedDiff: z.string(),
   pullRequest: PullRequestPromptContextSchema,
+  mode: ReviewPromptModeSchema.default("full"),
   instructions: z.array(z.string().min(1)).default([]),
 });
 
@@ -26,7 +34,7 @@ export function buildReviewPrompt(input: ReviewPromptInput): ReviewPrompt {
   const userPrompt = buildUserPrompt(promptInput.unifiedDiff, promptInput.pullRequest);
 
   return {
-    systemPrompt: buildSystemPrompt({ mode: "full" }),
+    systemPrompt: buildSystemPrompt({ mode: promptInput.mode }),
     userPrompt: `${userPrompt}${instructionBlock}`,
   };
 }

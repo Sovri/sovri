@@ -49,6 +49,7 @@ export { reviewPullRequest, runReview } from "./orchestrator.js";
 export type {
   ReviewEngineResult,
   ReviewPullRequestConfig,
+  ReviewPullRequestConfigMode,
   ReviewPullRequestInput,
   ReviewPullRequestOptions,
   RunReviewInput,
