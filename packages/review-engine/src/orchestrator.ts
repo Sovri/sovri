@@ -22,7 +22,12 @@ import type { Logger } from "@sovri/observability";
 import { v4 as uuidv4, v7 as uuidv7 } from "uuid";
 
 import { parseUnifiedDiff } from "./diff/index.js";
-import { buildReviewPrompt, ReviewPromptInputSchema } from "./prompt/index.js";
+import {
+  buildReviewPrompt,
+  ReviewPromptInputSchema,
+  ReviewPromptModeSchema,
+  type ReviewPromptMode,
+} from "./prompt/index.js";
 import {
   parseLLMReviewResponse,
   ProviderReviewResponseSchema,
@@ -42,6 +47,7 @@ const FindingBodyMaxLength = 2_000;
 
 const ReviewPullRequestConfigSchema = z.object({
   review: z.object({
+    mode: ReviewPromptModeSchema.default("full"),
     severityThreshold: SeveritySchema,
   }),
   ignores: z.array(z.string()),
@@ -130,6 +136,7 @@ export interface ReviewEngineResult {
 
 export interface ReviewPullRequestConfig {
   readonly review: {
+    readonly mode?: ReviewPromptMode;
     readonly severityThreshold: Severity;
   };
   readonly ignores: readonly string[];
@@ -196,6 +203,7 @@ export async function reviewPullRequest(
 
   const prompt = buildReviewPrompt({
     unifiedDiff: reviewInput.diff.unified_diff,
+    mode: reviewInput.config.review.mode,
     pullRequest: {
       number: reviewInput.pullRequest.number,
       repoFullName: reviewInput.pullRequest.repo_full_name,

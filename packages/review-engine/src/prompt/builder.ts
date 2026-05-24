@@ -12,8 +12,29 @@ const FULL_REVIEW_SYSTEM_TEMPLATE = [
   "Return structured JSON findings that match the requested schema.",
 ].join(" ");
 
+const BUGS_ONLY_REVIEW_SYSTEM_TEMPLATE = [
+  "You are Sovri's review engine.",
+  "Review only the supplied pull request metadata and unified diff.",
+  "Focus on correctness bugs that can change runtime behavior.",
+  "Ignore style-only findings and formatting nits.",
+  "Ignore performance-only findings unless they cause incorrect behavior.",
+  "Return structured JSON findings that match the requested schema.",
+].join(" ");
+
+const MINIMAL_REVIEW_SYSTEM_TEMPLATE = [
+  "You are Sovri's review engine.",
+  "Review only the supplied pull request metadata and unified diff.",
+  "Return at most 3 findings.",
+  "Include only blocker or major severity findings.",
+  "Suppress nits, style-only comments, and minor findings.",
+  "Return structured JSON findings that match the requested schema.",
+].join(" ");
+
+export const ReviewPromptModeSchema = z.enum(["full", "bugs-only", "minimal"]);
+export type ReviewPromptMode = z.infer<typeof ReviewPromptModeSchema>;
+
 export const SystemPromptConfigSchema = z.strictObject({
-  mode: z.literal("full"),
+  mode: ReviewPromptModeSchema,
 });
 
 export type SystemPromptConfig = z.input<typeof SystemPromptConfigSchema>;
@@ -70,7 +91,15 @@ export function validateSystemTemplateSize(template: string): string {
 }
 
 export function buildSystemPrompt(config: unknown): string {
-  SystemPromptConfigSchema.parse(config);
+  const parsedConfig = SystemPromptConfigSchema.parse(config);
+
+  if (parsedConfig.mode === "bugs-only") {
+    return validateSystemTemplateSize(BUGS_ONLY_REVIEW_SYSTEM_TEMPLATE);
+  }
+
+  if (parsedConfig.mode === "minimal") {
+    return validateSystemTemplateSize(MINIMAL_REVIEW_SYSTEM_TEMPLATE);
+  }
 
   return validateSystemTemplateSize(FULL_REVIEW_SYSTEM_TEMPLATE);
 }
