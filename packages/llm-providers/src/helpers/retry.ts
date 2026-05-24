@@ -65,8 +65,13 @@ async function runAttempt<T>(
       timeoutMs: opts.timeoutMs,
       attempt,
     });
-  } catch {
+  } catch (cause) {
+    if (!opts.isRetryable(cause)) {
+      throw cause;
+    }
+
     await sleep(nextRetryDelayMs(opts.baseDelayMs, attempt));
+
     return runAttempt(fn, opts, attempt + 1);
   }
 }

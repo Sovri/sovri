@@ -21,24 +21,21 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
-- `test(llm-providers)`: failing RED acceptance test asserting that
-  `retryWithBackoff` rethrows the original non-retryable error without
-  wrapping. The test injects an `isRetryable` predicate that returns
-  `false` for the `"E_AUTH"` token, schedules `fn` to reject with a
-  shared `eAuth` Error instance, then asserts the captured rejection is
-  `===` the original `eAuth` (object identity preserved), `fn` is
-  called exactly once, and the rethrown error is not an instance of
-  either `RetryExhaustedError` or `RetryTimeoutError`. The helper
-  module is extended with the typed `RetryExhaustedError` and
-  `RetryTimeoutError` classes (each exposing
-  `attemptDurationsMs: readonly number[]` and `cause: unknown`) and the
-  whole helper API (`retryWithBackoff`, `AttemptContext`,
-  `RetryOptions`, `RetryErrorOptions`, the two error classes) is
-  exported from the `@sovri/llm-providers` package barrel (R-04). The
-  current `runAttempt` recursion never consults the predicate, so the
-  RED test fails by 5000 ms vitest timeout (unbounded retry loop) — the
-  "missing implementation" failure mode the pipeline expects (R-06
-  violation, ATDD scenario sub-issue #1187 under US #1183).
+- `feat(llm-providers)`: `retryWithBackoff` now consults
+  `opts.isRetryable(cause)` before scheduling a retry. When the
+  predicate returns `false`, the helper rethrows the original error
+  reference verbatim without wrapping it in `RetryExhaustedError` or
+  `RetryTimeoutError`. Adds the typed `RetryExhaustedError` and
+  `RetryTimeoutError` classes to the helper module (each exposing
+  `readonly attemptDurationsMs: readonly number[]` and
+  `cause: unknown`) and re-exports the full helper API
+  (`retryWithBackoff`, `AttemptContext`, `RetryOptions`,
+  `RetryErrorOptions`, both error classes) from the
+  `@sovri/llm-providers` package barrel (R-04). The matching
+  acceptance test asserts object identity is preserved across the
+  rethrow, `fn` is called exactly once, and the rethrown error is not
+  an instance of either typed helper error (R-06 violation, ATDD
+  scenario sub-issue #1187 under US #1183).
 
 - `test(llm-providers)`: triangulation regression guard asserting that
   `retryWithBackoff` retries any caller-classified retryable token
