@@ -21,6 +21,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(llm-providers)`: scaffold the new `retryWithBackoff(fn, opts)`
+  helper at `packages/llm-providers/src/helpers/retry.ts`. The helper
+  module exports the `AttemptContext` and `RetryOptions` interfaces plus
+  the function itself. The initial implementation honours the
+  happy-first-attempt scenario: it constructs a fresh `AbortController`,
+  calls `fn` once with an `AttemptContext` carrying `attempt === 1`,
+  `timeoutMs === opts.timeoutMs`, and the non-aborted `signal`, and
+  returns the resulting promise — no retry loop, no deadline scheduler,
+  no error wrapping yet (subsequent scenarios add each of those
+  behaviours under their own failing tests). A co-located vitest unit
+  test pins the contract (R-01 nominal, ATDD scenario sub-issue #1184
+  under US #1183).
+
 - `test(config)`: regression-guard asserting that `loadConfig()`
   surfaces the v0.2 provider refine failure through
   `SovriConfigValidationError` with `name === "SovriConfigValidationError"`,
