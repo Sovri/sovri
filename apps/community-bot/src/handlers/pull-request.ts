@@ -2,6 +2,7 @@
 // Copyright 2026 Sovri SAS
 
 import type { SovriConfig } from "@sovri/config";
+import { MissingApiKeyError } from "@sovri/llm-providers";
 import type {
   Diff,
   Review,
@@ -256,17 +257,21 @@ async function reportReviewFailure(values: {
   readonly error: unknown;
   readonly logContext: Readonly<Record<string, unknown>>;
 }): Promise<void> {
-  const errorMessage = errorMessageFrom(values.error);
+  const failure = describeReviewFailure(values.error);
   const commentErrorMessage =
     values.commentTarget === undefined
       ? "review comment target is unavailable"
-      : await tryPostFailureComment(values.dependencies, values.commentTarget);
+      : await tryPostFailureComment(
+          values.dependencies,
+          values.commentTarget,
+          failure.commentMessage,
+        );
 
   values.dependencies.logger.error(
     {
       ...values.logContext,
       comment_error_message: commentErrorMessage,
-      error_message: errorMessage,
+      ...failure.logFields,
     },
     "Pull request review failed",
   );
@@ -275,13 +280,37 @@ async function reportReviewFailure(values: {
 async function tryPostFailureComment(
   dependencies: PullRequestHandlerDependencies,
   target: ReviewCommentTarget,
+  message: string,
 ): Promise<string | undefined> {
   try {
-    await dependencies.postErrorComment(target, "review failed");
+    await dependencies.postErrorComment(target, message);
     return undefined;
   } catch (error) {
     return errorMessageFrom(error);
   }
+}
+
+function describeReviewFailure(error: unknown): {
+  readonly commentMessage: string;
+  readonly logFields: Readonly<Record<string, unknown>>;
+} {
+  if (error instanceof MissingApiKeyError) {
+    return {
+      commentMessage: `Configuration error: env var ${error.apiKeySecret} is required`,
+      logFields: {
+        api_key_secret: error.apiKeySecret,
+        error_message: error.message,
+        error_type: error.name,
+      },
+    };
+  }
+
+  return {
+    commentMessage: "review failed",
+    logFields: {
+      error_message: errorMessageFrom(error),
+    },
+  };
 }
 
 function errorMessageFrom(error: unknown): string {
