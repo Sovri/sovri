@@ -144,9 +144,10 @@ index 1111111111111111111111111111111111111111..22222222222222222222222222222222
 }
 
 function largeMixedDiff(): Diff {
-  const paths = Array.from({ length: LargeDiffFileCount }, (_unused, index) =>
-    index % 2 === 0 ? `src/module-${index}.ts` : `dist/generated-${index}.js`,
-  );
+  const paths = Array.from({ length: LargeDiffFileCount }, (_unused, index) => {
+    const suffix = index.toString().padStart(3, "0");
+    return index % 2 === 0 ? `src/file-${suffix}.ts` : `dist/file-${suffix}.js`;
+  });
 
   return diffWithPaths(paths);
 }
@@ -484,6 +485,22 @@ describe("filterDiffByIgnores", () => {
     expect(filtered.files.every((file) => file.path.startsWith("src/"))).toBe(true);
     // And the measured wall time is less than or equal to 50 ms on the local test process
     expect(median(durationSamplesMs)).toBeLessThanOrEqual(50);
+  });
+
+  it("removes ignored file patches from a 500-file unified diff", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = largeMixedDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the 500-file Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned unified_diff contains no "diff --git a/dist/"
+    expect(filtered.unified_diff).not.toContain("diff --git a/dist/");
+    // And the returned unified_diff still contains "diff --git a/src/file-000.ts b/src/file-000.ts"
+    expect(filtered.unified_diff).toContain("diff --git a/src/file-000.ts b/src/file-000.ts");
   });
 
   it.each([
