@@ -349,6 +349,22 @@ describe("filterDiffByIgnores", () => {
     expect(Reflect.has(filtered, "success")).toBe(false);
   });
 
+  it("does not surface config validation errors for unmatched invalid-looking patterns", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["["]
+    const patterns: readonly string[] = ["["];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filter = () => filterDiffByIgnores(diff, patterns);
+
+    // Then the helper does not throw a config validation error
+    expect(filter).not.toThrow();
+    // And the returned Diff has files ["src/app.ts", "dist/app.js"]
+    expect(filter().files.map((file) => file.path)).toEqual(["src/app.ts", "dist/app.js"]);
+  });
+
   it("does not depend on environment variables when filtering", async () => {
     const previousOverride = process.env.SOVRI_IGNORE_OVERRIDE;
     process.env.SOVRI_IGNORE_OVERRIDE = "src/**";
