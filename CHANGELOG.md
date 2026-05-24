@@ -32,7 +32,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `Diff.files` and the returned unified diff patches without reading
   environment overrides, including when imported after an override is set,
   while preserving surviving file objects by value and honoring directory
-  descendant globs such as `dist/**`.
+  descendant globs such as `dist/**` plus Node POSIX brace, extglob, and lockfile
+  glob examples.
 
 ### Fixed
 
