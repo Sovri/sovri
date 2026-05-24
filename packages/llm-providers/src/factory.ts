@@ -2,26 +2,44 @@
 // Copyright 2026 Sovri SAS
 
 import type { SovriConfig } from "@sovri/config";
+import { createLogger } from "@sovri/observability";
 
 import { MissingApiKeyError, UnsupportedProviderError } from "./errors.js";
 import { AnthropicProvider } from "./providers/AnthropicProvider.js";
 import { MistralProvider } from "./providers/MistralProvider.js";
 import type { LLMProvider } from "./types/LLMProvider.js";
 
+const logger = createLogger("llm-providers.factory");
+
 export function createProviderFromConfig(config: SovriConfig, env: NodeJS.ProcessEnv): LLMProvider {
   switch (config.llm.provider) {
     case "anthropic":
-      return new AnthropicProvider({
-        env: { ANTHROPIC_API_KEY: readApiKey(config.llm.apiKeySecret, env) },
-        model: config.llm.model,
-      });
+      logProviderSelection(config);
+      return createAnthropicProvider(config, readApiKey(config.llm.apiKeySecret, env));
     case "mistral":
+      logProviderSelection(config);
       return createMistralProvider(config, readApiKey(config.llm.apiKeySecret, env));
     default:
       throw new UnsupportedProviderError(config.llm.provider, {
         cause: new Error("Provider is not supported by the provider factory"),
       });
   }
+}
+
+function createAnthropicProvider(config: SovriConfig, apiKey: string): AnthropicProvider {
+  const options = {
+    env: { ANTHROPIC_API_KEY: apiKey },
+    model: config.llm.model,
+  };
+
+  if (config.llm.baseUrl !== undefined) {
+    return new AnthropicProvider({
+      ...options,
+      baseUrl: config.llm.baseUrl,
+    });
+  }
+
+  return new AnthropicProvider(options);
 }
 
 function createMistralProvider(config: SovriConfig, apiKey: string): MistralProvider {
@@ -37,6 +55,16 @@ function createMistralProvider(config: SovriConfig, apiKey: string): MistralProv
     apiKey,
     model: config.llm.model,
   });
+}
+
+function logProviderSelection(config: SovriConfig): void {
+  logger.info(
+    {
+      provider: config.llm.provider,
+      apiKeySecret: config.llm.apiKeySecret,
+    },
+    "LLM provider selected",
+  );
 }
 
 function readApiKey(apiKeySecret: string, env: NodeJS.ProcessEnv): string {

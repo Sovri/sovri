@@ -89,6 +89,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   provider adapter, and unsupported providers or missing API keys fail with
   typed errors. Unsupported provider values are rejected before credential
   lookup so diagnostics point to provider support rather than missing secrets.
+  The community bot now delegates provider bootstrap to the package factory
+  instead of carrying Anthropic-specific construction logic.
 
 - `test(llm-providers)`: expand `MistralProvider` coverage with
   MSW-backed happy-path, token-usage, transient retry, exhausted 503,
