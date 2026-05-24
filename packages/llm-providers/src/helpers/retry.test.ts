@@ -563,6 +563,60 @@ describe("retryWithBackoff — attempts cap exhausted", () => {
     },
   );
 
+  it.each([
+    { firstRandom: 0, secondRandom: 1, firstDelay: 400, secondDelay: 1200 },
+    { firstRandom: 1, secondRandom: 0, firstDelay: 600, secondDelay: 800 },
+  ])(
+    "second retry delay is $secondDelay ms when first jitter is $firstRandom and second jitter is $secondRandom",
+    async ({ firstRandom, secondRandom, firstDelay, secondDelay }) => {
+      // Given the retry helper is configured with max 3 total attempts
+      // And the retry helper is configured with a base delay of 500 ms
+      // And the retry helper is configured with a timeout of 60000 ms
+      // And the isRetryable predicate classifies error "E_TRANSIENT" as retryable
+      const opts: RetryOptions = {
+        maxAttempts: 3,
+        baseDelayMs: 500,
+        timeoutMs: 60_000,
+        isRetryable: (err) => err instanceof Error && err.message === "E_TRANSIENT",
+      };
+
+      // And the jitter factor selected for the first retry delay is <first_jitter_percent> percent
+      // And the jitter factor selected for the second retry delay is <second_jitter_percent> percent
+      vi.useFakeTimers();
+      vi.spyOn(Math, "random").mockReturnValueOnce(firstRandom).mockReturnValueOnce(secondRandom);
+
+      // And the first attempt rejects with error "E_TRANSIENT"
+      // And the second attempt rejects with error "E_TRANSIENT"
+      // And the third attempt resolves with value "ok"
+      const fn = vi.fn(async (ctx: AttemptContext) => {
+        if (ctx.attempt <= 2) {
+          throw new Error("E_TRANSIENT");
+        }
+        return "ok";
+      });
+
+      // When the caller invokes the retry helper once
+      const promise = retryWithBackoff(fn, opts);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Then the retry helper waits <first_delay_ms> ms between attempts 1 and 2
+      await vi.advanceTimersByTimeAsync(firstDelay - 1);
+      expect(fn).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fn).toHaveBeenCalledTimes(2);
+
+      // And the retry helper waits <second_delay_ms> ms between attempts 2 and 3
+      await vi.advanceTimersByTimeAsync(secondDelay - 1);
+      expect(fn).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1);
+
+      // And exactly 3 attempts are executed
+      await expect(promise).resolves.toBe("ok");
+      expect(fn).toHaveBeenCalledTimes(3);
+    },
+  );
+
   it.each([1, 2, 3, 5])(
     "respects the maxAttempts cap when configured to %i total attempts",
     async (maxAttempts) => {
