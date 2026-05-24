@@ -21,6 +21,72 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: regression-guard asserting that `loadConfig()`
+  surfaces the v0.2 provider refine failure through
+  `SovriConfigValidationError` with `name === "SovriConfigValidationError"`,
+  the resolved `filePath`, and structured `issues[]` carrying
+  `path === ["llm", "provider"]` plus the documented v0.2 message. New
+  fixture `test-fixtures/schema-violation-openai-compatible/.sovri.yml`
+  exercises the `openai-compatible` rejection path through the loader
+  (R-04 technical, ATDD scenario sub-issue #1171 under US #1162).
+
+- `test(config)`: regression-guard asserting that
+  `SovriConfigSchema.safeParse({llm: {provider: "openai", ...}}).error.issues`
+  exposes a `llm.provider` issue with structured `path === ["llm",
+  "provider"]` (array, not joined string) and the documented v0.2
+  message. Pins the contract PR-comment renderers rely on to surface
+  field-level errors without re-parsing (R-04 technical, ATDD scenario
+  sub-issue #1170 under US #1162).
+
+- `test(config)`: strengthen the existing `gemini` rejection test inside
+  the v0.2 widening describe block to assert (a) exactly one issue at
+  path `llm.provider` and (b) `issue.code === "invalid_value"` — the Zod
+  enum-step failure code, distinct from the refine custom code. Guards
+  against a regression that would route out-of-enum values through the
+  refine path instead of the enum gate (R-03 limit, ATDD scenario
+  sub-issue #1169 under US #1162).
+
+- `test(config)`: tag the existing `Provider` type-inference test with
+  the `R-03 nominal —` marker so it is traceable to the ATDD scenario
+  asserting that the inferred `Provider = z.infer<typeof ProviderSchema>`
+  union stays `"anthropic" | "mistral" | "openai" | "openai-compatible"`
+  across v0.2. Assertion body and `expectTypeOf` call are unchanged
+  (R-03 nominal, ATDD scenario sub-issue #1168 under US #1162).
+
+- `test(config)`: regression-guard asserting that `ProviderSchema.options`
+  keeps exactly the four declared members
+  `["anthropic", "mistral", "openai", "openai-compatible"]`. Pins the
+  ADR-005 wide-enum / narrow-refine pattern at the runtime layer so any
+  accidental drop or addition trips a test rather than a downstream
+  switch/case. The assertion lives inside the `describe("ProviderSchema")`
+  block alongside the other enum-shape assertions, per the file's "one
+  describe = one subject" convention (R-03 nominal, ATDD scenario
+  sub-issue #1167 under US #1162).
+
+- `test(config)`: regression-guard asserting that the
+  `SovriConfigSchema.safeParse()` rejection message for `llm.provider`
+  is byte-identical between `openai` and `openai-compatible`. Guards
+  against template drift if a future change introduces a per-value
+  interpolation in the refine message (R-02 technical, ATDD scenario
+  sub-issue #1166 under US #1162).
+
+- `test(config)`: regression-guard `it.each` over the v0.2-rejected
+  providers (`openai`, `openai-compatible`) asserting that
+  `SovriConfigSchema.safeParse()` returns `success=false` with exactly
+  one issue at path `llm.provider` whose message equals the documented
+  v0.2 string `Only 'anthropic' and 'mistral' are enabled in this
+  release.` (R-02 violation, ATDD scenario sub-issue #1165 under US #1162).
+
+- `test(config)`: failing test asserting `provider=mistral` is accepted
+  by `SovriConfigSchema.safeParse()` with `success=true` and parsed
+  `llm.provider` equal to `"mistral"`. Red until the v0.2 widen flips
+  the refine to the `{anthropic, mistral}` allow-list (R-01 nominal,
+  ATDD scenario sub-issue #1164 under US #1162).
+
+- `test(config)`: regression-guard test asserting `provider=anthropic`
+  still passes the v0.2 refine widening via `SovriConfigSchema.safeParse()`
+  (R-01 nominal, ATDD scenario sub-issue #1163 under US #1162).
+
 - `feat(scripts)`: `findMarkdownHeadingLine` now splits on both LF
   and CRLF line endings, so a CRLF-encoded README closes its fenced
   block on the closing-fence line instead of trapping a stray `\r`
@@ -2731,6 +2797,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   lands in both the workspace root `package.json` and
   `packages/core/package.json` so `engine-strict=true` in `.npmrc`
   refuses to install under a pre-stable Node 24.
+
+- `feat(config)`: widen `LlmSchema.provider` `.refine()` from the v0.1
+  single-value `value === "anthropic"` to the v0.2 allow-list
+  `value === "anthropic" || value === "mistral"`. Rejection message
+  becomes `Only 'anthropic' and 'mistral' are enabled in this release.`.
+  `ProviderSchema` enum stays unchanged (wide enum, narrow refine —
+  ADR-005). Stale v0.1 assertions in `SovriConfig.test.ts` and
+  `loader.test.ts` (plus the `schema-violation-bad-provider` fixture)
+  flip from `mistral` to `openai` to keep the refine-rejection coverage
+  intact (R-01 nominal, ATDD scenario sub-issue #1164 under US #1162).
 
 ### Deprecated
 
