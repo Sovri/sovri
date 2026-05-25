@@ -85,6 +85,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving the shared review flow and posting the walkthrough against the
   current head commit.
 
+- `test(bot)`: add ATDD nominal coverage proving `@sovri-bot re-review`
+  still reviews non-draft pull requests when `review.autoReviewDrafts` is
+  disabled, posting the walkthrough against the current head commit.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
