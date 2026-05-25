@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_CONFIG } from "@sovri/config";
-import type { Diff, Review } from "@sovri/review-engine";
+import type { Diff, Review, ReviewPullRequestOptions } from "@sovri/review-engine";
 
 import {
   handleReReviewCommand,
@@ -20,6 +20,7 @@ const PullRequestNumber = 42;
 const CommentId = 87654;
 const BaseSha = "dddddddddddddddddddddddddddddddddddddddd";
 const HeadSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const ReviewTimeoutMs = 300_000;
 
 describe("re-review command handler", () => {
   it.each([
@@ -244,6 +245,22 @@ describe("re-review command handler", () => {
     expect(runtime.postReview).toHaveBeenCalledTimes(1);
     expect(runtime.postErrorComment).not.toHaveBeenCalled();
   });
+
+  it("passes the shared timeout budget through the re-review flow", async () => {
+    const runtime = buildRuntime("valid-response");
+
+    await handleReReviewCommand(
+      buildCommand({ correlationId: "delivery-re-review-018" }),
+      runtime.dependencies,
+    );
+
+    expect(runtime.buildReviewOptions).toHaveBeenCalledWith(DEFAULT_CONFIG);
+    expect(runtime.reviewOptions.provider).toHaveProperty("timeoutMs", ReviewTimeoutMs);
+    expect(runtime.reviewPullRequest).toHaveBeenCalledWith(
+      expect.any(Object),
+      runtime.reviewOptions,
+    );
+  });
 });
 
 type RuntimeMode = "invalid-response" | "rejects" | "valid-response";
@@ -258,6 +275,9 @@ function buildRuntime(
   >;
   readonly dependencies: ReReviewCommandDependencies;
   readonly fetchDiff: ReturnType<typeof vi.fn<PullRequestHandlerDependencies["fetchDiff"]>>;
+  readonly buildReviewOptions: ReturnType<
+    typeof vi.fn<NonNullable<PullRequestHandlerDependencies["buildReviewOptions"]>>
+  >;
   readonly loadConfig: ReturnType<typeof vi.fn<PullRequestHandlerDependencies["loadConfig"]>>;
   readonly logger: PullRequestHandlerDependencies["logger"];
   readonly octokit: ReReviewOctokit;
@@ -271,8 +291,13 @@ function buildRuntime(
   readonly reviewPullRequest: ReturnType<
     typeof vi.fn<PullRequestHandlerDependencies["reviewPullRequest"]>
   >;
+  readonly reviewOptions: ReviewPullRequestOptions;
 } {
   const octokit = buildOctokit(mode, values);
+  const reviewOptions = buildReviewOptions();
+  const buildHandlerReviewOptions = vi.fn<
+    NonNullable<PullRequestHandlerDependencies["buildReviewOptions"]>
+  >(() => reviewOptions);
   const fetchDiff = vi.fn<PullRequestHandlerDependencies["fetchDiff"]>(async () => buildDiff());
   const loadConfig = vi.fn<PullRequestHandlerDependencies["loadConfig"]>(
     async () => DEFAULT_CONFIG,
@@ -292,6 +317,7 @@ function buildRuntime(
     info: vi.fn<PullRequestHandlerDependencies["logger"]["info"]>(() => undefined),
   };
   const pullRequestDependencies: PullRequestHandlerDependencies = {
+    buildReviewOptions: buildHandlerReviewOptions,
     fetchDiff,
     loadConfig,
     logger,
@@ -304,6 +330,7 @@ function buildRuntime(
   >(() => pullRequestDependencies);
 
   return {
+    buildReviewOptions: buildHandlerReviewOptions,
     createPullRequestDependencies,
     dependencies: {
       createPullRequestDependencies,
@@ -318,7 +345,22 @@ function buildRuntime(
     postReview,
     reactToAccepted,
     reviewPullRequest,
+    reviewOptions,
   };
+}
+
+function buildReviewOptions(): ReviewPullRequestOptions {
+  const provider: ReviewPullRequestOptions["provider"] & { readonly timeoutMs: number } = {
+    maxTokens: 1,
+    model: "test-model",
+    name: "test-provider",
+    timeoutMs: ReviewTimeoutMs,
+    async generateStructured<T>(): Promise<T> {
+      throw new Error("test provider should not be called directly");
+    },
+  };
+
+  return { provider };
 }
 
 function buildOctokit(mode: RuntimeMode, values: { readonly draft?: boolean }): ReReviewOctokit {

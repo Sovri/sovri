@@ -89,6 +89,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   still reviews non-draft pull requests when `review.autoReviewDrafts` is
   disabled, posting the walkthrough against the current head commit.
 
+- `feat(bot)`: configure the shared pull request review flow with the v0.1
+  300000 ms LLM timeout budget, so `@sovri-bot re-review` and webhook reviews
+  use the same provider deadline.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through

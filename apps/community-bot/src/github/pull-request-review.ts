@@ -22,6 +22,7 @@ import type {
 import { fetchDiff as fetchPullRequestDiff } from "./diff-fetcher.js";
 
 const logger = createLogger("community-bot.pull-request");
+export const ReviewTimeoutMs = 300_000;
 
 export function createPullRequestHandlerDependencies(
   context: PullRequestWebhookContext,
@@ -108,7 +109,7 @@ async function postErrorComment(
 function buildReviewOptions(config: SovriConfig, env: NodeJS.ProcessEnv): ReviewPullRequestOptions {
   return {
     logger,
-    provider: createProviderFromConfig(config, env),
+    provider: createProviderFromConfig(config, env, { timeoutMs: ReviewTimeoutMs }),
   };
 }
 
