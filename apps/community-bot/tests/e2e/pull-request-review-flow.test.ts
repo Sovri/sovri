@@ -44,6 +44,7 @@ const ReReviewPosterFailureDeliveryId = "delivery-re-review-012";
 const ReReviewSuccessfulDeliveryId = "delivery-re-review-014";
 const ReReviewDraftSkipDeliveryId = "delivery-re-review-015";
 const ReReviewDraftEnabledDeliveryId = "delivery-re-review-016";
+const ReReviewNonDraftWithDraftsDisabledDeliveryId = "delivery-re-review-017";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
 const SecretMistralValue = "test-key";
@@ -945,6 +946,46 @@ describe("community bot pull request review E2E ATDD", () => {
     expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
     expect(runtime.successfulReviewRequests[0]?.commit_id).toBe(ReReviewOrderHeadSha);
     expect(runtime.successfulReviewRequests[0]?.body).toContain("Draft review complete");
+  }, 15_000);
+
+  it("non-draft pull request is reviewed when draft reviews are disabled", async () => {
+    // Given issue comment delivery "delivery-re-review-017" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "ffffffffffffffffffffffffffffffffffffffff"
+    // And pull request 42 is not a draft
+    // And repository config sets `review.autoReviewDrafts` to false
+    const runtime = await runReReviewFlow({
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: false",
+      ].join("\n"),
+      deliveryId: ReReviewNonDraftWithDraftsDisabledDeliveryId,
+      draft: false,
+      headSha: ReReviewSuccessfulHeadSha,
+      providerResponse: buildProviderResponseWithWalkthrough("Non-draft review complete"),
+    });
+
+    // When Sovri handles the re-review command
+    // Then the review engine receives pull request 42 and head SHA "ffffffffffffffffffffffffffffffffffffffff"
+    expect(runtime.collaboratorCalls).toEqual([
+      "load config",
+      "fetch diff",
+      "review pull request",
+      "post review",
+    ]);
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${PullNumber}`]);
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    // And the walkthrough review is posted on pull request 42
+    expect(runtime.successfulReviewRequests).toHaveLength(1);
+    expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
+    expect(runtime.successfulReviewRequests[0]?.commit_id).toBe(ReReviewSuccessfulHeadSha);
+    expect(runtime.successfulReviewRequests[0]?.body).toContain("Non-draft review complete");
   }, 15_000);
 
   it("re-review preserves synchronize collaborator order", async () => {
