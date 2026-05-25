@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { ReviewSchema, z } from "@sovri/core";
-import type { z as Zod } from "zod";
+import { ReviewSchema, z, type Review } from "@sovri/core";
 
 import { formatMarkdownText } from "./markdown.js";
 import { renderFiles, renderFindings, sortFindings } from "./sections.js";
@@ -34,7 +33,11 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export type WalkthroughInput = Zod.input<typeof WalkthroughInputSchema>;
+type WalkthroughInputWithoutUsage = Omit<Review, "tokens_used"> & {
+  readonly tokens_used?: undefined;
+};
+
+export type WalkthroughInput = Review | WalkthroughInputWithoutUsage;
 
 export { buildInlineComments, InlineCommentDraftSchema } from "./inline.js";
 export type { InlineCommentDraft } from "./inline.js";
