@@ -62,4 +62,16 @@ describe("parseCommand", () => {
     // Then the parsed command is the same each time
     expect(secondCommand).toEqual(firstCommand);
   });
+
+  it("parses a standalone body string without GitHub event context", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "@sovri-bot dismiss finding-789";
+    // When the command body is parsed without a GitHub event object
+    const command = parseCommand(body);
+    // Then the parsed command is `dismiss`
+    // And the parsed finding id is "finding-789"
+    expect(command).toEqual({ kind: "dismiss", findingId: "finding-789" });
+  });
 });
