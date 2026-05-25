@@ -84,6 +84,21 @@ describe("parseCommand", () => {
     });
   });
 
+  it("returns unknown for an unsupported command word with raw remainder", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "@sovri-bot explain this finding";
+    // When the command body is parsed
+    const command = parseCommand(body);
+    // Then the parsed command is `unknown`
+    // And the raw command remainder is preserved
+    expect(command).toEqual({
+      kind: "unknown",
+      raw: "explain this finding",
+    });
+  });
+
   it.each(["Re-Review", "DISMISS abc-123-def", "resolve abc-123-def"])(
     "returns unknown for non-exact command verb %s",
     async (commandLine) => {
