@@ -34,6 +34,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserves the shared synchronize review collaborator order: config loading,
   diff fetching, review execution, and review posting.
 
+- `test(bot)`: add ATDD acceptance coverage proving the issue-comment
+  dispatcher routes `@sovri-bot re-review` without fetching pull request diffs
+  or posting review results itself.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
