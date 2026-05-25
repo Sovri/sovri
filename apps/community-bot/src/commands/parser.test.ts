@@ -19,6 +19,17 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "re-review" });
   });
 
+  it("recognizes the lowercase re-review command", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "@sovri-bot re-review";
+    // When the command body is parsed
+    const command = parseCommand(body);
+    // Then the parsed command is `re-review`
+    expect(command).toEqual({ kind: "re-review" });
+  });
+
   it("uses the first valid mention when multiple command lines are present", async () => {
     const { parseCommand } = await import("./parser.js");
 
