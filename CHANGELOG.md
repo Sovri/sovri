@@ -21,6 +21,36 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: register the `issue_comment.created` Probot webhook through
+  `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
+  reactor for unknown commands, and route re-review and dismiss commands through
+  pending-handler log stubs until the dedicated command handlers land. The
+  dispatcher factory reads the bot login from `SOVRI_BOT_LOGIN` and falls back
+  to `sovri-bot[bot]`, keeping the dispatcher reachable in production with
+  delivery correlation propagated end-to-end.
+
+- `test(bot)`: add the first issue-comment dispatcher ATDD acceptance
+  scenario for Probot-validated `@sovri-bot re-review` comments, requiring
+  the dispatcher to call the re-review handler with the GitHub delivery
+  correlation ID and without forwarding raw signature headers, backed by the
+  minimal issue-comment handler contract for that path and a non-PR issue
+  guard before command parsing. The dispatcher acceptance suite now also covers
+  bot self-comments being skipped before command parsing or command side
+  effects, with the handler comparing the comment author against the configured
+  bot login before parsing, and plain issue comments being ignored before
+  command parsing or command side effects. Re-review dispatcher coverage now
+  also pins delivery correlation and GitHub comment ID propagation, and dismiss
+  dispatcher coverage starts pinning the same delivery, comment, and finding ID
+  propagation contract with the handler routing parsed dismiss commands to a
+  dedicated dismiss dependency. Re-review routing coverage now also verifies the
+  dispatcher does not fetch pull request diffs or post review results itself,
+  and dismiss routing coverage pins the same boundary. No-mention dispatcher
+  coverage now starts pinning silent skips for ordinary PR issue comments, with
+  the handler returning before command side effects. Unknown command coverage
+  now starts pinning a single confused reaction without command or review
+  side effects, with the handler routing unknown commands to the reaction
+  dependency.
+
 - `feat(bot)`: start the `@sovri-bot` command parser contract with
   acceptance coverage and a pure parser implementation for
   case-insensitive line-start `re-review` mentions, plus lowercase
