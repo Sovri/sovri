@@ -125,6 +125,17 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "no-mention" });
   });
 
+  it("ignores an inline mention in prose", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "Could @sovri-bot re-review this after CI is green?";
+    // When the command body is parsed
+    const command = parseCommand(body);
+    // Then the parsed command is `no-mention`
+    expect(command).toEqual({ kind: "no-mention" });
+  });
+
   it("ignores a mention after leading whitespace", async () => {
     const { parseCommand } = await import("./parser.js");
 
