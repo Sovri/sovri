@@ -118,6 +118,10 @@ class PullRequestHandlerDependencyError extends Error {
   public override readonly name = "PullRequestHandlerDependencyError";
 }
 
+class PullRequestReviewFailedError extends Error {
+  public override readonly name = "PullRequestReviewFailedError";
+}
+
 export async function handlePullRequestOpened(
   context: PullRequestWebhookContext,
   dependencies: PullRequestHandlerDependencies,
@@ -169,6 +173,7 @@ async function handlePullRequest(
       },
       reviewOptions,
     );
+    requireSuccessfulReview(review);
     await dependencies.postReview(target, review, diff);
     dependencies.logger.info(
       {
@@ -216,6 +221,14 @@ function buildPullRequest(
     repo_full_name: requireString(context.payload.repository.full_name, "repository.full_name"),
     title: requireString(pullRequest.title, "pull_request.title"),
   };
+}
+
+function requireSuccessfulReview(review: Review): void {
+  if (review.status !== "failed") {
+    return;
+  }
+
+  throw new PullRequestReviewFailedError(review.error ?? review.summary);
 }
 
 function buildInitialLogContext(

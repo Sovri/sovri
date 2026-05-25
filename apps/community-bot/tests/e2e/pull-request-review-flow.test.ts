@@ -45,6 +45,8 @@ const ReReviewSuccessfulDeliveryId = "delivery-re-review-014";
 const ReReviewDraftSkipDeliveryId = "delivery-re-review-015";
 const ReReviewDraftEnabledDeliveryId = "delivery-re-review-016";
 const ReReviewNonDraftWithDraftsDisabledDeliveryId = "delivery-re-review-017";
+const ReReviewTimeoutFailureDeliveryId = "delivery-re-review-019";
+const ReReviewTimeoutFailureHeadSha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
 const SecretMistralValue = "test-key";
@@ -76,7 +78,7 @@ const PullRequestReviewRouteSchema = z.object({
 
 type ReviewRequest = ReturnType<typeof validatePullRequestReviewRequest>;
 
-type ReviewFlowFailureStep = "diff fetcher" | "review poster";
+type ReviewFlowFailureStep = "diff fetcher" | "review engine" | "review poster";
 
 type ReactionRequest = {
   readonly comment_id: number;
@@ -872,6 +874,30 @@ describe("community bot pull request review E2E ATDD", () => {
     expect(runtime.issueCommentBodies).toEqual([]);
   }, 15_000);
 
+  it("re-review timeout failure follows the webhook error path", async () => {
+    // Given the v0.1 synchronize review flow uses timeout budget 300000 milliseconds
+    // And issue comment delivery "delivery-re-review-019" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    // And the review engine exceeds timeout budget 300000 milliseconds
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewTimeoutFailureDeliveryId,
+      failingStep: "review engine",
+      headSha: ReReviewTimeoutFailureHeadSha,
+    });
+
+    // When Sovri handles the re-review command
+    expect(runtime.pullGetRequests).toContain(`${RepoFullName}#${String(PullNumber)}`);
+    // Then exactly 1 issue comment is posted on pull request 42
+    expect(runtime.issueCommentBodies).toHaveLength(1);
+    // And the issue comment explains that re-review failed
+    expect(runtime.issueCommentBodies[0]).toContain("review failed");
+    // And no walkthrough review is posted
+    expect(runtime.successfulReviewRequests).toEqual([]);
+  }, 35_000);
+
   it("draft pull request is skipped when draft reviews are disabled", async () => {
     // Given issue comment delivery "delivery-re-review-015" targets repository "octo-org/sovri-target"
     // And issue 42 is pull request 42
@@ -1257,6 +1283,9 @@ function installReviewFlowHandlers(
       runtime.collaboratorCalls.push("review pull request");
       runtime.anthropicApiKeys.push(request.headers.get("x-api-key") ?? "");
       runtime.anthropicRequests.push(await request.json());
+      if (failingStep === "review engine") {
+        return HttpResponse.json({ message: "provider timeout" }, { status: 408 });
+      }
       return anthropicMessageWithText(JSON.stringify(providerResponse));
     }),
     http.post(MistralChatUrl, async ({ request }) => {

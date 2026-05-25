@@ -190,6 +190,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: route failed review-engine results through the shared pull
+  request error-comment path, so provider timeout failures post one issue
+  comment instead of a failed walkthrough review.
+
 - `fix(bot)`: make PR review fallback issue comments explicitly explain that
   the walkthrough could not be posted as a pull request review while keeping
   the walkthrough marker for future updates and cleanup.
