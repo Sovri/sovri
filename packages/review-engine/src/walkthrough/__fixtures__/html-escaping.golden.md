@@ -19,3 +19,5 @@ Found &lt;script&gt;alert(1)&lt;/script&gt; &amp; comments
 1 finding
 
 - src/render.ts:12 Avoid &lt;b&gt;trusted&lt;/b&gt; HTML
+
+_Tokens: 900 in / 150 out · Estimated cost: unavailable (test-provider test-model)_

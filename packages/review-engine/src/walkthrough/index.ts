@@ -3,6 +3,7 @@
 
 import { ReviewSchema, z, type Review } from "@sovri/core";
 
+import { renderCostFooter } from "./cost.js";
 import { formatMarkdownText } from "./markdown.js";
 import { renderFiles, renderFindings, sortFindings } from "./sections.js";
 
@@ -13,6 +14,14 @@ const WalkthroughInputWithoutUsageSchema = z.unknown().transform((input, context
     context.addIssue({
       code: "custom",
       message: "walkthrough input must be a review with valid or omitted token usage",
+    });
+    return z.NEVER;
+  }
+
+  if (Reflect.get(input, "token_usage_reported") === true) {
+    context.addIssue({
+      code: "custom",
+      message: "walkthrough input cannot report token usage without token counts",
     });
     return z.NEVER;
   }
@@ -48,8 +57,13 @@ export function composeWalkthrough(input: unknown): string {
   const review = WalkthroughInputSchema.parse(input);
   const findings = sortFindings(review.findings);
   const summary = review.summary.trim();
+  const tokenUsage =
+    "tokens_used" in review && Reflect.get(review, "token_usage_reported") === true
+      ? review.tokens_used
+      : undefined;
+  const costFooter = renderCostFooter(tokenUsage, review.llm_provider, review.llm_model);
 
-  return [
+  const sections = [
     "## Sovri review",
     "",
     "### TL;DR",
@@ -63,5 +77,11 @@ export function composeWalkthrough(input: unknown): string {
     "### File-by-file",
     "",
     ...renderFiles(findings),
-  ].join("\n");
+  ];
+
+  if (costFooter.length > 0) {
+    sections.push("", costFooter);
+  }
+
+  return sections.join("\n");
 }
