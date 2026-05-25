@@ -21,6 +21,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: route `@sovri-bot re-review` issue comments through the
+  shared pull request synchronize review flow after resolving and validating
+  the current pull request from GitHub.
+
+- `test(bot)`: add ATDD acceptance coverage for `@sovri-bot re-review`
+  reaching the shared pull request review flow, requiring the issue-comment
+  command path to load repository config, fetch the pull request diff, call the
+  review engine, and post a walkthrough against the current PR head.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
@@ -117,6 +126,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   third-party glob imports including side-effect import forms.
 
 ### Fixed
+
+- `fix(bot)`: report `@sovri-bot re-review` pull request lookup and response
+  validation failures through the shared pull request review error-comment path
+  instead of letting command preflight failures escape silently.
 
 - `fix(review-engine)`: walkthrough cost lookup now rejects prototype-key
   model names (`__proto__`, `constructor`, `toString`,
