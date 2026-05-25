@@ -127,6 +127,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: report `@sovri-bot re-review` pull request lookup and response
+  validation failures through the shared pull request review error-comment path
+  instead of letting command preflight failures escape silently.
+
 - `fix(review-engine)`: walkthrough cost lookup now rejects prototype-key
   model names (`__proto__`, `constructor`, `toString`,
   `hasOwnProperty`) via an `Object.hasOwn` own-property check before

@@ -77,6 +77,11 @@ export type PullRequestHandlerDependencies = {
   readonly reviewOptions?: ReviewPullRequestOptions;
 };
 
+export type PullRequestFailureReporterDependencies = Pick<
+  PullRequestHandlerDependencies,
+  "logger" | "postErrorComment"
+>;
+
 type PullRequestPayload = {
   readonly additions?: number;
   readonly base?: {
@@ -253,7 +258,7 @@ function buildLogContext(
 
 async function reportReviewFailure(values: {
   readonly commentTarget: ReviewCommentTarget | undefined;
-  readonly dependencies: PullRequestHandlerDependencies;
+  readonly dependencies: PullRequestFailureReporterDependencies;
   readonly error: unknown;
   readonly logContext: Readonly<Record<string, unknown>>;
 }): Promise<void> {
@@ -277,8 +282,17 @@ async function reportReviewFailure(values: {
   );
 }
 
+export async function reportPullRequestReviewFailure(values: {
+  readonly commentTarget: ReviewCommentTarget | undefined;
+  readonly dependencies: PullRequestFailureReporterDependencies;
+  readonly error: unknown;
+  readonly logContext: Readonly<Record<string, unknown>>;
+}): Promise<void> {
+  await reportReviewFailure(values);
+}
+
 async function tryPostFailureComment(
-  dependencies: PullRequestHandlerDependencies,
+  dependencies: PullRequestFailureReporterDependencies,
   target: ReviewCommentTarget,
   message: string,
 ): Promise<string | undefined> {

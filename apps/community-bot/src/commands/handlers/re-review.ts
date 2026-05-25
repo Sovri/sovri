@@ -6,6 +6,7 @@ import { z } from "@sovri/core";
 import type { IssueCommentCommandContext } from "../../handlers/issue-comment.js";
 import {
   handlePullRequestSynchronize,
+  reportPullRequestReviewFailure,
   type PullRequestHandlerDependencies,
   type PullRequestOctokit,
   type PullRequestWebhookContext,
@@ -72,21 +73,62 @@ export async function handleReReviewCommand(
   command: IssueCommentCommandContext,
   dependencies: ReReviewCommandDependencies,
 ): Promise<void> {
-  const repo = splitRepoFullName(command.repoFullName);
-  const response = await dependencies.octokit.rest.pulls.get({
-    owner: repo.owner,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
-  const pullRequest = PullRequestGetSchema.parse(response.data);
+  const pullRequest = await resolvePullRequest(command, dependencies);
+  if (pullRequest === undefined) {
+    return;
+  }
+
   const context = buildPullRequestContext(command, dependencies.octokit, pullRequest);
   await handlePullRequestSynchronize(context, dependencies.createPullRequestDependencies(context));
+}
+
+async function resolvePullRequest(
+  command: IssueCommentCommandContext,
+  dependencies: ReReviewCommandDependencies,
+): Promise<z.infer<typeof PullRequestGetSchema> | undefined> {
+  try {
+    const repo = splitRepoFullName(command.repoFullName);
+    const response = await dependencies.octokit.rest.pulls.get({
+      owner: repo.owner,
+      pull_number: command.pullRequestNumber,
+      repo: repo.repo,
+    });
+
+    return PullRequestGetSchema.parse(response.data);
+  } catch (error) {
+    await reportReReviewResolutionFailure(command, dependencies, error);
+    return undefined;
+  }
+}
+
+async function reportReReviewResolutionFailure(
+  command: IssueCommentCommandContext,
+  dependencies: ReReviewCommandDependencies,
+  error: unknown,
+): Promise<void> {
+  const context = buildPullRequestContext(command, dependencies.octokit, {
+    number: command.pullRequestNumber,
+  });
+  await reportPullRequestReviewFailure({
+    commentTarget: {
+      number: command.pullRequestNumber,
+      repoFullName: command.repoFullName,
+    },
+    dependencies: dependencies.createPullRequestDependencies(context),
+    error,
+    logContext: {
+      delivery_id: command.correlationId,
+      event: context.name,
+      pr_number: command.pullRequestNumber,
+      repo: command.repoFullName,
+    },
+  });
 }
 
 function buildPullRequestContext(
   command: IssueCommentCommandContext,
   octokit: ReReviewOctokit,
-  pullRequest: z.infer<typeof PullRequestGetSchema>,
+  pullRequest: PullRequestWebhookContext["payload"]["pull_request"],
 ): PullRequestWebhookContext {
   return {
     id: command.correlationId,
