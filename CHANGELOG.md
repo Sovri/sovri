@@ -24,7 +24,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(bot)`: add the first issue-comment dispatcher ATDD acceptance
   scenario for Probot-validated `@sovri-bot re-review` comments, requiring
   the dispatcher to call the re-review handler with the GitHub delivery
-  correlation ID and without forwarding raw signature headers.
+  correlation ID and without forwarding raw signature headers, backed by the
+  minimal issue-comment handler contract for that path.
 
 - `feat(bot)`: start the `@sovri-bot` command parser contract with
   acceptance coverage and a pure parser implementation for

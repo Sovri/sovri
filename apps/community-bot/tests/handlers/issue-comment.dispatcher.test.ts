@@ -62,10 +62,7 @@ describe("issue comment dispatcher - ATDD #1532", () => {
 
 function buildDependencies(): IssueCommentHandlerDependencies {
   return {
-    botLogin: "sovri-bot[bot]",
-    handleDismiss: vi.fn<IssueCommentHandlerDependencies["handleDismiss"]>(async () => undefined),
     handleReReview: vi.fn<IssueCommentHandlerDependencies["handleReReview"]>(async () => undefined),
-    reactToUnknown: vi.fn<IssueCommentHandlerDependencies["reactToUnknown"]>(async () => undefined),
   };
 }
 
