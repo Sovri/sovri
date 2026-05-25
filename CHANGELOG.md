@@ -147,6 +147,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test(bot)`: tighten the re-review lookup-failure acceptance check so the
+  scenario asserts the actual diff-fetch collaborator is not called after
+  `pulls.get` fails.
+
 - `fix(bot)`: report `@sovri-bot re-review` pull request lookup and response
   validation failures through the shared pull request review error-comment path
   instead of letting command preflight failures escape silently.

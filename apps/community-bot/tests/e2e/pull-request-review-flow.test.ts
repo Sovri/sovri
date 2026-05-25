@@ -696,7 +696,7 @@ describe("community bot pull request review E2E ATDD", () => {
     // And the issue comment explains that re-review failed
     expect(runtime.issueCommentBodies[0]).toContain("review failed");
     // And the diff fetcher is not called
-    expect(runtime.listFilesQueries).toEqual([]);
+    expect(runtime.collaboratorCalls).not.toContain("fetch diff");
     // And the review engine is not called
     expect(runtime.anthropicRequests).toEqual([]);
     // And no walkthrough review is posted
