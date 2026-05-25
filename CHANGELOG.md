@@ -19,6 +19,32 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `feat(review-engine)`: start the pre-LLM `filterDiffByIgnores`
+  helper contract so empty ignore patterns preserve every diff file and
+  patch, including generated-file patches, while returning a fresh
+  `Diff` object without mutating the input, exported from the
+  review-engine diff module and package index. Empty diff inputs also
+  remain empty when ignore patterns are present, and acceptance coverage
+  now defines deterministic repeated-call filtering for non-empty ignore
+  patterns; the implementation applies POSIX glob filtering to both
+  `Diff.files` and the returned unified diff patches without reading
+  environment overrides, including when imported after an override is set,
+  while preserving surviving file objects by value and honoring directory
+  descendant globs such as `dist/**` plus Node POSIX brace, extglob, and lockfile
+  glob examples, applying multiple ignore patterns with OR semantics, removing
+  every file and patch for catch-all `**`, matching renamed files by their
+  current path, staying within the 50 ms local soft budget for a 500-file diff
+  using median post-warmup samples, dropping ignored patches from large unified
+  diffs, preserving every file and patch when no large-diff pattern matches, with
+  prevalidated configuration patterns applied without returning validation
+  metadata, invalid-looking unmatched patterns kept as a no-op without surfacing
+  config validation errors, readonly pattern tuples accepted without mutation, and
+  leading `!` treated literally rather than as gitignore negation, plus static
+  coverage for the `node:path` POSIX matcher import and call while rejecting
+  third-party glob imports including side-effect import forms.
+
 ### Fixed
 
 - `fix(config)`: `review.mode: strict` in `.sovri.yml` now fails config

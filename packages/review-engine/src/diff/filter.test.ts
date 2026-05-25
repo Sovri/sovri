@@ -1,0 +1,658 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+import type { Diff, FileChange } from "@sovri/core";
+import { readFile } from "node:fs/promises";
+import { performance } from "node:perf_hooks";
+import { describe, expect, it, vi } from "vitest";
+
+type FilterDiffByIgnores = (diff: Diff, patterns: readonly string[]) => Diff;
+
+const FilterModulePath = "./filter.js";
+const FilterSourceUrl = new URL("./filter.ts", import.meta.url);
+const LargeDiffFileCount = 500;
+const Sha = "2222222222222222222222222222222222222222";
+const ThirdPartyGlobLibraries = ["minimatch", "picomatch", "fast-glob", "micromatch"] as const;
+
+async function loadFilterDiffByIgnores(): Promise<FilterDiffByIgnores> {
+  const module: unknown = await import(FilterModulePath);
+  if (!isFilterModule(module)) {
+    throw new TypeError("filterDiffByIgnores export is missing");
+  }
+
+  return module.filterDiffByIgnores;
+}
+
+async function readFilterSource(): Promise<string> {
+  return readFile(FilterSourceUrl, "utf8");
+}
+
+function isFilterModule(value: unknown): value is { filterDiffByIgnores: FilterDiffByIgnores } {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return typeof Reflect.get(value, "filterDiffByIgnores") === "function";
+}
+
+function packageImportPattern(packageName: string): RegExp {
+  return new RegExp(
+    `(?:from\\s+["']${packageName}["']|import\\s+["']${packageName}["']|import\\(\\s*["']${packageName}["']\\s*\\))`,
+  );
+}
+
+function twoFileDiff(): Diff {
+  const unifiedDiff = `diff --git a/src/app.ts b/src/app.ts
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/src/app.ts
++++ b/src/app.ts
+@@ -1,2 +1,3 @@
+ export const enabled = false;
++export const enabled = true;
+ export const name = "sovri";
+diff --git a/dist/app.js b/dist/app.js
+index 3333333333333333333333333333333333333333..2222222222222222222222222222222222222222 100644
+--- a/dist/app.js
++++ b/dist/app.js
+@@ -1 +1,2 @@
+ console.log("old");
++console.log("bundled generated code");`;
+
+  return {
+    unified_diff: unifiedDiff,
+    files: [
+      {
+        path: "src/app.ts",
+        status: "modified",
+        additions: 1,
+        deletions: 0,
+        sha: Sha,
+        patch: unifiedDiff.split("diff --git a/dist/app.js b/dist/app.js")[0]?.trimEnd() ?? "",
+        hunks: [
+          {
+            old_start: 1,
+            old_lines: 2,
+            new_start: 1,
+            new_lines: 3,
+            header: "@@ -1,2 +1,3 @@",
+            lines: [
+              " export const enabled = false;",
+              "+export const enabled = true;",
+              ' export const name = "sovri";',
+            ],
+          },
+        ],
+      },
+      {
+        path: "dist/app.js",
+        status: "modified",
+        additions: 1,
+        deletions: 0,
+        sha: Sha,
+        patch: `diff --git a/dist/app.js b/dist/app.js\n${
+          unifiedDiff.split("diff --git a/dist/app.js b/dist/app.js")[1] ?? ""
+        }`.trimEnd(),
+        hunks: [
+          {
+            old_start: 1,
+            old_lines: 1,
+            new_start: 1,
+            new_lines: 2,
+            header: "@@ -1 +1,2 @@",
+            lines: [' console.log("old");', '+console.log("bundled generated code");'],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function emptyDiff(): Diff {
+  return {
+    unified_diff: "",
+    files: [],
+  };
+}
+
+function directoryGlobDiff(): Diff {
+  const base = twoFileDiff();
+
+  return {
+    unified_diff: renameDirectoryGlobPaths(base.unified_diff),
+    files: base.files.map(renameDirectoryGlobFile),
+  };
+}
+
+function diffWithPaths(paths: readonly string[]): Diff {
+  const patches = paths.map(createPatch);
+
+  return {
+    unified_diff: patches.join("\n"),
+    files: paths.map((path, index) => createFileChange(path, patches[index] ?? "")),
+  };
+}
+
+function renamedFileDiff(): Diff {
+  const patch = `diff --git a/legacy/review.ts b/src/domain/review.ts
+similarity index 88%
+rename from legacy/review.ts
+rename to src/domain/review.ts
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/legacy/review.ts
++++ b/src/domain/review.ts
+@@ -1 +1,2 @@
+ old content
++new content for src/domain/review.ts`;
+
+  return {
+    unified_diff: patch,
+    files: [
+      {
+        ...createFileChange("src/domain/review.ts", patch),
+        previous_path: "legacy/review.ts",
+        status: "renamed",
+      },
+    ],
+  };
+}
+
+function largeMixedDiff(): Diff {
+  const paths = Array.from({ length: LargeDiffFileCount }, (_unused, index) => {
+    const suffix = Math.floor(index / 2)
+      .toString()
+      .padStart(3, "0");
+    return index % 2 === 0 ? `src/file-${suffix}.ts` : `dist/generated-${suffix}.js`;
+  });
+
+  return diffWithPaths(paths);
+}
+
+function median(values: readonly number[]): number {
+  if (values.length === 0) {
+    throw new TypeError("Cannot compute median of an empty sample set");
+  }
+
+  const sorted = values.toSorted((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const value = sorted[middle];
+  if (value === undefined) {
+    throw new TypeError("Median sample is missing");
+  }
+
+  return value;
+}
+
+function createPatch(path: string): string {
+  return `diff --git a/${path} b/${path}
+index 1111111111111111111111111111111111111111..2222222222222222222222222222222222222222 100644
+--- a/${path}
++++ b/${path}
+@@ -1 +1,2 @@
+ old content
++new content for ${path}`;
+}
+
+function createFileChange(path: string, patch: string): FileChange {
+  return {
+    path,
+    previous_path: undefined,
+    status: "modified",
+    additions: 1,
+    deletions: 0,
+    sha: Sha,
+    patch,
+    hunks: [
+      {
+        old_start: 1,
+        old_lines: 1,
+        new_start: 1,
+        new_lines: 2,
+        header: "@@ -1 +1,2 @@",
+        lines: [" old content", `+new content for ${path}`],
+      },
+    ],
+  };
+}
+
+function renameDirectoryGlobFile(file: FileChange): FileChange {
+  return {
+    path: renameDirectoryGlobPath(file.path),
+    previous_path:
+      file.previous_path === undefined ? undefined : renameDirectoryGlobPath(file.previous_path),
+    status: file.status,
+    additions: file.additions,
+    deletions: file.deletions,
+    sha: file.sha,
+    patch: file.patch === null ? null : renameDirectoryGlobPaths(file.patch),
+    hunks: file.hunks,
+  };
+}
+
+function renameDirectoryGlobPaths(value: string): string {
+  return value
+    .replaceAll("src/app.ts", "src/domain/review.ts")
+    .replaceAll("dist/app.js", "dist/community-bot.js");
+}
+
+function renameDirectoryGlobPath(path: string): string {
+  if (path === "src/app.ts") {
+    return "src/domain/review.ts";
+  }
+
+  if (path === "dist/app.js") {
+    return "dist/community-bot.js";
+  }
+
+  return path;
+}
+
+function getFile(diff: Diff, path: string) {
+  const file = diff.files.find((candidate) => candidate.path === path);
+  if (file === undefined) {
+    throw new TypeError(`Missing fixture file: ${path}`);
+  }
+
+  return file;
+}
+
+describe("filterDiffByIgnores", () => {
+  it("keeps every file and patch when ignore patterns are empty", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are []
+    const patterns: readonly string[] = [];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has files ["src/app.ts", "dist/app.js"]
+    expect(filtered.files.map((file) => file.path)).toEqual(["src/app.ts", "dist/app.js"]);
+    // And the returned unified_diff still contains "diff --git a/src/app.ts b/src/app.ts"
+    expect(filtered.unified_diff).toContain("diff --git a/src/app.ts b/src/app.ts");
+    // And the returned unified_diff still contains "diff --git a/dist/app.js b/dist/app.js"
+    expect(filtered.unified_diff).toContain("diff --git a/dist/app.js b/dist/app.js");
+  });
+
+  it("keeps generated files and their patch content when ignore patterns are empty", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are []
+    const patterns: readonly string[] = [];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then "dist/app.js" is still present in the returned Diff files
+    expect(filtered.files.map((file) => file.path)).toContain("dist/app.js");
+    // And the returned unified_diff still contains "bundled generated code"
+    expect(filtered.unified_diff).toContain("bundled generated code");
+  });
+
+  it("returns an equal fresh Diff object without mutating the input when ignore patterns are empty", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are []
+    const patterns: readonly string[] = [];
+    // And the original Diff object is kept for comparison
+    const original = structuredClone(diff);
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff equals the original Diff by value
+    expect(filtered).toEqual(original);
+    // And the returned Diff is not the same object reference as the input Diff
+    expect(filtered).not.toBe(diff);
+    // And the input Diff files remain ["src/app.ts", "dist/app.js"]
+    expect(diff.files.map((file) => file.path)).toEqual(["src/app.ts", "dist/app.js"]);
+  });
+
+  it("keeps an empty Diff empty when ignore patterns are present", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+
+    // Given a Diff with unified_diff "" and no files
+    const diff = emptyDiff();
+    // And ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has no files
+    expect(filtered.files).toEqual([]);
+    // And the returned unified_diff is ""
+    expect(filtered.unified_diff).toBe("");
+  });
+
+  it("returns equal filtered output for repeated calls with the same input", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["dist/**", "coverage/**"]
+    const patterns: readonly string[] = ["dist/**", "coverage/**"];
+
+    // When filterDiffByIgnores receives the same Diff and patterns twice
+    const first = filterDiffByIgnores(diff, patterns);
+    const second = filterDiffByIgnores(diff, patterns);
+
+    // Then both returned Diff values are equal
+    expect(first).toEqual(second);
+    // And both returned Diff values contain only "src/app.ts"
+    expect(first.files.map((file) => file.path)).toEqual(["src/app.ts"]);
+    expect(second.files.map((file) => file.path)).toEqual(["src/app.ts"]);
+  });
+
+  it("applies validated configuration patterns without returning validation metadata", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    // And the patterns have already passed config-load validation
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then "dist/app.js" is removed from the returned Diff
+    expect(filtered.files.map((file) => file.path)).toEqual(["src/app.ts"]);
+    // And no validation result object is returned by the helper
+    expect(Reflect.has(filtered, "success")).toBe(false);
+  });
+
+  it("does not surface config validation errors for unmatched invalid-looking patterns", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["["]
+    const patterns: readonly string[] = ["["];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filter = () => filterDiffByIgnores(diff, patterns);
+
+    // Then the helper does not throw a config validation error
+    expect(filter).not.toThrow();
+    // And the returned Diff has files ["src/app.ts", "dist/app.js"]
+    expect(filter().files.map((file) => file.path)).toEqual(["src/app.ts", "dist/app.js"]);
+  });
+
+  it("accepts readonly patterns without mutating them", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are the readonly tuple ["dist/**", "*.lock"]
+    const patterns = ["dist/**", "*.lock"] as const;
+    // And a copy of the original patterns is kept
+    const originalPatterns = [...patterns];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the patterns still equal ["dist/**", "*.lock"]
+    expect(patterns).toEqual(originalPatterns);
+    // And the returned Diff has files ["src/app.ts"]
+    expect(filtered.files.map((file) => file.path)).toEqual(["src/app.ts"]);
+  });
+
+  it("does not depend on environment variables when filtering", async () => {
+    const previousOverride = process.env.SOVRI_IGNORE_OVERRIDE;
+    process.env.SOVRI_IGNORE_OVERRIDE = "src/**";
+
+    try {
+      vi.resetModules();
+      const filterDiffByIgnores = await loadFilterDiffByIgnores();
+      const diff = twoFileDiff();
+
+      // Given process.env.SOVRI_IGNORE_OVERRIDE is set to "src/**" for the test process
+      // And ignore patterns are ["dist/**"]
+      const patterns: readonly string[] = ["dist/**"];
+
+      // When filterDiffByIgnores receives the Diff and the patterns
+      const filtered = filterDiffByIgnores(diff, patterns);
+      const returnedPaths = filtered.files.map((file) => file.path);
+
+      // Then "src/app.ts" remains in the returned Diff
+      expect(returnedPaths).toContain("src/app.ts");
+      // And "dist/app.js" is removed from the returned Diff
+      expect(returnedPaths).not.toContain("dist/app.js");
+    } finally {
+      if (previousOverride === undefined) {
+        delete process.env.SOVRI_IGNORE_OVERRIDE;
+      } else {
+        process.env.SOVRI_IGNORE_OVERRIDE = previousOverride;
+      }
+      vi.resetModules();
+    }
+  });
+
+  it("does not mutate surviving file objects while filtering", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = twoFileDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+    // And the original FileChange object for "src/app.ts" is kept for comparison
+    const originalFile = structuredClone(getFile(diff, "src/app.ts"));
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned FileChange for "src/app.ts" equals the original FileChange by value
+    expect(getFile(filtered, "src/app.ts")).toEqual(originalFile);
+    // And the original input Diff files still include "dist/app.js"
+    expect(diff.files.map((file) => file.path)).toContain("dist/app.js");
+  });
+
+  it("removes generated descendants with a directory glob", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = directoryGlobDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+    const returnedPaths = filtered.files.map((file) => file.path);
+
+    // Then "dist/community-bot.js" is removed from the returned Diff
+    expect(returnedPaths).not.toContain("dist/community-bot.js");
+    // And "src/domain/review.ts" remains in the returned Diff
+    expect(returnedPaths).toContain("src/domain/review.ts");
+  });
+
+  it("uses OR semantics when multiple ignore patterns are provided", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = diffWithPaths([
+      "src/domain/review.ts",
+      "dist/community-bot.js",
+      "app.lock",
+      "pnpm-lock.yaml",
+      "README.md",
+    ]);
+
+    // Given ignore patterns are ["dist/**", "*.lock"]
+    const patterns: readonly string[] = ["dist/**", "*.lock"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has files ["src/domain/review.ts", "pnpm-lock.yaml", "README.md"]
+    expect(filtered.files.map((file) => file.path)).toEqual([
+      "src/domain/review.ts",
+      "pnpm-lock.yaml",
+      "README.md",
+    ]);
+    // And the returned unified_diff omits "diff --git a/dist/community-bot.js b/dist/community-bot.js"
+    expect(filtered.unified_diff).not.toContain(
+      "diff --git a/dist/community-bot.js b/dist/community-bot.js",
+    );
+    // And the returned unified_diff omits "diff --git a/app.lock b/app.lock"
+    expect(filtered.unified_diff).not.toContain("diff --git a/app.lock b/app.lock");
+  });
+
+  it("removes every file patch with a catch-all pattern", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = directoryGlobDiff();
+
+    // Given ignore patterns are ["**"]
+    const patterns: readonly string[] = ["**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has no files
+    expect(filtered.files).toEqual([]);
+    // And the returned unified_diff is ""
+    expect(filtered.unified_diff).toBe("");
+  });
+
+  it("matches renamed files by their current path", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+
+    // Given a Diff with one renamed file from "legacy/review.ts" to "src/domain/review.ts"
+    const diff = renamedFileDiff();
+    // And ignore patterns are ["src/**"]
+    const patterns: readonly string[] = ["src/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then "src/domain/review.ts" is removed from the returned Diff
+    expect(filtered.files.map((file) => file.path)).not.toContain("src/domain/review.ts");
+    // And the returned unified_diff is ""
+    expect(filtered.unified_diff).toBe("");
+  });
+
+  it("filters a 500-file diff within the soft budget", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the 500-file Diff and the patterns
+    const diff = largeMixedDiff();
+    let filtered = filterDiffByIgnores(diff, patterns);
+    const durationSamplesMs: number[] = [];
+
+    // Warm once so the soft-budget check is not dominated by first-call runtime noise.
+    filterDiffByIgnores(diff, patterns);
+    for (let sample = 0; sample < 5; sample += 1) {
+      const start = performance.now();
+      filtered = filterDiffByIgnores(diff, patterns);
+      const durationMs = performance.now() - start;
+      durationSamplesMs.push(durationMs);
+    }
+
+    // Then the returned Diff has 250 files
+    expect(filtered.files).toHaveLength(250);
+    // And every returned file path starts with "src/"
+    expect(filtered.files.every((file) => file.path.startsWith("src/"))).toBe(true);
+    // And the measured wall time is less than or equal to 50 ms on the local test process
+    expect(median(durationSamplesMs)).toBeLessThanOrEqual(50);
+  });
+
+  it("removes ignored file patches from a 500-file unified diff", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = largeMixedDiff();
+
+    // Given ignore patterns are ["dist/**"]
+    const patterns: readonly string[] = ["dist/**"];
+
+    // When filterDiffByIgnores receives the 500-file Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned unified_diff contains no "diff --git a/dist/"
+    expect(filtered.unified_diff).not.toContain("diff --git a/dist/");
+    // And the returned unified_diff still contains "diff --git a/src/file-000.ts b/src/file-000.ts"
+    expect(filtered.unified_diff).toContain("diff --git a/src/file-000.ts b/src/file-000.ts");
+  });
+
+  it("preserves every file and patch in a 500-file diff when no pattern matches", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = largeMixedDiff();
+
+    // Given ignore patterns are ["coverage/**"]
+    const patterns: readonly string[] = ["coverage/**"];
+
+    // When filterDiffByIgnores receives the 500-file Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+
+    // Then the returned Diff has 500 files
+    expect(filtered.files).toHaveLength(500);
+    // And the returned unified_diff still contains "diff --git a/dist/generated-000.js b/dist/generated-000.js"
+    expect(filtered.unified_diff).toContain(
+      "diff --git a/dist/generated-000.js b/dist/generated-000.js",
+    );
+    // And the returned unified_diff still contains "diff --git a/src/file-000.ts b/src/file-000.ts"
+    expect(filtered.unified_diff).toContain("diff --git a/src/file-000.ts b/src/file-000.ts");
+  });
+
+  it.each([
+    ["*.lock", "app.lock", "pnpm-lock.yaml"],
+    ["**/*.lock", "app.lock", "pnpm-lock.yaml"],
+    ["{src,lib}/**", "src/domain/review.ts", "README.md"],
+    ["!(dist)/**", "src/domain/review.ts", "dist/community-bot.js"],
+  ])("applies Node POSIX glob pattern %s literally", async (pattern, removedPath, keptPath) => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = diffWithPaths([removedPath, keptPath]);
+
+    // Given ignore patterns are ["<pattern>"]
+    const patterns: readonly string[] = [pattern];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+    const returnedPaths = filtered.files.map((file) => file.path);
+
+    // Then "<removed_path>" is removed from the returned Diff
+    expect(returnedPaths).not.toContain(removedPath);
+    // And "<kept_path>" remains in the returned Diff
+    expect(returnedPaths).toContain(keptPath);
+  });
+
+  it("does not treat a leading bang as gitignore negation", async () => {
+    const filterDiffByIgnores = await loadFilterDiffByIgnores();
+    const diff = directoryGlobDiff();
+
+    // Given ignore patterns are ["!dist/**"]
+    const patterns: readonly string[] = ["!dist/**"];
+
+    // When filterDiffByIgnores receives the Diff and the patterns
+    const filtered = filterDiffByIgnores(diff, patterns);
+    const returnedPaths = filtered.files.map((file) => file.path);
+
+    // Then "dist/community-bot.js" remains in the returned Diff
+    expect(returnedPaths).toContain("dist/community-bot.js");
+    // And no file is removed because node:path.posix.matchesGlob does not treat a leading "!" as pattern negation
+    expect(returnedPaths).toEqual(diff.files.map((file) => file.path));
+  });
+
+  it("imports and calls the Node POSIX path matcher", async () => {
+    // Given filter.ts exists
+    // When the implementation imports its matcher
+    const source = await readFilterSource();
+
+    // Then it imports "posix" from "node:path"
+    expect(source).toContain('import { posix } from "node:path";');
+    // And it calls "posix.matchesGlob"
+    expect(source).toContain("posix.matchesGlob");
+  });
+
+  it("does not import a third-party glob library", async () => {
+    // Given filter.ts exists
+    // When the implementation imports modules
+    const source = await readFilterSource();
+
+    for (const packageName of ThirdPartyGlobLibraries) {
+      // Then it does not import the third-party glob library
+      expect(source).not.toMatch(packageImportPattern(packageName));
+    }
+  });
+
+  it.each(ThirdPartyGlobLibraries)("detects side-effect imports of %s", (packageName) => {
+    const source = `import "${packageName}";`;
+
+    expect(source).toMatch(packageImportPattern(packageName));
+  });
+});
