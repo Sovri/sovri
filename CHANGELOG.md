@@ -26,7 +26,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   case-insensitive line-start `re-review` mentions, plus first-command
   precedence coverage and implementation for `dismiss <finding-id>`,
   while indented and quoted mentions remain ignored, and repeated parsing
-  of the same input remains deterministic.
+  of the same input remains deterministic without GitHub event context.
 
 - `feat(review-engine)`: start wiring walkthrough cost-footer behavior by
   allowing the composer to accept reviews without token usage while still
