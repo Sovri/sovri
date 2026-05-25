@@ -35,6 +35,7 @@ const ReReviewOrderDeliveryId = "delivery-re-review-002";
 const ReReviewCurrentHeadDeliveryId = "delivery-re-review-004";
 const ReReviewStaleHeadDeliveryId = "delivery-re-review-005";
 const ReReviewLookupFailureDeliveryId = "delivery-re-review-006";
+const ReReviewAcceptedReactionDeliveryId = "delivery-re-review-007";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
 const SecretMistralValue = "test-key";
@@ -66,15 +67,24 @@ const PullRequestReviewRouteSchema = z.object({
 
 type ReviewRequest = ReturnType<typeof validatePullRequestReviewRequest>;
 
+type ReactionRequest = {
+  readonly comment_id: number;
+  readonly content: "+1";
+  readonly owner: string;
+  readonly repo: string;
+};
+
 type ObservedRuntime = {
   readonly anthropicApiKeys: string[];
   readonly anthropicRequests: unknown[];
   readonly collaboratorCalls: string[];
+  readonly eventLog: string[];
   readonly issueCommentBodies: string[];
   readonly listFilesQueries: string[];
   readonly mistralApiKeys: string[];
   readonly mistralRequests: unknown[];
   readonly pullGetRequests: string[];
+  readonly reactionRequests: ReactionRequest[];
   readonly repositoryConfigRequests: string[];
   readonly reviewRequests: ReviewRequest[];
 };
@@ -703,6 +713,34 @@ describe("community bot pull request review E2E ATDD", () => {
     expect(runtime.reviewRequests).toEqual([]);
   }, 15_000);
 
+  it("accepted re-review creates a thumbs-up reaction before review completes", async () => {
+    // Given issue comment delivery "delivery-re-review-007" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    // And the review engine for pull request 42 is still running
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewAcceptedReactionDeliveryId,
+      headSha: ReReviewHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then GitHub receives one reaction request for comment 98765 with content "+1"
+    expect(runtime.reactionRequests).toEqual([
+      {
+        comment_id: CommentId,
+        content: "+1",
+        owner: Owner,
+        repo: Repo,
+      },
+    ]);
+    // And the reaction request is sent before the walkthrough review is posted
+    expect(eventOrder(runtime, "accepted reaction")).toBeLessThan(
+      eventOrder(runtime, "post review"),
+    );
+  }, 15_000);
+
   it("re-review preserves synchronize collaborator order", async () => {
     // Given issue comment delivery "delivery-re-review-002" targets repository "octo-org/sovri-target"
     // And issue 42 is pull request 42
@@ -773,11 +811,13 @@ async function runReviewFlow(values: {
     anthropicApiKeys: [],
     anthropicRequests: [],
     collaboratorCalls: [],
+    eventLog: [],
     issueCommentBodies: [],
     listFilesQueries: [],
     mistralApiKeys: [],
     mistralRequests: [],
     pullGetRequests: [],
+    reactionRequests: [],
     repositoryConfigRequests: [],
     reviewRequests: [],
   };
@@ -811,11 +851,13 @@ async function runReReviewFlow(values: {
     anthropicApiKeys: [],
     anthropicRequests: [],
     collaboratorCalls: [],
+    eventLog: [],
     issueCommentBodies: [],
     listFilesQueries: [],
     mistralApiKeys: [],
     mistralRequests: [],
     pullGetRequests: [],
+    reactionRequests: [],
     repositoryConfigRequests: [],
     reviewRequests: [],
   };
@@ -898,6 +940,7 @@ function installReviewFlowHandlers(
           repo: route.repo,
         });
         runtime.reviewRequests.push(reviewRequest);
+        runtime.eventLog.push("post review");
         if (reviewStatus === 403) {
           return HttpResponse.json(
             { message: "Resource not accessible by integration" },
@@ -913,6 +956,27 @@ function installReviewFlowHandlers(
         const body = IssueCommentCreateSchema.parse(await request.json());
         runtime.issueCommentBodies.push(body.body);
         return HttpResponse.json({ body: body.body, id: 87654 }, { status: 201 });
+      },
+    ),
+    http.post(
+      `${GitHubBaseUrl}/repos/:owner/:repo/issues/comments/:comment_id/reactions`,
+      async ({ params, request }) => {
+        const route = z
+          .object({
+            comment_id: z.string().regex(/^\d+$/),
+            owner: z.string().min(1),
+            repo: z.string().min(1),
+          })
+          .parse(params);
+        const body = z.object({ content: z.literal("+1") }).parse(await request.json());
+        runtime.reactionRequests.push({
+          comment_id: Number.parseInt(route.comment_id, 10),
+          content: body.content,
+          owner: route.owner,
+          repo: route.repo,
+        });
+        runtime.eventLog.push("accepted reaction");
+        return HttpResponse.json({ content: body.content, id: 7654321 });
       },
     ),
     http.post(AnthropicMessagesUrl, async ({ request }) => {
@@ -1240,6 +1304,15 @@ function reviewPostSucceeded(runtime: ObservedRuntime, reviewStatus: number): bo
     reviewStatus < 400 &&
     runtime.issueCommentBodies.length === 0
   );
+}
+
+function eventOrder(runtime: ObservedRuntime, event: string): number {
+  const index = runtime.eventLog.indexOf(event);
+  if (index < 0) {
+    throw new Error(`Expected event log to include ${event}`);
+  }
+
+  return index;
 }
 
 function compareSynchronizeHeadSha(

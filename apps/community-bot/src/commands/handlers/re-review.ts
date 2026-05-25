@@ -18,6 +18,11 @@ export type ReReviewOctokit = PullRequestOctokit & {
     readonly pulls: PullRequestOctokit["rest"]["pulls"] & {
       readonly get: (parameters: PullRequestGetParameters) => Promise<{ readonly data: unknown }>;
     };
+    readonly reactions: {
+      readonly createForIssueComment: (
+        parameters: AcceptedReactionParameters,
+      ) => Promise<{ readonly data: unknown }>;
+    };
   };
 };
 
@@ -26,11 +31,25 @@ export type ReReviewCommandDependencies = {
     context: PullRequestWebhookContext,
   ) => PullRequestHandlerDependencies;
   readonly octokit: ReReviewOctokit;
+  readonly reactToAccepted: (reaction: ReReviewAcceptedReaction) => Promise<void>;
+};
+
+export type ReReviewAcceptedReaction = {
+  readonly commentId: number;
+  readonly content: "+1";
+  readonly repoFullName: string;
 };
 
 type PullRequestGetParameters = {
   readonly owner: string;
   readonly pull_number: number;
+  readonly repo: string;
+};
+
+type AcceptedReactionParameters = {
+  readonly comment_id: number;
+  readonly content: "+1";
+  readonly owner: string;
   readonly repo: string;
 };
 
@@ -66,6 +85,7 @@ export function createReReviewCommandDependencies(
   return {
     createPullRequestDependencies: (context) => createPullRequestHandlerDependencies(context, env),
     octokit,
+    reactToAccepted: (reaction) => reactAccepted(octokit, reaction),
   };
 }
 
@@ -79,7 +99,46 @@ export async function handleReReviewCommand(
   }
 
   const context = buildPullRequestContext(command, dependencies.octokit, pullRequest);
-  await handlePullRequestSynchronize(context, dependencies.createPullRequestDependencies(context));
+  const pullRequestDependencies = dependencies.createPullRequestDependencies(context);
+  await tryReactToAccepted(command, dependencies, pullRequestDependencies);
+  await handlePullRequestSynchronize(context, pullRequestDependencies);
+}
+
+async function reactAccepted(
+  octokit: ReReviewOctokit,
+  reaction: ReReviewAcceptedReaction,
+): Promise<void> {
+  const repo = splitRepoFullName(reaction.repoFullName);
+  await octokit.rest.reactions.createForIssueComment({
+    comment_id: reaction.commentId,
+    content: reaction.content,
+    owner: repo.owner,
+    repo: repo.repo,
+  });
+}
+
+async function tryReactToAccepted(
+  command: IssueCommentCommandContext,
+  dependencies: ReReviewCommandDependencies,
+  pullRequestDependencies: PullRequestHandlerDependencies,
+): Promise<void> {
+  try {
+    await dependencies.reactToAccepted({
+      commentId: command.commentId,
+      content: "+1",
+      repoFullName: command.repoFullName,
+    });
+  } catch (error) {
+    pullRequestDependencies.logger.error(
+      {
+        delivery_id: command.correlationId,
+        error_message: errorMessageFrom(error),
+        pr_number: command.pullRequestNumber,
+        repo: command.repoFullName,
+      },
+      "Accepted re-review reaction failed",
+    );
+  }
 }
 
 async function resolvePullRequest(
@@ -163,6 +222,14 @@ function splitRepoFullName(repoFullName: string): {
   }
 
   return { owner, repo };
+}
+
+function errorMessageFrom(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "unknown reaction failure";
 }
 
 class ReReviewCommandError extends Error {

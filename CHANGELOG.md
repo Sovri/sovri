@@ -50,6 +50,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `pulls.get` lookup posts one failure comment and stops before diff fetching,
   review execution, or walkthrough posting.
 
+- `feat(bot)`: acknowledge accepted `@sovri-bot re-review` commands with a
+  single `+1` reaction after the current pull request lookup succeeds and
+  before the shared review flow posts the walkthrough.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
@@ -146,6 +150,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   third-party glob imports including side-effect import forms.
 
 ### Fixed
+
+- `fix(bot)`: keep `@sovri-bot re-review` running when the accepted-command
+  `+1` reaction cannot be created, logging the reaction failure without
+  blocking the review flow.
 
 - `test(bot)`: tighten the re-review lookup-failure acceptance check so the
   scenario asserts the actual diff-fetch collaborator is not called after

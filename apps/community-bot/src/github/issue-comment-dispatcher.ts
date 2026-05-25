@@ -31,7 +31,7 @@ export type IssueCommentDispatchOctokit = ReReviewOctokit & {
 
 type ReactionParameters = {
   readonly comment_id: number;
-  readonly content: "confused";
+  readonly content: "+1" | "confused";
   readonly owner: string;
   readonly repo: string;
 };
