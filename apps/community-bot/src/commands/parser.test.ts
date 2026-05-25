@@ -114,6 +114,17 @@ describe("parseCommand", () => {
     },
   );
 
+  it("returns no-mention for an ordinary comment without a bot mention", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "Please take another look after I update the tests.";
+    // When the command body is parsed
+    const command = parseCommand(body);
+    // Then the parsed command is `no-mention`
+    expect(command).toEqual({ kind: "no-mention" });
+  });
+
   it("ignores a mention after leading whitespace", async () => {
     const { parseCommand } = await import("./parser.js");
 

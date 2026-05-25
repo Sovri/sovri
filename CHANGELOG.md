@@ -29,7 +29,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unknown command when no later valid command exists, with exact command-verb
   coverage, `unknown` results for non-exact command verbs and supported
   commands with extra tokens, repeated whitespace after the bot mention before
-  supported commands,
+  supported commands, ordinary comments without a bot mention,
   while indented and quoted mentions remain ignored, and repeated parsing
   of the same input remains deterministic without GitHub event context,
   environment reads, or Node filesystem imports.
