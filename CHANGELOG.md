@@ -46,6 +46,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ignores a stale synchronize webhook head SHA and reviews the current head
   returned by `pulls.get`.
 
+- `test(bot)`: add ATDD acceptance coverage proving a failed re-review
+  `pulls.get` lookup posts one failure comment and stops before diff fetching,
+  review execution, or walkthrough posting.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
@@ -142,6 +146,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   third-party glob imports including side-effect import forms.
 
 ### Fixed
+
+- `test(bot)`: tighten the re-review lookup-failure acceptance check so the
+  scenario asserts the actual diff-fetch collaborator is not called after
+  `pulls.get` fails.
 
 - `fix(bot)`: report `@sovri-bot re-review` pull request lookup and response
   validation failures through the shared pull request review error-comment path

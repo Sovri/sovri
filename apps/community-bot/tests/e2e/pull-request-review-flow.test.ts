@@ -34,6 +34,7 @@ const ReReviewDeliveryId = "delivery-re-review-001";
 const ReReviewOrderDeliveryId = "delivery-re-review-002";
 const ReReviewCurrentHeadDeliveryId = "delivery-re-review-004";
 const ReReviewStaleHeadDeliveryId = "delivery-re-review-005";
+const ReReviewLookupFailureDeliveryId = "delivery-re-review-006";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
 const SecretMistralValue = "test-key";
@@ -676,6 +677,32 @@ describe("community bot pull request review E2E ATDD", () => {
     );
   }, 20_000);
 
+  it("pull request lookup failure stops review work", async () => {
+    // Given issue comment delivery "delivery-re-review-006" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` fails with status 404
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewLookupFailureDeliveryId,
+      headSha: ReReviewHeadSha,
+      pullLookupStatus: 404,
+    });
+
+    // When Sovri handles the re-review command
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${String(PullNumber)}`]);
+    // Then exactly 1 issue comment is posted on pull request 42
+    expect(runtime.issueCommentBodies).toHaveLength(1);
+    // And the issue comment explains that re-review failed
+    expect(runtime.issueCommentBodies[0]).toContain("review failed");
+    // And the diff fetcher is not called
+    expect(runtime.collaboratorCalls).not.toContain("fetch diff");
+    // And the review engine is not called
+    expect(runtime.anthropicRequests).toEqual([]);
+    // And no walkthrough review is posted
+    expect(runtime.reviewRequests).toEqual([]);
+  }, 15_000);
+
   it("re-review preserves synchronize collaborator order", async () => {
     // Given issue comment delivery "delivery-re-review-002" targets repository "octo-org/sovri-target"
     // And issue 42 is pull request 42
@@ -778,6 +805,7 @@ async function runReviewFlow(values: {
 async function runReReviewFlow(values: {
   readonly deliveryId?: string;
   readonly headSha: string;
+  readonly pullLookupStatus?: number;
 }): Promise<ObservedRuntime> {
   const runtime: ObservedRuntime = {
     anthropicApiKeys: [],
@@ -792,7 +820,7 @@ async function runReReviewFlow(values: {
     reviewRequests: [],
   };
   vi.stubEnv("ANTHROPIC_API_KEY", SecretLlmValue);
-  installReviewFlowHandlers(runtime, 200, values.headSha);
+  installReviewFlowHandlers(runtime, 200, values.headSha, values.pullLookupStatus ?? 200);
   const probot = new Probot({
     githubToken: SecretInstallationToken,
     log: createLogger("community-bot.e2e-test"),
@@ -818,6 +846,7 @@ function installReviewFlowHandlers(
   runtime: ObservedRuntime,
   reviewStatus: number,
   currentHeadSha: string,
+  pullLookupStatus = 200,
 ): void {
   server.use(
     http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, ({ params }) => {
@@ -834,6 +863,9 @@ function installReviewFlowHandlers(
       runtime.pullGetRequests.push(
         `${String(params.owner)}/${String(params.repo)}#${String(params.pull_number)}`,
       );
+      if (pullLookupStatus !== 200) {
+        return HttpResponse.json({ message: "Not Found" }, { status: pullLookupStatus });
+      }
       return HttpResponse.json(
         buildPullRequestPayload({ action: "synchronize", headSha: currentHeadSha }).pull_request,
       );
