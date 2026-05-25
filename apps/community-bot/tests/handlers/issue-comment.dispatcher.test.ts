@@ -16,6 +16,7 @@ const PlainIssueDeliveryId = "delivery-issue-comment-003";
 const CommandCorrelationDeliveryId = "delivery-issue-comment-004";
 const CommandRoutingDeliveryId = "delivery-issue-comment-005";
 const UnknownCommandDeliveryId = "delivery-issue-comment-006";
+const ReReviewDispatcherBoundaryDeliveryId = "delivery-re-review-003";
 const RepoFullName = "octo-org/sovri-target";
 const PullRequestNumber = 42;
 const PlainIssueNumber = 41;
@@ -259,6 +260,44 @@ describe("issue comment dispatcher - ATDD task 76", () => {
     );
     // And the dismiss handler is not called
     expect(dependencies.handleDismiss).not.toHaveBeenCalled();
+    // And the dispatcher does not fetch a pull request diff
+    expect(dependencies.fetchPullRequestDiff).not.toHaveBeenCalled();
+    // And the dispatcher does not post a review result
+    expect(dependencies.postReviewResult).not.toHaveBeenCalled();
+  });
+
+  it("re-review does not perform review work in the issue-comment dispatcher", async () => {
+    const dependencies = buildDependencies({ kind: "re-review" });
+    const context = buildIssueCommentContext({
+      author: "alice",
+      body: "@sovri-bot re-review",
+      deliveryId: ReReviewDispatcherBoundaryDeliveryId,
+      pullRequestNumber: PullRequestNumber,
+      repoFullName: RepoFullName,
+    });
+
+    // Given Probot has accepted delivery "delivery-re-review-003" for event "issue_comment.created"
+    expect(context.id).toBe(ReReviewDispatcherBoundaryDeliveryId);
+    expect(context.name).toBe("issue_comment.created");
+    // And the repository is "octo-org/sovri-target"
+    expect(context.payload.repository.full_name).toBe(RepoFullName);
+    // And issue 42 is pull request 42
+    expect(context.payload.issue.number).toBe(PullRequestNumber);
+    expect(context.payload.issue.pull_request).toEqual({});
+    // And comment 98765 was authored by "alice"
+    expect(context.payload.comment.id).toBe(CommentId);
+    expect(context.payload.comment.user.login).toBe("alice");
+    // And the comment body is "@sovri-bot re-review"
+    expect(context.payload.comment.body).toBe("@sovri-bot re-review");
+
+    // When Sovri dispatches the issue comment webhook context
+    await handleIssueCommentCreated(context, dependencies);
+
+    // Then the re-review handler is called once for pull request 42
+    expect(dependencies.handleReReview).toHaveBeenCalledTimes(1);
+    expect(dependencies.handleReReview.mock.calls[0]?.[0]?.pullRequestNumber).toBe(
+      PullRequestNumber,
+    );
     // And the dispatcher does not fetch a pull request diff
     expect(dependencies.fetchPullRequestDiff).not.toHaveBeenCalled();
     // And the dispatcher does not post a review result
