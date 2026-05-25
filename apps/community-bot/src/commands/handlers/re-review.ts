@@ -18,6 +18,11 @@ export type ReReviewOctokit = PullRequestOctokit & {
     readonly pulls: PullRequestOctokit["rest"]["pulls"] & {
       readonly get: (parameters: PullRequestGetParameters) => Promise<{ readonly data: unknown }>;
     };
+    readonly reactions: {
+      readonly createForIssueComment: (
+        parameters: AcceptedReactionParameters,
+      ) => Promise<{ readonly data: unknown }>;
+    };
   };
 };
 
@@ -26,11 +31,25 @@ export type ReReviewCommandDependencies = {
     context: PullRequestWebhookContext,
   ) => PullRequestHandlerDependencies;
   readonly octokit: ReReviewOctokit;
+  readonly reactToAccepted: (reaction: ReReviewAcceptedReaction) => Promise<void>;
+};
+
+export type ReReviewAcceptedReaction = {
+  readonly commentId: number;
+  readonly content: "+1";
+  readonly repoFullName: string;
 };
 
 type PullRequestGetParameters = {
   readonly owner: string;
   readonly pull_number: number;
+  readonly repo: string;
+};
+
+type AcceptedReactionParameters = {
+  readonly comment_id: number;
+  readonly content: "+1";
+  readonly owner: string;
   readonly repo: string;
 };
 
@@ -66,6 +85,7 @@ export function createReReviewCommandDependencies(
   return {
     createPullRequestDependencies: (context) => createPullRequestHandlerDependencies(context, env),
     octokit,
+    reactToAccepted: (reaction) => reactAccepted(octokit, reaction),
   };
 }
 
@@ -78,8 +98,27 @@ export async function handleReReviewCommand(
     return;
   }
 
+  await dependencies.reactToAccepted({
+    commentId: command.commentId,
+    content: "+1",
+    repoFullName: command.repoFullName,
+  });
+
   const context = buildPullRequestContext(command, dependencies.octokit, pullRequest);
   await handlePullRequestSynchronize(context, dependencies.createPullRequestDependencies(context));
+}
+
+async function reactAccepted(
+  octokit: ReReviewOctokit,
+  reaction: ReReviewAcceptedReaction,
+): Promise<void> {
+  const repo = splitRepoFullName(reaction.repoFullName);
+  await octokit.rest.reactions.createForIssueComment({
+    comment_id: reaction.commentId,
+    content: reaction.content,
+    owner: repo.owner,
+    repo: repo.repo,
+  });
 }
 
 async function resolvePullRequest(

@@ -51,6 +51,7 @@ describe("re-review command handler", () => {
     );
     expect(runtime.loadConfig).not.toHaveBeenCalled();
     expect(runtime.fetchDiff).not.toHaveBeenCalled();
+    expect(runtime.reactToAccepted).not.toHaveBeenCalled();
     expect(runtime.reviewPullRequest).not.toHaveBeenCalled();
     expect(runtime.postReview).not.toHaveBeenCalled();
   });
@@ -60,6 +61,12 @@ describe("re-review command handler", () => {
 
     await handleReReviewCommand(buildCommand(), runtime.dependencies);
 
+    expect(runtime.reactToAccepted).toHaveBeenCalledWith({
+      commentId: CommentId,
+      content: "+1",
+      repoFullName: RepoFullName,
+    });
+    assertCalledBefore(runtime.reactToAccepted, runtime.loadConfig);
     expect(runtime.loadConfig).toHaveBeenCalledWith(
       expect.objectContaining({
         baseSha: BaseSha,
@@ -99,6 +106,9 @@ function buildRuntime(mode: RuntimeMode): {
     typeof vi.fn<PullRequestHandlerDependencies["postErrorComment"]>
   >;
   readonly postReview: ReturnType<typeof vi.fn<PullRequestHandlerDependencies["postReview"]>>;
+  readonly reactToAccepted: ReturnType<
+    typeof vi.fn<ReReviewCommandDependencies["reactToAccepted"]>
+  >;
   readonly reviewPullRequest: ReturnType<
     typeof vi.fn<PullRequestHandlerDependencies["reviewPullRequest"]>
   >;
@@ -112,6 +122,9 @@ function buildRuntime(mode: RuntimeMode): {
     async () => undefined,
   );
   const postReview = vi.fn<PullRequestHandlerDependencies["postReview"]>(async () => undefined);
+  const reactToAccepted = vi.fn<ReReviewCommandDependencies["reactToAccepted"]>(
+    async () => undefined,
+  );
   const reviewPullRequest = vi.fn<PullRequestHandlerDependencies["reviewPullRequest"]>(async () =>
     buildReview(),
   );
@@ -136,6 +149,7 @@ function buildRuntime(mode: RuntimeMode): {
     dependencies: {
       createPullRequestDependencies,
       octokit,
+      reactToAccepted,
     },
     fetchDiff,
     loadConfig,
@@ -143,6 +157,7 @@ function buildRuntime(mode: RuntimeMode): {
     octokit,
     postErrorComment,
     postReview,
+    reactToAccepted,
     reviewPullRequest,
   };
 }
@@ -200,8 +215,26 @@ function buildOctokit(mode: RuntimeMode): ReReviewOctokit {
           return { data: "" };
         },
       },
+      reactions: {
+        async createForIssueComment(parameters) {
+          return { data: { content: parameters.content, id: 654321 } };
+        },
+      },
     },
   };
+}
+
+function assertCalledBefore(
+  first: { readonly mock: { readonly invocationCallOrder: readonly number[] } },
+  second: { readonly mock: { readonly invocationCallOrder: readonly number[] } },
+): void {
+  const firstCall = first.mock.invocationCallOrder[0];
+  const secondCall = second.mock.invocationCallOrder[0];
+  if (firstCall === undefined || secondCall === undefined) {
+    throw new Error("Expected both spies to have been called");
+  }
+
+  expect(firstCall).toBeLessThan(secondCall);
 }
 
 function buildCommand(): IssueCommentCommandContext {
