@@ -67,6 +67,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   successful walkthrough review when diff fetching, review execution, or
   review posting fails.
 
+- `test(bot)`: add ATDD coverage proving `@sovri-bot re-review` logs both
+  the original review failure and failure-comment posting failure while
+  attempting exactly one failure comment.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through

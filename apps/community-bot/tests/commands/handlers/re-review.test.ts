@@ -157,6 +157,36 @@ describe("re-review command handler", () => {
       "Pull request review failed",
     );
   });
+
+  it("logs error comment posting failure without duplicate comments", async () => {
+    const runtime = buildRuntime("valid-response");
+    runtime.reviewPullRequest.mockRejectedValue(new Error("provider timeout"));
+    runtime.postErrorComment.mockRejectedValue(new Error("GitHub comment API failed"));
+
+    await handleReReviewCommand(
+      buildCommand({ correlationId: "delivery-re-review-013" }),
+      runtime.dependencies,
+    );
+
+    expect(runtime.postErrorComment).toHaveBeenCalledTimes(1);
+    expect(runtime.postErrorComment).toHaveBeenCalledWith(
+      expect.objectContaining({ number: PullRequestNumber, repoFullName: RepoFullName }),
+      "review failed",
+    );
+    expect(runtime.postReview).not.toHaveBeenCalled();
+    expect(runtime.logger.error).toHaveBeenCalledTimes(1);
+    expect(runtime.logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        comment_error_message: "GitHub comment API failed",
+        delivery_id: "delivery-re-review-013",
+        error_message: "provider timeout",
+        event: "pull_request.synchronize",
+        pr_number: PullRequestNumber,
+        repo: RepoFullName,
+      }),
+      "Pull request review failed",
+    );
+  });
 });
 
 type RuntimeMode = "invalid-response" | "rejects" | "valid-response";
@@ -306,10 +336,12 @@ function assertCalledBefore(
   expect(firstCall).toBeLessThan(secondCall);
 }
 
-function buildCommand(): IssueCommentCommandContext {
+function buildCommand(
+  values: { readonly correlationId?: string } = {},
+): IssueCommentCommandContext {
   return {
     commentId: CommentId,
-    correlationId: DeliveryId,
+    correlationId: values.correlationId ?? DeliveryId,
     issueNumber: PullRequestNumber,
     pullRequestNumber: PullRequestNumber,
     repoFullName: RepoFullName,
