@@ -151,6 +151,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: keep `@sovri-bot re-review` running when the accepted-command
+  `+1` reaction cannot be created, logging the reaction failure without
+  blocking the review flow.
+
 - `test(bot)`: tighten the re-review lookup-failure acceptance check so the
   scenario asserts the actual diff-fetch collaborator is not called after
   `pulls.get` fails.

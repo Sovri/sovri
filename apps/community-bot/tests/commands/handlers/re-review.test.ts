@@ -89,6 +89,27 @@ describe("re-review command handler", () => {
     expect(runtime.postReview).toHaveBeenCalledTimes(1);
     expect(runtime.postErrorComment).not.toHaveBeenCalled();
   });
+
+  it("continues the review flow when the accepted reaction fails", async () => {
+    const runtime = buildRuntime("valid-response");
+    runtime.reactToAccepted.mockRejectedValue(new Error("GitHub reaction API failed"));
+
+    await handleReReviewCommand(buildCommand(), runtime.dependencies);
+
+    expect(runtime.reactToAccepted).toHaveBeenCalledTimes(1);
+    expect(runtime.logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        delivery_id: DeliveryId,
+        error_message: "GitHub reaction API failed",
+        pr_number: PullRequestNumber,
+        repo: RepoFullName,
+      }),
+      "Accepted re-review reaction failed",
+    );
+    expect(runtime.loadConfig).toHaveBeenCalledTimes(1);
+    expect(runtime.reviewPullRequest).toHaveBeenCalledTimes(1);
+    expect(runtime.postReview).toHaveBeenCalledTimes(1);
+  });
 });
 
 type RuntimeMode = "invalid-response" | "rejects" | "valid-response";

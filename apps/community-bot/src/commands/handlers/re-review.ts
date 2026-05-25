@@ -98,14 +98,10 @@ export async function handleReReviewCommand(
     return;
   }
 
-  await dependencies.reactToAccepted({
-    commentId: command.commentId,
-    content: "+1",
-    repoFullName: command.repoFullName,
-  });
-
   const context = buildPullRequestContext(command, dependencies.octokit, pullRequest);
-  await handlePullRequestSynchronize(context, dependencies.createPullRequestDependencies(context));
+  const pullRequestDependencies = dependencies.createPullRequestDependencies(context);
+  await tryReactToAccepted(command, dependencies, pullRequestDependencies);
+  await handlePullRequestSynchronize(context, pullRequestDependencies);
 }
 
 async function reactAccepted(
@@ -119,6 +115,30 @@ async function reactAccepted(
     owner: repo.owner,
     repo: repo.repo,
   });
+}
+
+async function tryReactToAccepted(
+  command: IssueCommentCommandContext,
+  dependencies: ReReviewCommandDependencies,
+  pullRequestDependencies: PullRequestHandlerDependencies,
+): Promise<void> {
+  try {
+    await dependencies.reactToAccepted({
+      commentId: command.commentId,
+      content: "+1",
+      repoFullName: command.repoFullName,
+    });
+  } catch (error) {
+    pullRequestDependencies.logger.error(
+      {
+        delivery_id: command.correlationId,
+        error_message: errorMessageFrom(error),
+        pr_number: command.pullRequestNumber,
+        repo: command.repoFullName,
+      },
+      "Accepted re-review reaction failed",
+    );
+  }
 }
 
 async function resolvePullRequest(
@@ -202,6 +222,14 @@ function splitRepoFullName(repoFullName: string): {
   }
 
   return { owner, repo };
+}
+
+function errorMessageFrom(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "unknown reaction failure";
 }
 
 class ReReviewCommandError extends Error {
