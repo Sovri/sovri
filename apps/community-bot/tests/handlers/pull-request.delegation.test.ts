@@ -614,6 +614,35 @@ describe("pull request handlers - remaining ATDD scenarios", () => {
     }
   });
 
+  it("posts one PR error comment when the review engine returns failed status", async () => {
+    const dependencies = buildDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff: buildDiff(),
+      review: buildReview({
+        commitSha: OPENED_HEAD_SHA,
+        error: "provider timeout",
+        findings: 0,
+        status: "failed",
+        walkthrough: "provider timeout",
+      }),
+    });
+
+    // Given the review engine returns status "failed" with message "provider timeout"
+    // When the opened pull request handler receives the failed review
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    // Then exactly 1 PR error comment is posted
+    expect(dependencies.postErrorComment).toHaveBeenCalledTimes(1);
+    expect(commentOutput(dependencies)).toContain("review failed");
+    // And no walkthrough review is posted
+    expect(dependencies.postReview).not.toHaveBeenCalled();
+    // And the failed review reason is preserved in logs
+    expect(logOutput(dependencies)).toContain("provider timeout");
+  });
+
   it("does not call the engine when diff fetch fails", async () => {
     const dependencies = buildDependencies({
       config: buildConfig({ autoReviewDrafts: false }),
@@ -979,9 +1008,13 @@ function buildDiff(
 
 function buildReview(values: {
   readonly commitSha: string;
+  readonly error?: string;
   readonly findings?: number;
+  readonly status?: Review["status"];
   readonly walkthrough?: string;
 }): Review {
+  const errorFields = values.error === undefined ? {} : { error: values.error };
+
   return {
     completed_at: new Date("2026-05-18T10:00:01.000Z"),
     commit_sha: values.commitSha,
@@ -1008,13 +1041,14 @@ function buildReview(values: {
     pr_number: 41,
     repo_full_name: REPO_FULL_NAME,
     started_at: new Date("2026-05-18T10:00:00.000Z"),
-    status: "success",
+    status: values.status ?? "success",
     summary: values.walkthrough ?? "Review complete",
     tokens_used: {
       completion: 20,
       prompt: 100,
     },
     walkthrough_markdown: values.walkthrough ?? "Review complete",
+    ...errorFields,
   };
 }
 
