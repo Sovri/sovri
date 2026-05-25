@@ -43,6 +43,18 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "dismiss", findingId: "finding-123" });
   });
 
+  it("recognizes the lowercase dismiss command with one finding id", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "@sovri-bot dismiss finding-abc-123";
+    // When the command body is parsed
+    const command = parseCommand(body);
+    // Then the parsed command is `dismiss`
+    // And the parsed finding id is "finding-abc-123"
+    expect(command).toEqual({ kind: "dismiss", findingId: "finding-abc-123" });
+  });
+
   it("ignores a mention after leading whitespace", async () => {
     const { parseCommand } = await import("./parser.js");
 
