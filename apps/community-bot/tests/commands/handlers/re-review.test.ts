@@ -212,6 +212,38 @@ describe("re-review command handler", () => {
     expect(runtime.postReview).not.toHaveBeenCalled();
     expect(runtime.postErrorComment).not.toHaveBeenCalled();
   });
+
+  it("delegates draft pull requests when draft reviews are enabled", async () => {
+    const runtime = buildRuntime("valid-response", { draft: true });
+    runtime.loadConfig.mockResolvedValueOnce({
+      ...DEFAULT_CONFIG,
+      review: {
+        ...DEFAULT_CONFIG.review,
+        autoReviewDrafts: true,
+      },
+    });
+
+    await handleReReviewCommand(
+      buildCommand({ correlationId: "delivery-re-review-016" }),
+      runtime.dependencies,
+    );
+
+    expect(runtime.loadConfig).toHaveBeenCalledTimes(1);
+    expect(runtime.fetchDiff).toHaveBeenCalledTimes(1);
+    expect(runtime.reviewPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pullRequest: expect.objectContaining({
+          draft: true,
+          head_sha: HeadSha,
+          number: PullRequestNumber,
+          repo_full_name: RepoFullName,
+        }),
+      }),
+      expect.any(Object),
+    );
+    expect(runtime.postReview).toHaveBeenCalledTimes(1);
+    expect(runtime.postErrorComment).not.toHaveBeenCalled();
+  });
 });
 
 type RuntimeMode = "invalid-response" | "rejects" | "valid-response";
