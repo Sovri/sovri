@@ -25,7 +25,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   acceptance coverage and a pure parser implementation for
   case-insensitive line-start `re-review` mentions, plus lowercase
   `re-review` and first-command precedence coverage with implementation
-  for lowercase `dismiss <finding-id>`,
+  for lowercase `dismiss <finding-id>`, with exact command-verb coverage,
   while indented and quoted mentions remain ignored, and repeated parsing
   of the same input remains deterministic without GitHub event context,
   environment reads, or Node filesystem imports.

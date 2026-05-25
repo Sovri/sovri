@@ -55,6 +55,21 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "dismiss", findingId: "finding-abc-123" });
   });
 
+  it.each(["Re-Review", "DISMISS abc-123-def", "resolve abc-123-def"])(
+    "returns unknown for non-exact command verb %s",
+    async (commandLine) => {
+      const { parseCommand } = await import("./parser.js");
+
+      // Given a GitHub issue comment body:
+      const body = `@sovri-bot ${commandLine}`;
+      // When the command body is parsed
+      const command = parseCommand(body);
+      // Then the parsed command is `unknown`
+      // And the raw command remainder is preserved
+      expect(command).toEqual({ kind: "unknown", raw: commandLine });
+    },
+  );
+
   it("ignores a mention after leading whitespace", async () => {
     const { parseCommand } = await import("./parser.js");
 
