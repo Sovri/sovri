@@ -26,7 +26,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   the dispatcher to call the re-review handler with the GitHub delivery
   correlation ID and without forwarding raw signature headers, backed by the
   minimal issue-comment handler contract for that path and a non-PR issue
-  guard before command parsing.
+  guard before command parsing. The dispatcher acceptance suite now also covers
+  bot self-comments being skipped before command parsing or command side
+  effects.
 
 - `feat(bot)`: start the `@sovri-bot` command parser contract with
   acceptance coverage and a pure parser implementation for
