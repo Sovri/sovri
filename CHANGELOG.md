@@ -34,7 +34,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   also pins delivery correlation and GitHub comment ID propagation, and dismiss
   dispatcher coverage starts pinning the same delivery, comment, and finding ID
   propagation contract with the handler routing parsed dismiss commands to a
-  dedicated dismiss dependency.
+  dedicated dismiss dependency. Re-review routing coverage now also verifies the
+  dispatcher does not fetch pull request diffs or post review results itself.
 
 - `feat(bot)`: start the `@sovri-bot` command parser contract with
   acceptance coverage and a pure parser implementation for
