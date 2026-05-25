@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG, type SovriConfig } from "@sovri/config";
 import type { Diff, Review } from "@sovri/review-engine";
 
-import { createPullRequestHandlerDependencies } from "../../src/github/pull-request-review.js";
+import {
+  createPullRequestHandlerDependencies,
+  ReviewTimeoutMs,
+} from "../../src/github/pull-request-review.js";
 import type { PullRequestWebhookContext } from "../../src/handlers/pull-request.js";
 
 const RepoFullName = "mpiton/sovri";
@@ -95,6 +98,20 @@ review:
     const options = dependencies.buildReviewOptions?.(config);
 
     expect(options?.provider.model).toBe("claude-3-5-sonnet-latest");
+  });
+
+  it("creates provider options with the v0.1 review timeout budget", () => {
+    const runtime = buildRuntimeContext();
+    const dependencies = createPullRequestHandlerDependencies(runtime.context, {
+      ANTHROPIC_API_KEY: "test-key",
+    });
+
+    const options = dependencies.buildReviewOptions?.(
+      buildConfig({ model: "claude-3-5-sonnet-latest" }),
+    );
+
+    expect(options?.provider).toHaveProperty("timeoutMs", ReviewTimeoutMs);
+    expect(ReviewTimeoutMs).toBe(300_000);
   });
 
   it("posts walkthrough and inline finding comments in the PR review", async () => {

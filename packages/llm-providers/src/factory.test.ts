@@ -108,6 +108,33 @@ describe("createProviderFromConfig", () => {
     },
   );
 
+  it.each([
+    {
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      secretName: "ANTHROPIC_API_KEY",
+    },
+    {
+      provider: "mistral",
+      model: "mistral-large-latest",
+      secretName: "MISTRAL_API_KEY",
+    },
+  ] as const)(
+    "forwards the configured timeout to the $provider provider",
+    ({ model, provider, secretName }) => {
+      const config = createConfig({ provider, model, apiKeySecret: secretName });
+      const env = { [secretName]: "test-key" };
+
+      createProviderFromConfig(config, env, { timeoutMs: 300_000 });
+
+      const constructorSpy =
+        provider === "anthropic" ? vi.mocked(AnthropicProvider) : vi.mocked(MistralProvider);
+
+      expect(constructorSpy).toHaveBeenCalledTimes(1);
+      expect(constructorSpy.mock.calls[0]?.[0]).toMatchObject({ timeoutMs: 300_000 });
+    },
+  );
+
   it("throws a typed missing-key error when the configured env var is absent", () => {
     const config = createConfig({
       provider: "mistral",
