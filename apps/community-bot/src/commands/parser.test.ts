@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 describe("parseCommand", () => {
@@ -73,5 +76,18 @@ describe("parseCommand", () => {
     // Then the parsed command is `dismiss`
     // And the parsed finding id is "finding-789"
     expect(command).toEqual({ kind: "dismiss", findingId: "finding-789" });
+  });
+
+  it("does not read process environment or filesystem state", () => {
+    // Given the command parser source:
+    const parserPath = fileURLToPath(new URL("./parser.ts", import.meta.url));
+    const parserSource = readFileSync(parserPath, "utf8");
+    const filesystemImportPattern =
+      /(?:from\s+|import\s*\(\s*|import\s+|require\s*\(\s*)["'](?:node:)?fs(?:\/promises)?["']/u;
+    // When parser dependencies are inspected
+    // Then the parser does not read process environment
+    expect(parserSource).not.toContain("process.env");
+    // And the parser does not import filesystem modules
+    expect(parserSource).not.toMatch(filesystemImportPattern);
   });
 });
