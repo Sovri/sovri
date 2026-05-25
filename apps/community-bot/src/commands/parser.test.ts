@@ -50,4 +50,16 @@ describe("parseCommand", () => {
     // Then the parsed command is `no-mention`
     expect(command).toEqual({ kind: "no-mention" });
   });
+
+  it("returns the same parsed command for repeated parsing of the same input", async () => {
+    const { parseCommand } = await import("./parser.js");
+
+    // Given a GitHub issue comment body:
+    const body = "@sovri-bot dismiss finding-456";
+    // When the command body is parsed repeatedly
+    const firstCommand = parseCommand(body);
+    const secondCommand = parseCommand(body);
+    // Then the parsed command is the same each time
+    expect(secondCommand).toEqual(firstCommand);
+  });
 });
