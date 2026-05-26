@@ -21,12 +21,32 @@ const Owner = "octo-org";
 const Repo = "sovri-target";
 const RepoFullName = `${Owner}/${Repo}`;
 const PullNumber = 42;
+const CommentId = 98_765;
 const BaseSha = "dddddddddddddddddddddddddddddddddddddddd";
 const OpenedHeadSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SynchronizedHeadSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SecondSynchronizedHeadSha = "cccccccccccccccccccccccccccccccccccccccc";
+const ReReviewHeadSha = "dddddddddddddddddddddddddddddddddddddddd";
+const ReReviewOrderHeadSha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const ReReviewSuccessfulHeadSha = "ffffffffffffffffffffffffffffffffffffffff";
 const OpenedDeliveryId = "8f1b9c2d-3e4f-45a6-91b2-123456789abc";
 const SynchronizeDeliveryId = "9f1b9c2d-3e4f-45a6-91b2-123456789abc";
+const ReReviewDeliveryId = "delivery-re-review-001";
+const ReReviewOrderDeliveryId = "delivery-re-review-002";
+const ReReviewCurrentHeadDeliveryId = "delivery-re-review-004";
+const ReReviewStaleHeadDeliveryId = "delivery-re-review-005";
+const ReReviewLookupFailureDeliveryId = "delivery-re-review-006";
+const ReReviewAcceptedReactionDeliveryId = "delivery-re-review-007";
+const ReReviewSingleReactionDeliveryId = "delivery-re-review-008";
+const ReReviewCannotAcceptDeliveryId = "delivery-re-review-009";
+const ReReviewDiffFailureDeliveryId = "delivery-re-review-010";
+const ReReviewPosterFailureDeliveryId = "delivery-re-review-012";
+const ReReviewSuccessfulDeliveryId = "delivery-re-review-014";
+const ReReviewDraftSkipDeliveryId = "delivery-re-review-015";
+const ReReviewDraftEnabledDeliveryId = "delivery-re-review-016";
+const ReReviewNonDraftWithDraftsDisabledDeliveryId = "delivery-re-review-017";
+const ReReviewTimeoutFailureDeliveryId = "delivery-re-review-019";
+const ReReviewTimeoutFailureHeadSha = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const SecretWebhookValue = "secret-webhook-value-45";
 const SecretLlmValue = "secret-llm-value-45";
 const SecretMistralValue = "test-key";
@@ -58,14 +78,29 @@ const PullRequestReviewRouteSchema = z.object({
 
 type ReviewRequest = ReturnType<typeof validatePullRequestReviewRequest>;
 
+type ReviewFlowFailureStep = "diff fetcher" | "review engine" | "review poster";
+
+type ReactionRequest = {
+  readonly comment_id: number;
+  readonly content: "+1";
+  readonly owner: string;
+  readonly repo: string;
+};
+
 type ObservedRuntime = {
   readonly anthropicApiKeys: string[];
   readonly anthropicRequests: unknown[];
+  readonly collaboratorCalls: string[];
+  readonly eventLog: string[];
   readonly issueCommentBodies: string[];
   readonly listFilesQueries: string[];
   readonly mistralApiKeys: string[];
   readonly mistralRequests: unknown[];
+  readonly pullGetRequests: string[];
+  readonly reactionRequests: ReactionRequest[];
+  readonly repositoryConfigRequests: string[];
   readonly reviewRequests: ReviewRequest[];
+  readonly successfulReviewRequests: ReviewRequest[];
 };
 
 type UnhandledRequest = {
@@ -584,6 +619,425 @@ describe("community bot pull request review E2E ATDD", () => {
     // And the unhandled-request listener records 0 unhandled network requests
     expect(unhandledRequests).toEqual([]);
   }, 20_000);
+
+  it("re-review reaches the same review collaborators as synchronize", async () => {
+    // Given issue comment delivery "delivery-re-review-001" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub pull request 42 currently has head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    // And repository config sets `review.autoReviewDrafts` to false
+    // And pull request 42 is not a draft
+    const runtime = await runReReviewFlow({ headSha: ReReviewHeadSha });
+
+    // When Sovri accepts the re-review command
+    // Then the shared pull request review flow loads config for "octo-org/sovri-target"
+    expect(runtime.repositoryConfigRequests).toEqual([RepoFullName]);
+    // And the shared pull request review flow fetches the diff for pull request 42
+    expect(runtime.listFilesQueries).toHaveLength(1);
+    expect(runtime.listFilesQueries[0]).toContain(String(PullNumber));
+    // And the shared pull request review flow calls the review engine for pull request 42
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    // And the shared pull request review flow posts the walkthrough for pull request 42
+    expect(runtime.reviewRequests).toHaveLength(1);
+    expect(runtime.reviewRequests[0]?.commit_id).toBe(ReReviewHeadSha);
+  }, 15_000);
+
+  it("current head SHA from pulls.get drives review and posting", async () => {
+    const issueCommentPayload = buildIssueCommentPayload();
+
+    // Given issue comment delivery "delivery-re-review-004" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    expect(issueCommentPayload.repository.full_name).toBe(RepoFullName);
+    expect(issueCommentPayload.issue.number).toBe(PullNumber);
+    expect(issueCommentPayload.comment.id).toBe(CommentId);
+    expect(issueCommentPayload.comment.user.login).toBe("alice");
+    expect(issueCommentPayload.comment.body).toBe("@sovri-bot re-review");
+    // And the issue comment payload contains no pull request head SHA
+    expect(JSON.stringify(issueCommentPayload)).not.toContain("head");
+    // And GitHub `pulls.get` returns head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewCurrentHeadDeliveryId,
+      headSha: ReReviewHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then GitHub receives one `pulls.get` request for repository "octo-org/sovri-target" and pull request 42
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${String(PullNumber)}`]);
+    // And the review engine receives head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    // And the walkthrough is posted against commit "dddddddddddddddddddddddddddddddddddddddd"
+    expect(runtime.reviewRequests[0]?.commit_id).toBe(ReReviewHeadSha);
+  }, 15_000);
+
+  it("re-review does not reuse a stale synchronize head SHA", async () => {
+    // Given issue comment delivery "delivery-re-review-005" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And the previous synchronize webhook used head SHA "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    const previous = await runReviewFlow({
+      action: "synchronize",
+      deliveryId: `${ReReviewStaleHeadDeliveryId}-synchronize`,
+      headSha: SynchronizedHeadSha,
+    });
+    expect(previous.reviewRequests[0]?.commit_id).toBe(SynchronizedHeadSha);
+
+    // And GitHub `pulls.get` returns head SHA "cccccccccccccccccccccccccccccccccccccccc"
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewStaleHeadDeliveryId,
+      headSha: SecondSynchronizedHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then the review engine receives head SHA "cccccccccccccccccccccccccccccccccccccccc"
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    expect(runtime.reviewRequests[0]?.commit_id).toBe(SecondSynchronizedHeadSha);
+    // And no review call receives head SHA "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    expect(runtime.reviewRequests.map((request) => request.commit_id)).not.toContain(
+      SynchronizedHeadSha,
+    );
+  }, 20_000);
+
+  it("pull request lookup failure stops review work", async () => {
+    // Given issue comment delivery "delivery-re-review-006" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` fails with status 404
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewLookupFailureDeliveryId,
+      headSha: ReReviewHeadSha,
+      pullLookupStatus: 404,
+    });
+
+    // When Sovri handles the re-review command
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${String(PullNumber)}`]);
+    // Then exactly 1 issue comment is posted on pull request 42
+    expect(runtime.issueCommentBodies).toHaveLength(1);
+    // And the issue comment explains that re-review failed
+    expect(runtime.issueCommentBodies[0]).toContain("review failed");
+    // And the diff fetcher is not called
+    expect(runtime.collaboratorCalls).not.toContain("fetch diff");
+    // And the review engine is not called
+    expect(runtime.anthropicRequests).toEqual([]);
+    // And no walkthrough review is posted
+    expect(runtime.reviewRequests).toEqual([]);
+  }, 15_000);
+
+  it("accepted re-review creates a thumbs-up reaction before review completes", async () => {
+    // Given issue comment delivery "delivery-re-review-007" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    // And the review engine for pull request 42 is still running
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewAcceptedReactionDeliveryId,
+      headSha: ReReviewHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then GitHub receives one reaction request for comment 98765 with content "+1"
+    expect(runtime.reactionRequests).toEqual([
+      {
+        comment_id: CommentId,
+        content: "+1",
+        owner: Owner,
+        repo: Repo,
+      },
+    ]);
+    // And the reaction request is sent before the walkthrough review is posted
+    expect(eventOrder(runtime, "accepted reaction")).toBeLessThan(
+      eventOrder(runtime, "post review"),
+    );
+  }, 15_000);
+
+  it("accepted re-review creates only one thumbs-up reaction", async () => {
+    // Given issue comment delivery "delivery-re-review-008" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    // And the review engine completes successfully
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewSingleReactionDeliveryId,
+      headSha: ReReviewOrderHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then GitHub receives exactly 1 reaction request for comment 98765 with content "+1"
+    expect(runtime.reactionRequests).toEqual([
+      {
+        comment_id: CommentId,
+        content: "+1",
+        owner: Owner,
+        repo: Repo,
+      },
+    ]);
+    expect(runtime.eventLog.filter((event) => event === "accepted reaction")).toHaveLength(1);
+    // And no second thumbs-up reaction is created after the walkthrough is posted
+    const reviewPostIndex = eventOrder(runtime, "post review");
+    expect(runtime.eventLog.slice(reviewPostIndex + 1)).not.toContain("accepted reaction");
+  }, 15_000);
+
+  it("a command that cannot be accepted does not create the accepted reaction", async () => {
+    // Given issue comment delivery "delivery-re-review-009" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` fails with status 500
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewCannotAcceptDeliveryId,
+      headSha: ReReviewHeadSha,
+      pullLookupStatus: 500,
+    });
+
+    // When Sovri handles the re-review command
+    expect(runtime.pullGetRequests).toContain(`${RepoFullName}#${String(PullNumber)}`);
+    // Then GitHub receives no reaction request for comment 98765 with content "+1"
+    expect(runtime.reactionRequests).toEqual([]);
+    // And exactly 1 issue comment is posted on pull request 42
+    expect(runtime.issueCommentBodies).toHaveLength(1);
+    expect(runtime.issueCommentBodies[0]).toContain("review failed");
+    // And no walkthrough review is posted
+    expect(runtime.reviewRequests).toEqual([]);
+  }, 15_000);
+
+  it.each([
+    {
+      deliveryId: ReReviewDiffFailureDeliveryId,
+      expectedCommentText: "review failed",
+      failingStep: "diff fetcher",
+    },
+    {
+      deliveryId: ReReviewPosterFailureDeliveryId,
+      expectedCommentText: "could not be posted as a pull request review",
+      failingStep: "review poster",
+    },
+  ] satisfies readonly {
+    readonly deliveryId: string;
+    readonly expectedCommentText: string;
+    readonly failingStep: ReviewFlowFailureStep;
+  }[])(
+    "review flow failure posts one error comment and no walkthrough for $failingStep failure",
+    async ({ deliveryId, expectedCommentText, failingStep }) => {
+      // Given issue comment delivery "<delivery_id>" targets repository "octo-org/sovri-target"
+      // And issue 42 is pull request 42
+      // And comment 98765 was authored by "alice"
+      // And the command body is "@sovri-bot re-review"
+      // And GitHub `pulls.get` returns head SHA "dddddddddddddddddddddddddddddddddddddddd"
+      // And repository config sets `review.autoReviewDrafts` to false
+      // And pull request 42 is not a draft
+      // And the "<failing_step>" fails with message "provider timeout"
+      const runtime = await runReReviewFlow({
+        deliveryId,
+        failingStep,
+        headSha: ReReviewHeadSha,
+      });
+
+      // When Sovri handles the re-review command
+      // Then exactly 1 issue comment is posted on pull request 42
+      expect(runtime.issueCommentBodies).toHaveLength(1);
+      // And the issue comment explains that re-review failed
+      expect(runtime.issueCommentBodies[0]).toContain(expectedCommentText);
+      // And no walkthrough review is posted
+      expect(runtime.successfulReviewRequests).toEqual([]);
+      // And no inline comments are posted
+      expect(runtime.successfulReviewRequests.flatMap((request) => request.comments)).toEqual([]);
+    },
+    35_000,
+  );
+
+  it("successful re-review posts a walkthrough and no error comment", async () => {
+    // Given issue comment delivery "delivery-re-review-014" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "ffffffffffffffffffffffffffffffffffffffff"
+    // And the review engine returns walkthrough "Review complete"
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewSuccessfulDeliveryId,
+      headSha: ReReviewSuccessfulHeadSha,
+      providerResponse: buildProviderResponseWithWalkthrough("Review complete"),
+    });
+
+    // When Sovri handles the re-review command
+    // Then the walkthrough review is posted on pull request 42
+    expect(runtime.successfulReviewRequests).toHaveLength(1);
+    expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
+    expect(runtime.successfulReviewRequests[0]?.commit_id).toBe(ReReviewSuccessfulHeadSha);
+    expect(runtime.successfulReviewRequests[0]?.body).toContain("Review complete");
+    // And no issue comment explaining an error is posted
+    expect(runtime.issueCommentBodies).toEqual([]);
+  }, 15_000);
+
+  it("re-review timeout failure follows the webhook error path", async () => {
+    // Given the v0.1 synchronize review flow uses timeout budget 300000 milliseconds
+    // And issue comment delivery "delivery-re-review-019" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    // And the review engine exceeds timeout budget 300000 milliseconds
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewTimeoutFailureDeliveryId,
+      failingStep: "review engine",
+      headSha: ReReviewTimeoutFailureHeadSha,
+    });
+
+    // When Sovri handles the re-review command
+    expect(runtime.pullGetRequests).toContain(`${RepoFullName}#${String(PullNumber)}`);
+    // Then exactly 1 issue comment is posted on pull request 42
+    expect(runtime.issueCommentBodies).toHaveLength(1);
+    // And the issue comment explains that re-review failed
+    expect(runtime.issueCommentBodies[0]).toContain("review failed");
+    // And no walkthrough review is posted
+    expect(runtime.successfulReviewRequests).toEqual([]);
+  }, 35_000);
+
+  it("draft pull request is skipped when draft reviews are disabled", async () => {
+    // Given issue comment delivery "delivery-re-review-015" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "dddddddddddddddddddddddddddddddddddddddd"
+    // And pull request 42 is a draft
+    // And repository config sets `review.autoReviewDrafts` to false
+    const runtime = await runReReviewFlow({
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: false",
+      ].join("\n"),
+      deliveryId: ReReviewDraftSkipDeliveryId,
+      draft: true,
+      headSha: ReReviewHeadSha,
+    });
+
+    // When Sovri handles the re-review command
+    // Then the shared flow loads repository config before skipping
+    expect(runtime.repositoryConfigRequests).toEqual([RepoFullName]);
+    expect(runtime.collaboratorCalls).toEqual(["load config"]);
+    // And the diff fetcher is not called
+    expect(runtime.listFilesQueries).toEqual([]);
+    // And the review engine is not called
+    expect(runtime.anthropicRequests).toEqual([]);
+    // And no walkthrough review is posted
+    expect(runtime.successfulReviewRequests).toEqual([]);
+    expect(runtime.reviewRequests).toEqual([]);
+  }, 15_000);
+
+  it("draft pull request is reviewed when draft reviews are enabled", async () => {
+    // Given issue comment delivery "delivery-re-review-016" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    // And pull request 42 is a draft
+    // And repository config sets `review.autoReviewDrafts` to true
+    const runtime = await runReReviewFlow({
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: true",
+      ].join("\n"),
+      deliveryId: ReReviewDraftEnabledDeliveryId,
+      draft: true,
+      headSha: ReReviewOrderHeadSha,
+      providerResponse: buildProviderResponseWithWalkthrough("Draft review complete"),
+    });
+
+    // When Sovri handles the re-review command
+    // Then the review engine receives pull request 42 and head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    expect(runtime.collaboratorCalls).toEqual([
+      "load config",
+      "fetch diff",
+      "review pull request",
+      "post review",
+    ]);
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${PullNumber}`]);
+    expect(runtime.listFilesQueries).toEqual([`${PullNumber}?page=1&per_page=100`]);
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    // And the walkthrough review is posted on pull request 42
+    expect(runtime.successfulReviewRequests).toHaveLength(1);
+    expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
+    expect(runtime.successfulReviewRequests[0]?.commit_id).toBe(ReReviewOrderHeadSha);
+    expect(runtime.successfulReviewRequests[0]?.body).toContain("Draft review complete");
+  }, 15_000);
+
+  it("non-draft pull request is reviewed when draft reviews are disabled", async () => {
+    // Given issue comment delivery "delivery-re-review-017" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub `pulls.get` returns head SHA "ffffffffffffffffffffffffffffffffffffffff"
+    // And pull request 42 is not a draft
+    // And repository config sets `review.autoReviewDrafts` to false
+    const runtime = await runReReviewFlow({
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: false",
+      ].join("\n"),
+      deliveryId: ReReviewNonDraftWithDraftsDisabledDeliveryId,
+      draft: false,
+      headSha: ReReviewSuccessfulHeadSha,
+      providerResponse: buildProviderResponseWithWalkthrough("Non-draft review complete"),
+    });
+
+    // When Sovri handles the re-review command
+    // Then the review engine receives pull request 42 and head SHA "ffffffffffffffffffffffffffffffffffffffff"
+    expect(runtime.collaboratorCalls).toEqual([
+      "load config",
+      "fetch diff",
+      "review pull request",
+      "post review",
+    ]);
+    expect(runtime.pullGetRequests).toEqual([`${RepoFullName}#${PullNumber}`]);
+    expect(runtime.anthropicRequests).toHaveLength(1);
+    // And the walkthrough review is posted on pull request 42
+    expect(runtime.successfulReviewRequests).toHaveLength(1);
+    expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
+    expect(runtime.successfulReviewRequests[0]?.commit_id).toBe(ReReviewSuccessfulHeadSha);
+    expect(runtime.successfulReviewRequests[0]?.body).toContain("Non-draft review complete");
+  }, 15_000);
+
+  it("re-review preserves synchronize collaborator order", async () => {
+    // Given issue comment delivery "delivery-re-review-002" targets repository "octo-org/sovri-target"
+    // And issue 42 is pull request 42
+    // And comment 98765 was authored by "alice"
+    // And the command body is "@sovri-bot re-review"
+    // And GitHub pull request 42 currently has head SHA "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    // And every review collaborator succeeds
+    const runtime = await runReReviewFlow({
+      deliveryId: ReReviewOrderDeliveryId,
+      headSha: ReReviewOrderHeadSha,
+    });
+
+    // When Sovri accepts the re-review command
+    // Then collaborator call 1 is "load config"
+    // And collaborator call 2 is "fetch diff"
+    // And collaborator call 3 is "review pull request"
+    // And collaborator call 4 is "post review"
+    expect(runtime.collaboratorCalls).toEqual([
+      "load config",
+      "fetch diff",
+      "review pull request",
+      "post review",
+    ]);
+  }, 15_000);
 });
 
 function runOpenedReviewFlow(): Promise<ObservedRuntime> {
@@ -629,19 +1083,25 @@ async function runReviewFlow(values: {
   const runtime: ObservedRuntime = {
     anthropicApiKeys: [],
     anthropicRequests: [],
+    collaboratorCalls: [],
+    eventLog: [],
     issueCommentBodies: [],
     listFilesQueries: [],
     mistralApiKeys: [],
     mistralRequests: [],
+    pullGetRequests: [],
+    reactionRequests: [],
+    repositoryConfigRequests: [],
     reviewRequests: [],
+    successfulReviewRequests: [],
   };
   vi.stubEnv("ANTHROPIC_API_KEY", SecretLlmValue);
   if (Object.hasOwn(values, "mistralApiKey")) {
     vi.stubEnv("MISTRAL_API_KEY", values.mistralApiKey);
   }
-  installReviewFlowHandlers(runtime, values.reviewStatus ?? 200);
+  installReviewFlowHandlers(runtime, values.reviewStatus ?? 200, values.headSha);
   if (values.configContent !== undefined) {
-    installRepositoryConfigHandler(values.configContent);
+    installRepositoryConfigHandler(values.configContent, runtime);
   }
   const probot = new Probot({
     githubToken: SecretInstallationToken,
@@ -656,26 +1116,110 @@ async function runReviewFlow(values: {
   return runtime;
 }
 
-function installRepositoryConfigHandler(configContent: string): void {
+async function runReReviewFlow(values: {
+  readonly configContent?: string;
+  readonly deliveryId?: string;
+  readonly draft?: boolean;
+  readonly failingStep?: ReviewFlowFailureStep;
+  readonly headSha: string;
+  readonly pullLookupStatus?: number;
+  readonly providerResponse?: ProviderReviewResponse;
+}): Promise<ObservedRuntime> {
+  const runtime: ObservedRuntime = {
+    anthropicApiKeys: [],
+    anthropicRequests: [],
+    collaboratorCalls: [],
+    eventLog: [],
+    issueCommentBodies: [],
+    listFilesQueries: [],
+    mistralApiKeys: [],
+    mistralRequests: [],
+    pullGetRequests: [],
+    reactionRequests: [],
+    repositoryConfigRequests: [],
+    reviewRequests: [],
+    successfulReviewRequests: [],
+  };
+  vi.stubEnv("ANTHROPIC_API_KEY", SecretLlmValue);
+  installReviewFlowHandlers(
+    runtime,
+    200,
+    values.headSha,
+    values.pullLookupStatus ?? 200,
+    values.failingStep,
+    values.providerResponse,
+    values.draft ?? false,
+  );
+  if (values.configContent !== undefined) {
+    installRepositoryConfigHandler(values.configContent, runtime);
+  }
+  const probot = new Probot({
+    githubToken: SecretInstallationToken,
+    log: createLogger("community-bot.e2e-test"),
+  });
+  await probot.load(app, { addHandler() {} });
+  await probot.receive({
+    id: values.deliveryId ?? ReReviewDeliveryId,
+    name: "issue_comment",
+    payload: buildIssueCommentPayload(),
+  });
+  return runtime;
+}
+
+function installRepositoryConfigHandler(configContent: string, runtime?: ObservedRuntime): void {
   server.use(
-    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, () =>
-      HttpResponse.text(configContent),
-    ),
+    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, ({ params }) => {
+      runtime?.collaboratorCalls.push("load config");
+      runtime?.repositoryConfigRequests.push(`${String(params.owner)}/${String(params.repo)}`);
+      return HttpResponse.text(configContent);
+    }),
   );
 }
 
-function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: number): void {
+function installReviewFlowHandlers(
+  runtime: ObservedRuntime,
+  reviewStatus: number,
+  currentHeadSha: string,
+  pullLookupStatus = 200,
+  failingStep?: ReviewFlowFailureStep,
+  providerResponse: ProviderReviewResponse = buildProviderResponse(3),
+  draft = false,
+): void {
   server.use(
-    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, () =>
-      HttpResponse.json({ message: "Not Found" }, { status: 404 }),
-    ),
-    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number`, () =>
-      HttpResponse.text("not a unified diff"),
-    ),
-    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number/files`, ({ request }) => {
-      runtime.listFilesQueries.push(new URL(request.url).searchParams.toString());
-      return HttpResponse.json(defaultGitHubFiles());
+    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/contents/.sovri.yml`, ({ params }) => {
+      runtime.collaboratorCalls.push("load config");
+      runtime.repositoryConfigRequests.push(`${String(params.owner)}/${String(params.repo)}`);
+      return HttpResponse.json({ message: "Not Found" }, { status: 404 });
     }),
+    http.get(`${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number`, ({ params, request }) => {
+      const accept = request.headers.get("accept") ?? "";
+      if (accept.includes("diff")) {
+        runtime.collaboratorCalls.push("fetch diff");
+        if (failingStep === "diff fetcher") {
+          return HttpResponse.json({ message: "provider timeout" }, { status: 404 });
+        }
+        return HttpResponse.text("not a unified diff");
+      }
+      runtime.pullGetRequests.push(
+        `${String(params.owner)}/${String(params.repo)}#${String(params.pull_number)}`,
+      );
+      if (pullLookupStatus !== 200) {
+        return HttpResponse.json({ message: "Not Found" }, { status: pullLookupStatus });
+      }
+      return HttpResponse.json(
+        buildPullRequestPayload({ action: "synchronize", draft, headSha: currentHeadSha })
+          .pull_request,
+      );
+    }),
+    http.get(
+      `${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number/files`,
+      ({ params, request }) => {
+        runtime.listFilesQueries.push(
+          `${String(params.pull_number)}?${new URL(request.url).searchParams.toString()}`,
+        );
+        return HttpResponse.json(defaultGitHubFiles());
+      },
+    ),
     http.get(`${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number/reviews`, () =>
       HttpResponse.json([]),
     ),
@@ -685,6 +1229,7 @@ function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: numbe
     http.post(
       `${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number/reviews`,
       async ({ params, request }) => {
+        runtime.collaboratorCalls.push("post review");
         const route = PullRequestReviewRouteSchema.parse(params);
         const body = PullRequestReviewBodySchema.parse(await request.json());
         const reviewRequest = validatePullRequestReviewRequest({
@@ -694,12 +1239,14 @@ function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: numbe
           repo: route.repo,
         });
         runtime.reviewRequests.push(reviewRequest);
-        if (reviewStatus === 403) {
+        runtime.eventLog.push("post review");
+        if (failingStep === "review poster" || reviewStatus === 403) {
           return HttpResponse.json(
             { message: "Resource not accessible by integration" },
             { status: 403 },
           );
         }
+        runtime.successfulReviewRequests.push(reviewRequest);
         return HttpResponse.json({ body: reviewRequest.body, id: 98765 });
       },
     ),
@@ -711,22 +1258,74 @@ function installReviewFlowHandlers(runtime: ObservedRuntime, reviewStatus: numbe
         return HttpResponse.json({ body: body.body, id: 87654 }, { status: 201 });
       },
     ),
+    http.post(
+      `${GitHubBaseUrl}/repos/:owner/:repo/issues/comments/:comment_id/reactions`,
+      async ({ params, request }) => {
+        const route = z
+          .object({
+            comment_id: z.string().regex(/^\d+$/),
+            owner: z.string().min(1),
+            repo: z.string().min(1),
+          })
+          .parse(params);
+        const body = z.object({ content: z.literal("+1") }).parse(await request.json());
+        runtime.reactionRequests.push({
+          comment_id: Number.parseInt(route.comment_id, 10),
+          content: body.content,
+          owner: route.owner,
+          repo: route.repo,
+        });
+        runtime.eventLog.push("accepted reaction");
+        return HttpResponse.json({ content: body.content, id: 7654321 });
+      },
+    ),
     http.post(AnthropicMessagesUrl, async ({ request }) => {
+      runtime.collaboratorCalls.push("review pull request");
       runtime.anthropicApiKeys.push(request.headers.get("x-api-key") ?? "");
       runtime.anthropicRequests.push(await request.json());
-      return anthropicMessageWithText(JSON.stringify(buildProviderResponse(3)));
+      if (failingStep === "review engine") {
+        return HttpResponse.json({ message: "provider timeout" }, { status: 408 });
+      }
+      return anthropicMessageWithText(JSON.stringify(providerResponse));
     }),
     http.post(MistralChatUrl, async ({ request }) => {
       runtime.mistralApiKeys.push(
         request.headers.get("authorization") ?? request.headers.get("x-api-key") ?? "",
       );
       runtime.mistralRequests.push(await request.json());
-      return mistralChatCompletionWithText(JSON.stringify(buildProviderResponse(3)));
+      return mistralChatCompletionWithText(JSON.stringify(providerResponse));
     }),
   );
 }
 
-function buildPullRequestPayload(values: { readonly action: string; readonly headSha: string }) {
+function buildIssueCommentPayload() {
+  return {
+    action: "created",
+    comment: {
+      body: "@sovri-bot re-review",
+      id: CommentId,
+      user: {
+        login: "alice",
+      },
+    },
+    installation: {
+      id: 123456,
+    },
+    issue: {
+      number: PullNumber,
+      pull_request: {},
+    },
+    repository: {
+      full_name: RepoFullName,
+    },
+  };
+}
+
+function buildPullRequestPayload(values: {
+  readonly action: string;
+  readonly draft?: boolean;
+  readonly headSha: string;
+}) {
   return {
     action: values.action,
     installation: {
@@ -741,7 +1340,7 @@ function buildPullRequestPayload(values: { readonly action: string; readonly hea
       body: "Wire Sovri pull request review.",
       changed_files: 3,
       deletions: 0,
-      draft: false,
+      draft: values.draft ?? false,
       head: {
         ref: "task-45",
         sha: values.headSha,
@@ -763,6 +1362,14 @@ function buildProviderResponse(findingCount: number): ProviderReviewResponse {
     summary: "Review completed.",
     findings: defaultProviderFindings().slice(0, findingCount),
     walkthrough_markdown: buildWalkthroughMarkdown(findingCount),
+  });
+}
+
+function buildProviderResponseWithWalkthrough(walkthroughMarkdown: string): ProviderReviewResponse {
+  return ProviderReviewResponseSchema.parse({
+    summary: walkthroughMarkdown,
+    findings: defaultProviderFindings().slice(0, 3),
+    walkthrough_markdown: walkthroughMarkdown,
   });
 }
 
@@ -1012,6 +1619,15 @@ function reviewPostSucceeded(runtime: ObservedRuntime, reviewStatus: number): bo
     reviewStatus < 400 &&
     runtime.issueCommentBodies.length === 0
   );
+}
+
+function eventOrder(runtime: ObservedRuntime, event: string): number {
+  const index = runtime.eventLog.indexOf(event);
+  if (index < 0) {
+    throw new Error(`Expected event log to include ${event}`);
+  }
+
+  return index;
 }
 
 function compareSynchronizeHeadSha(

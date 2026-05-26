@@ -11,14 +11,22 @@ import type { LLMProvider } from "./types/LLMProvider.js";
 
 const logger = createLogger("llm-providers.factory");
 
-export function createProviderFromConfig(config: SovriConfig, env: NodeJS.ProcessEnv): LLMProvider {
+export type ProviderFactoryOptions = {
+  readonly timeoutMs?: number;
+};
+
+export function createProviderFromConfig(
+  config: SovriConfig,
+  env: NodeJS.ProcessEnv,
+  options: ProviderFactoryOptions = {},
+): LLMProvider {
   switch (config.llm.provider) {
     case "anthropic":
       logProviderSelection(config);
-      return createAnthropicProvider(config, readApiKey(config.llm.apiKeySecret, env));
+      return createAnthropicProvider(config, readApiKey(config.llm.apiKeySecret, env), options);
     case "mistral":
       logProviderSelection(config);
-      return createMistralProvider(config, readApiKey(config.llm.apiKeySecret, env));
+      return createMistralProvider(config, readApiKey(config.llm.apiKeySecret, env), options);
     default:
       throw new UnsupportedProviderError(config.llm.provider, {
         cause: new Error("Provider is not supported by the provider factory"),
@@ -26,10 +34,15 @@ export function createProviderFromConfig(config: SovriConfig, env: NodeJS.Proces
   }
 }
 
-function createAnthropicProvider(config: SovriConfig, apiKey: string): AnthropicProvider {
+function createAnthropicProvider(
+  config: SovriConfig,
+  apiKey: string,
+  factoryOptions: ProviderFactoryOptions,
+): AnthropicProvider {
   const options = {
     env: { ANTHROPIC_API_KEY: apiKey },
     model: config.llm.model,
+    ...timeoutOptions(factoryOptions),
   };
 
   if (config.llm.baseUrl !== undefined) {
@@ -42,19 +55,33 @@ function createAnthropicProvider(config: SovriConfig, apiKey: string): Anthropic
   return new AnthropicProvider(options);
 }
 
-function createMistralProvider(config: SovriConfig, apiKey: string): MistralProvider {
+function createMistralProvider(
+  config: SovriConfig,
+  apiKey: string,
+  factoryOptions: ProviderFactoryOptions,
+): MistralProvider {
+  const options = {
+    apiKey,
+    model: config.llm.model,
+    ...timeoutOptions(factoryOptions),
+  };
+
   if (config.llm.baseUrl !== undefined) {
     return new MistralProvider({
-      apiKey,
+      ...options,
       baseUrl: config.llm.baseUrl,
-      model: config.llm.model,
     });
   }
 
-  return new MistralProvider({
-    apiKey,
-    model: config.llm.model,
-  });
+  return new MistralProvider(options);
+}
+
+function timeoutOptions(options: ProviderFactoryOptions): { readonly timeoutMs?: number } {
+  if (options.timeoutMs === undefined) {
+    return {};
+  }
+
+  return { timeoutMs: options.timeoutMs };
 }
 
 function logProviderSelection(config: SovriConfig): void {

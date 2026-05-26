@@ -21,6 +21,81 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: route `@sovri-bot re-review` issue comments through the
+  shared pull request synchronize review flow after resolving and validating
+  the current pull request from GitHub.
+
+- `test(bot)`: add ATDD acceptance coverage for `@sovri-bot re-review`
+  reaching the shared pull request review flow, requiring the issue-comment
+  command path to load repository config, fetch the pull request diff, call the
+  review engine, and post a walkthrough against the current PR head.
+
+- `test(bot)`: add ATDD acceptance coverage proving `@sovri-bot re-review`
+  preserves the shared synchronize review collaborator order: config loading,
+  diff fetching, review execution, and review posting.
+
+- `test(bot)`: add ATDD acceptance coverage proving the issue-comment
+  dispatcher routes `@sovri-bot re-review` without fetching pull request diffs
+  or posting review results itself.
+
+- `test(bot)`: add ATDD acceptance coverage proving `@sovri-bot re-review`
+  resolves the current pull request through `pulls.get` and posts the
+  walkthrough against that returned head commit.
+
+- `test(bot)`: add ATDD acceptance coverage proving `@sovri-bot re-review`
+  ignores a stale synchronize webhook head SHA and reviews the current head
+  returned by `pulls.get`.
+
+- `test(bot)`: add ATDD acceptance coverage proving a failed re-review
+  `pulls.get` lookup posts one failure comment and stops before diff fetching,
+  review execution, or walkthrough posting.
+
+- `feat(bot)`: acknowledge accepted `@sovri-bot re-review` commands with a
+  single `+1` reaction after the current pull request lookup succeeds and
+  before the shared review flow posts the walkthrough.
+
+- `test(bot)`: add ATDD acceptance coverage proving accepted `@sovri-bot
+  re-review` commands create exactly one `+1` reaction and do not emit a
+  second acknowledgement after the walkthrough is posted.
+
+- `test(bot)`: add ATDD violation coverage proving `@sovri-bot re-review`
+  does not create the accepted `+1` reaction when the current pull request
+  lookup fails before command acceptance.
+
+- `test(bot)`: add ATDD violation coverage for `@sovri-bot re-review`
+  shared-flow failures, requiring one explanatory issue comment and no
+  successful walkthrough review when diff fetching, review execution, or
+  review posting fails.
+
+- `test(bot)`: add ATDD coverage proving `@sovri-bot re-review` logs both
+  the original review failure and failure-comment posting failure while
+  attempting exactly one failure comment.
+
+- `test(bot)`: add ATDD nominal coverage proving successful `@sovri-bot
+  re-review` posts a walkthrough review and does not post an error issue
+  comment.
+
+- `test(bot)`: add ATDD violation coverage proving `@sovri-bot re-review`
+  skips draft pull requests when `review.autoReviewDrafts` is disabled,
+  logging the skip without fetching diffs, running the review engine, or
+  posting a walkthrough.
+
+- `test(bot)`: add ATDD nominal coverage proving `@sovri-bot re-review`
+  reviews draft pull requests when `review.autoReviewDrafts` is enabled,
+  preserving the shared review flow and posting the walkthrough against the
+  current head commit.
+
+- `test(bot)`: add ATDD nominal coverage proving `@sovri-bot re-review`
+  still reviews non-draft pull requests when `review.autoReviewDrafts` is
+  disabled, posting the walkthrough against the current head commit.
+
+- `feat(bot)`: configure the shared pull request review flow with the v0.1
+  300000 ms LLM timeout budget, so `@sovri-bot re-review` and webhook reviews
+  use the same provider deadline.
+
+- `test(bot)`: add ATDD violation coverage proving `@sovri-bot re-review`
+  does not install a separate 60000 ms or 900000 ms timeout budget.
+
 - `feat(bot)`: register the `issue_comment.created` Probot webhook through
   `registerWebhookHandlers`, wire a real Octokit `reactions.createForIssueComment`
   reactor for unknown commands, and route re-review and dismiss commands through
@@ -117,6 +192,26 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   third-party glob imports including side-effect import forms.
 
 ### Fixed
+
+- `fix(bot)`: route failed review-engine results through the shared pull
+  request error-comment path, so provider timeout failures post one issue
+  comment instead of a failed walkthrough review.
+
+- `fix(bot)`: make PR review fallback issue comments explicitly explain that
+  the walkthrough could not be posted as a pull request review while keeping
+  the walkthrough marker for future updates and cleanup.
+
+- `fix(bot)`: keep `@sovri-bot re-review` running when the accepted-command
+  `+1` reaction cannot be created, logging the reaction failure without
+  blocking the review flow.
+
+- `test(bot)`: tighten the re-review lookup-failure acceptance check so the
+  scenario asserts the actual diff-fetch collaborator is not called after
+  `pulls.get` fails.
+
+- `fix(bot)`: report `@sovri-bot re-review` pull request lookup and response
+  validation failures through the shared pull request review error-comment path
+  instead of letting command preflight failures escape silently.
 
 - `fix(review-engine)`: walkthrough cost lookup now rejects prototype-key
   model names (`__proto__`, `constructor`, `toString`,
