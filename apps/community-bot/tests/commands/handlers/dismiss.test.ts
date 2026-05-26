@@ -207,6 +207,8 @@ describe("dismiss command handler", () => {
       repo: "sovri-target",
     });
     expect(runtime.octokit.rest.reactions.createForPullRequestReviewComment).not.toHaveBeenCalled();
+    expect(runtime.octokit.rest.issues.addLabels).not.toHaveBeenCalled();
+    expect(runtime.octokit.rest.reactions.createForIssueComment).not.toHaveBeenCalled();
     expect(runtime.octokit.rest.pulls.updateReview).not.toHaveBeenCalled();
     expect(runtime.octokit.rest.issues.updateComment).not.toHaveBeenCalled();
   });

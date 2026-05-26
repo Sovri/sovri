@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: strengthen visible-only dismiss coverage to require no PR label
+  and no accepted command reaction when the hidden marker is absent.
+
 - `feat(bot)`: add the dismiss success state mutations: PR label
   `sovri:dismissed-finding` and `+1` reaction on the accepted command comment.
 
