@@ -22,6 +22,11 @@ export type IssueCommentDispatchOctokit = ReReviewOctokit & {
         parameters: IssueCommentCreateParameters,
       ) => Promise<{ readonly data: unknown }>;
     };
+    readonly pulls: ReReviewOctokit["rest"]["pulls"] & {
+      readonly listReviewComments: (
+        parameters: PullRequestReviewCommentListParameters,
+      ) => Promise<{ readonly data: readonly PullRequestReviewComment[] }>;
+    };
     readonly reactions: {
       readonly createForIssueComment: (
         parameters: ReactionParameters,
@@ -42,6 +47,16 @@ type IssueCommentCreateParameters = {
   readonly issue_number: number;
   readonly owner: string;
   readonly repo: string;
+};
+
+type PullRequestReviewCommentListParameters = {
+  readonly owner: string;
+  readonly pull_number: number;
+  readonly repo: string;
+};
+
+type PullRequestReviewComment = {
+  readonly body?: string | null;
 };
 
 export type IssueCommentDispatchContext = {
@@ -95,12 +110,26 @@ async function reportUnknownFinding(
   command: IssueCommentDismissCommandContext,
 ): Promise<void> {
   const repo = splitRepoFullName(command.repoFullName);
+  const comments = await context.octokit.rest.pulls.listReviewComments({
+    owner: repo.owner,
+    pull_number: command.pullRequestNumber,
+    repo: repo.repo,
+  });
+
+  if (comments.data.some((comment) => hasFindingMarker(comment, command.findingId))) {
+    return;
+  }
+
   await context.octokit.rest.issues.createComment({
     body: `Finding \`${command.findingId}\` was not found on this pull request. No review state was changed.`,
     issue_number: command.pullRequestNumber,
     owner: repo.owner,
     repo: repo.repo,
   });
+}
+
+function hasFindingMarker(comment: PullRequestReviewComment, findingId: string): boolean {
+  return comment.body?.includes(`<!-- sovri-finding-id: ${findingId} -->`) ?? false;
 }
 
 function splitRepoFullName(repoFullName: string | undefined): {

@@ -87,6 +87,25 @@ describe("dismiss command handler", () => {
       repo: "sovri-target",
     });
   });
+
+  it("does not post the unknown-finding error when an inline marker matches", async () => {
+    const runtime = buildRuntime();
+    const context = buildIssueCommentContext(runtime.octokit, {
+      findingId: "finding-known-001",
+    });
+    const dependencies = createIssueCommentHandlerDependencies(context, {
+      SOVRI_BOT_LOGIN: "sovri-bot",
+    });
+
+    await handleIssueCommentCreated(context, dependencies);
+
+    expect(runtime.octokit.rest.pulls.listReviewComments).toHaveBeenCalledWith({
+      owner: "octo-org",
+      pull_number: PullRequestNumber,
+      repo: "sovri-target",
+    });
+    expect(runtime.octokit.rest.issues.createComment).not.toHaveBeenCalled();
+  });
 });
 
 function buildRuntime() {
@@ -143,14 +162,18 @@ function buildRuntime() {
   };
 }
 
-function buildIssueCommentContext(octokit: ReturnType<typeof buildRuntime>["octokit"]) {
+function buildIssueCommentContext(
+  octokit: ReturnType<typeof buildRuntime>["octokit"],
+  options: { readonly findingId?: string } = {},
+) {
+  const findingId = options.findingId ?? "finding-missing-001";
   return {
     id: DeliveryId,
     name: "issue_comment.created",
     octokit,
     payload: {
       comment: {
-        body: "@sovri-bot dismiss finding-missing-001",
+        body: `@sovri-bot dismiss ${findingId}`,
         id: CommentId,
         user: {
           login: "alice",

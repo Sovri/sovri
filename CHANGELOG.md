@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(bot)`: gate unknown `@sovri-bot dismiss` errors on actual inline
+  finding markers so known findings are not rejected as missing.
+
+- `test(bot)`: add regression coverage proving known dismiss finding markers
+  do not trigger the unknown-finding error path.
+
 - `feat(bot)`: report an unknown `@sovri-bot dismiss` finding id with one
   issue comment and no GitHub review-state mutation.
 
