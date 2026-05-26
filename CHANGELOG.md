@@ -27,6 +27,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test(llm-providers)`: advance retry fake timers without an awaited loop so
+  the full oxlint gate passes cleanly.
+
 - `fix(bot)`: paginate the dismiss reaction lookup with `per_page=100` so a
   bot `-1` reaction past the first reaction page is still recognised as a
   dismissed finding.
@@ -37,6 +40,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   instead of the oldest one returned first by `listReviews`.
 
 ### Added
+
+- `docs(config)`: add the public [`.sovri.yml` reference](docs/sovri-yml-reference.md)
+  covering active providers, review modes, ignores, limits, and safe API key
+  environment variable usage.
 
 - `fix(bot)`: log dismiss GitHub update failures with delivery id and status
   while posting a generic retry comment without raw response bodies.
