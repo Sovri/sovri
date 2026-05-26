@@ -99,8 +99,59 @@ describe("dismiss command handler", () => {
 
     await handleIssueCommentCreated(context, dependencies);
 
-    expect(runtime.octokit.rest.pulls.listReviewComments).toHaveBeenCalledWith({
+    expect(runtime.octokit.rest.pulls.listReviewComments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner: "octo-org",
+        pull_number: PullRequestNumber,
+        repo: "sovri-target",
+      }),
+    );
+    expect(runtime.octokit.rest.issues.createComment).not.toHaveBeenCalled();
+  });
+
+  it("does not post the unknown-finding error when the matching marker is on a later review comment page", async () => {
+    const runtime = buildRuntime();
+    runtime.octokit.rest.pulls.listReviewComments
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 100 }, (_, index) => ({
+          body: `Review comment without marker ${index}`,
+          id: InlineCommentId + index,
+          user: {
+            login: "sovri-bot",
+          },
+        })),
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            body: KnownInlineCommentBody,
+            id: InlineCommentId,
+            user: {
+              login: "sovri-bot",
+            },
+          },
+        ],
+      });
+    const context = buildIssueCommentContext(runtime.octokit, {
+      findingId: "finding-known-001",
+    });
+    const dependencies = createIssueCommentHandlerDependencies(context, {
+      SOVRI_BOT_LOGIN: "sovri-bot",
+    });
+
+    await handleIssueCommentCreated(context, dependencies);
+
+    expect(runtime.octokit.rest.pulls.listReviewComments).toHaveBeenNthCalledWith(1, {
       owner: "octo-org",
+      page: 1,
+      per_page: 100,
+      pull_number: PullRequestNumber,
+      repo: "sovri-target",
+    });
+    expect(runtime.octokit.rest.pulls.listReviewComments).toHaveBeenNthCalledWith(2, {
+      owner: "octo-org",
+      page: 2,
+      per_page: 100,
       pull_number: PullRequestNumber,
       repo: "sovri-target",
     });

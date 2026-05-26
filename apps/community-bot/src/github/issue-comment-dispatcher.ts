@@ -51,6 +51,8 @@ type IssueCommentCreateParameters = {
 
 type PullRequestReviewCommentListParameters = {
   readonly owner: string;
+  readonly page?: number;
+  readonly per_page?: number;
   readonly pull_number: number;
   readonly repo: string;
 };
@@ -58,6 +60,8 @@ type PullRequestReviewCommentListParameters = {
 type PullRequestReviewComment = {
   readonly body?: string | null;
 };
+
+const REVIEW_COMMENT_PAGE_SIZE = 100;
 
 export type IssueCommentDispatchContext = {
   readonly id: string;
@@ -110,13 +114,8 @@ async function reportUnknownFinding(
   command: IssueCommentDismissCommandContext,
 ): Promise<void> {
   const repo = splitRepoFullName(command.repoFullName);
-  const comments = await context.octokit.rest.pulls.listReviewComments({
-    owner: repo.owner,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
 
-  if (comments.data.some((comment) => hasFindingMarker(comment, command.findingId))) {
+  if (await hasFindingMarkerOnAnyReviewCommentPage(context, command, repo)) {
     return;
   }
 
@@ -126,6 +125,39 @@ async function reportUnknownFinding(
     owner: repo.owner,
     repo: repo.repo,
   });
+}
+
+async function hasFindingMarkerOnAnyReviewCommentPage(
+  context: IssueCommentDispatchContext,
+  command: IssueCommentDismissCommandContext,
+  repo: { readonly owner: string; readonly repo: string },
+): Promise<boolean> {
+  return hasFindingMarkerOnReviewCommentPage(context, command, repo, 1);
+}
+
+async function hasFindingMarkerOnReviewCommentPage(
+  context: IssueCommentDispatchContext,
+  command: IssueCommentDismissCommandContext,
+  repo: { readonly owner: string; readonly repo: string },
+  page: number,
+): Promise<boolean> {
+  const comments = await context.octokit.rest.pulls.listReviewComments({
+    owner: repo.owner,
+    page,
+    per_page: REVIEW_COMMENT_PAGE_SIZE,
+    pull_number: command.pullRequestNumber,
+    repo: repo.repo,
+  });
+
+  if (comments.data.some((comment) => hasFindingMarker(comment, command.findingId))) {
+    return true;
+  }
+
+  if (comments.data.length < REVIEW_COMMENT_PAGE_SIZE) {
+    return false;
+  }
+
+  return hasFindingMarkerOnReviewCommentPage(context, command, repo, page + 1);
 }
 
 function hasFindingMarker(comment: PullRequestReviewComment, findingId: string): boolean {

@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(bot)`: paginate `@sovri-bot dismiss` review-comment marker lookup
+  before reporting a finding id as unknown.
+
+- `test(bot)`: add regression coverage for a matching dismiss finding marker
+  beyond the first review-comment page.
+
 - `fix(bot)`: gate unknown `@sovri-bot dismiss` errors on actual inline
   finding markers so known findings are not rejected as missing.
 
