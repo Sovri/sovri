@@ -2379,7 +2379,7 @@ const buildReleaseNotesTruncationNotice = ({ version, date, repoUrl }) => {
 };
 
 const closeDanglingCodeFence = (text) => {
-  const fences = text.match(/^(?:`{3,}|~{3,})/gm) ?? [];
+  const fences = [...text.matchAll(/^ {0,3}(`{3,}|~{3,})/gm)].map((match) => match[1]);
   if (fences.length === 0) return text;
   const openMarkers = [];
   for (const marker of fences) {

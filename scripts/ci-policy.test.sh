@@ -12793,14 +12793,27 @@ run_release_extract_notes_max_bytes_boundary_case() {
 MD
 
   # Measure the file size of the extracted body in passthrough mode (includes
-  # the trailing newline writeStdout always appends).
-  local passthrough_file
+  # the trailing newline writeStdout always appends). Fail fast if the setup
+  # call exits non-zero so an invalid body_size cannot mask later regressions.
+  local passthrough_file passthrough_stderr_file passthrough_ec passthrough_stderr
   passthrough_file=$(mktemp)
+  passthrough_stderr_file=$(mktemp)
   node "$SCRIPT" release-extract-notes \
     --changelog "$changelog_path" \
-    --version 0.1.0 >"$passthrough_file"
+    --version 0.1.0 \
+    >"$passthrough_file" 2>"$passthrough_stderr_file" && passthrough_ec=0 || passthrough_ec=$?
+  if [ "$passthrough_ec" -ne 0 ]; then
+    passthrough_stderr=$(cat "$passthrough_stderr_file" 2>/dev/null || true)
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes boundary setup: passthrough extraction failed with exit ${passthrough_ec}
+$(printf '%s\n' "$passthrough_stderr" | sed 's/^/        /')"
+    rm -f "$passthrough_file" "$passthrough_stderr_file"
+    rm -rf "$root"
+    return
+  fi
   body_size=$(wc -c <"$passthrough_file")
-  rm -f "$passthrough_file"
+  rm -f "$passthrough_file" "$passthrough_stderr_file"
 
   # When --max-bytes is exactly equal to the passthrough file size, the body
   # already fits and no truncation occurs.
@@ -12867,6 +12880,63 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
     FAIL=$((FAIL + 1))
     FAILURES="${FAILURES}
   ✗ release-extract-notes boundary below: missing truncation notice when body exceeds cap by 1"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
+run_release_extract_notes_indented_fence_closure_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec filler
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # CommonMark allows fenced code blocks indented up to three spaces (e.g.
+  # nested under a list item). The fence detector must spot indented fences
+  # so it can append a closer when truncation cuts inside one.
+  filler=$(awk 'BEGIN { for (i = 0; i < 60; i++) print "      indented filler line that bloats the section" }')
+
+  {
+    printf '# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-05-23\n\n### Added\n\n'
+    printf -- '- list item with an indented fenced block:\n\n   ```text\n%s\n   ```\n' "$filler"
+    printf '\n## [0.0.1] - 2026-01-01\n\n- Initial release.\n'
+  } >"$changelog_path"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    --max-bytes 600 \
+    --repo-url https://github.com/example/repo \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes indented-fence closure: expected exit 0, got ${ec}
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # Indented backtick fences (up to 3 leading spaces) are recognised, so the
+  # final output keeps the markers in matched pairs.
+  local fence_count
+  fence_count=$(printf '%s' "$stdout" | grep -cE '^ {0,3}```' || true)
+  if [ $((fence_count % 2)) -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes indented-fence closure: dangling indented code fence (${fence_count} markers)
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
     rm -rf "$root"
     return
   fi
@@ -14200,6 +14270,7 @@ run_release_extract_notes_max_bytes_rejects_invalid_value_case "abc" "non-numeri
 run_release_extract_notes_max_bytes_rejects_invalid_value_case "1.5" "decimal"
 run_release_extract_notes_max_bytes_closes_open_fence_case
 run_release_extract_notes_max_bytes_fence_does_not_overflow_case
+run_release_extract_notes_indented_fence_closure_case
 run_release_extract_notes_tilde_fence_closure_case
 run_release_extract_notes_max_bytes_boundary_case
 run_release_extract_notes_rejects_invalid_repo_url_case "ftp://example.com" "non-http-scheme"
