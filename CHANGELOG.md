@@ -38,6 +38,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `docs(config)`: add the public [`.sovri.yml` reference](docs/sovri-yml-reference.md)
+  covering active providers, review modes, ignores, limits, and safe API key
+  environment variable usage.
+
 - `fix(bot)`: log dismiss GitHub update failures with delivery id and status
   while posting a generic retry comment without raw response bodies.
 
