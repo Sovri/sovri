@@ -107,6 +107,15 @@ describe("dismiss command handler", () => {
       }),
     );
     expect(runtime.octokit.rest.issues.createComment).not.toHaveBeenCalled();
+    expect(runtime.octokit.rest.reactions.createForPullRequestReviewComment).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(runtime.octokit.rest.reactions.createForPullRequestReviewComment).toHaveBeenCalledWith({
+      comment_id: InlineCommentId,
+      content: "-1",
+      owner: "octo-org",
+      repo: "sovri-target",
+    });
   });
 
   it("does not post the unknown-finding error when the matching marker is on a later review comment page", async () => {

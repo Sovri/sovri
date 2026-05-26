@@ -29,15 +29,25 @@ export type IssueCommentDispatchOctokit = ReReviewOctokit & {
     };
     readonly reactions: {
       readonly createForIssueComment: (
-        parameters: ReactionParameters,
+        parameters: IssueCommentReactionParameters,
+      ) => Promise<{ readonly data: unknown }>;
+      readonly createForPullRequestReviewComment: (
+        parameters: PullRequestReviewCommentReactionParameters,
       ) => Promise<{ readonly data: unknown }>;
     };
   };
 };
 
-type ReactionParameters = {
+type IssueCommentReactionParameters = {
   readonly comment_id: number;
   readonly content: "+1" | "confused";
+  readonly owner: string;
+  readonly repo: string;
+};
+
+type PullRequestReviewCommentReactionParameters = {
+  readonly comment_id: number;
+  readonly content: "-1";
   readonly owner: string;
   readonly repo: string;
 };
@@ -59,6 +69,7 @@ type PullRequestReviewCommentListParameters = {
 
 type PullRequestReviewComment = {
   readonly body?: string | null;
+  readonly id: number;
 };
 
 const REVIEW_COMMENT_PAGE_SIZE = 100;
@@ -79,7 +90,7 @@ export function createIssueCommentHandlerDependencies(
 ): IssueCommentHandlerDependencies {
   return {
     botLogin: readBotLogin(env),
-    handleDismiss: (command) => reportUnknownFinding(context, command),
+    handleDismiss: (command) => handleDismissCommand(context, command),
     handleReReview: (command) =>
       handleReReviewCommand(command, createReReviewCommandDependencies(context.octokit, env)),
     parseCommand,
@@ -109,13 +120,20 @@ async function reactConfused(
   });
 }
 
-async function reportUnknownFinding(
+async function handleDismissCommand(
   context: IssueCommentDispatchContext,
   command: IssueCommentDismissCommandContext,
 ): Promise<void> {
   const repo = splitRepoFullName(command.repoFullName);
+  const findingComment = await findFindingCommentOnAnyReviewCommentPage(context, command, repo);
 
-  if (await hasFindingMarkerOnAnyReviewCommentPage(context, command, repo)) {
+  if (findingComment !== undefined) {
+    await context.octokit.rest.reactions.createForPullRequestReviewComment({
+      comment_id: findingComment.id,
+      content: "-1",
+      owner: repo.owner,
+      repo: repo.repo,
+    });
     return;
   }
 
@@ -127,20 +145,20 @@ async function reportUnknownFinding(
   });
 }
 
-async function hasFindingMarkerOnAnyReviewCommentPage(
+async function findFindingCommentOnAnyReviewCommentPage(
   context: IssueCommentDispatchContext,
   command: IssueCommentDismissCommandContext,
   repo: { readonly owner: string; readonly repo: string },
-): Promise<boolean> {
-  return hasFindingMarkerOnReviewCommentPage(context, command, repo, 1);
+): Promise<PullRequestReviewComment | undefined> {
+  return findFindingCommentOnReviewCommentPage(context, command, repo, 1);
 }
 
-async function hasFindingMarkerOnReviewCommentPage(
+async function findFindingCommentOnReviewCommentPage(
   context: IssueCommentDispatchContext,
   command: IssueCommentDismissCommandContext,
   repo: { readonly owner: string; readonly repo: string },
   page: number,
-): Promise<boolean> {
+): Promise<PullRequestReviewComment | undefined> {
   const comments = await context.octokit.rest.pulls.listReviewComments({
     owner: repo.owner,
     page,
@@ -148,16 +166,19 @@ async function hasFindingMarkerOnReviewCommentPage(
     pull_number: command.pullRequestNumber,
     repo: repo.repo,
   });
+  const findingComment = comments.data.find((comment) =>
+    hasFindingMarker(comment, command.findingId),
+  );
 
-  if (comments.data.some((comment) => hasFindingMarker(comment, command.findingId))) {
-    return true;
+  if (findingComment !== undefined) {
+    return findingComment;
   }
 
   if (comments.data.length < REVIEW_COMMENT_PAGE_SIZE) {
-    return false;
+    return undefined;
   }
 
-  return hasFindingMarkerOnReviewCommentPage(context, command, repo, page + 1);
+  return findFindingCommentOnReviewCommentPage(context, command, repo, page + 1);
 }
 
 function hasFindingMarker(comment: PullRequestReviewComment, findingId: string): boolean {

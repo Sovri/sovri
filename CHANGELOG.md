@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: react to a matched `@sovri-bot dismiss` inline finding comment
+  with a `-1` review-comment reaction instead of reporting the finding as unknown.
+
+- `test(bot)`: extend existing dismiss finding coverage to require the `-1`
+  review-comment reaction for matched inline markers.
+
 - `fix(bot)`: paginate `@sovri-bot dismiss` review-comment marker lookup
   before reporting a finding id as unknown.
 
