@@ -479,6 +479,24 @@ const readCoverageWorkflowThreshold = (workflow) => {
   return match?.[1] === undefined ? undefined : Number(match[1]);
 };
 
+const isCorepackEnableStep = (step) =>
+  /^\s*run:\s*corepack\s+enable(?:\s+pnpm)?\s*$/mu.test(step.block);
+
+const workflowBootstrapsPnpmBeforeSetupNodeCache = (workflow) => {
+  const steps = getBackendChecksStepEntries(workflow);
+  const setupNodeIndex = steps.findIndex(
+    (step) =>
+      /^\s*(?:-\s*)?uses:\s*actions\/setup-node@[^\s#]+/mu.test(step.block) &&
+      getStepInput(step.block, "cache", workflow, step.startIndex) === "pnpm",
+  );
+
+  if (setupNodeIndex === -1) {
+    return true;
+  }
+
+  return steps.slice(0, setupNodeIndex).some(isCorepackEnableStep);
+};
+
 const runLlmProvidersCoverageWorkflow = (args) => {
   const options = parseOptions(args);
   const workflowPath = readRequiredOption(options, "workflow", llmProvidersCoverageWorkflowUsage);
@@ -502,7 +520,12 @@ const runLlmProvidersCoverageWorkflow = (args) => {
     fail("fix missing llm-providers tests instead of lowering branch coverage", 1);
   }
 
-  writeStdout(`llm_providers_threshold=pass\nthreshold=${threshold}\n`);
+  if (!workflowBootstrapsPnpmBeforeSetupNodeCache(workflow)) {
+    writeStdout("llm_providers_threshold=fail\npnpm_cache_bootstrap=missing\n");
+    fail("setup-node pnpm cache requires corepack enable before setup-node", 1);
+  }
+
+  writeStdout(`llm_providers_threshold=pass\nthreshold=${threshold}\npnpm_cache_bootstrap=pass\n`);
 };
 
 const getBackendChecksStepEntries = (workflow) => {
