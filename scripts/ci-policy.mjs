@@ -2378,17 +2378,26 @@ const buildReleaseNotesTruncationNotice = ({ version, date, repoUrl }) => {
   return `${RELEASE_NOTES_TRUNCATION_NOTICE_HEAD}CHANGELOG.md at tag v${version}${RELEASE_NOTES_TRUNCATION_NOTICE_TAIL}`;
 };
 
+const FENCE_LINE_PATTERN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
+const isValidFenceOpener = (marker, suffix) => marker[0] === "~" || !suffix.includes("`");
+
+const isValidFenceCloser = (marker, suffix, opener) =>
+  marker[0] === opener[0] && marker.length >= opener.length && suffix.trim().length === 0;
+
 const closeDanglingCodeFence = (text) => {
-  const fences = [...text.matchAll(/^ {0,3}(`{3,}|~{3,})/gm)].map((match) => match[1]);
-  if (fences.length === 0) return text;
   const openMarkers = [];
-  for (const marker of fences) {
-    const last = openMarkers.at(-1);
-    if (last !== undefined && marker[0] === last[0] && marker.length >= last.length) {
-      openMarkers.pop();
-    } else {
-      openMarkers.push(marker);
+  for (const line of text.split("\n")) {
+    const match = FENCE_LINE_PATTERN.exec(line);
+    if (match === null) continue;
+    const marker = match[1];
+    const suffix = match[2];
+    const opener = openMarkers.at(-1);
+    if (opener !== undefined) {
+      if (isValidFenceCloser(marker, suffix, opener)) openMarkers.pop();
+      continue;
     }
+    if (isValidFenceOpener(marker, suffix)) openMarkers.push(marker);
   }
   if (openMarkers.length === 0) return text;
   const closers = openMarkers.toReversed().join("\n");

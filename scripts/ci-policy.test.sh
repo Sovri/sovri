@@ -12888,6 +12888,68 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   rm -rf "$root"
 }
 
+run_release_extract_notes_fence_marker_with_trailing_text_case() {
+  local root changelog_path stdout stderr stdout_file stderr_file ec filler
+
+  root=$(mktemp -d)
+  changelog_path="$root/CHANGELOG.md"
+
+  # CommonMark closing fences must be followed only by whitespace. A line that
+  # starts with more backticks but has trailing text is content, not a closer.
+  # If `closeDanglingCodeFence` treats such a line as a closer, the
+  # truncation notice ends up rendered inside an unclosed code block.
+  filler=$(awk 'BEGIN { for (i = 0; i < 60; i++) print "\`\`\`\`oops still content not a closer" }')
+
+  {
+    printf '# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-05-23\n\n### Added\n\n'
+    printf '```text\n%s\n```\n' "$filler"
+    printf '\n## [0.0.1] - 2026-01-01\n\n- Initial release.\n'
+  } >"$changelog_path"
+
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+
+  node "$SCRIPT" release-extract-notes \
+    --changelog "$changelog_path" \
+    --version 0.1.0 \
+    --max-bytes 800 \
+    --repo-url https://github.com/example/repo \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 0 ]; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes fence-trailing-text: expected exit 0, got ${ec}
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  # Lines with trailing content after backticks must not be mistaken for a
+  # closer. The opener `` ```text `` is cut by truncation, so a bare ``` closer
+  # must be appended before the truncation notice; otherwise the notice ends
+  # up rendered inside an unclosed code block.
+  if ! printf '%s\n' "$stdout" | awk '
+    /Release notes truncated/ { print found; exit }
+    /^ {0,3}`{3,}[[:space:]]*$/ { found = 1 }
+    END { if (!found) print 0 }
+  ' | grep -q '^1$'; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ release-extract-notes fence-trailing-text: truncation notice not preceded by a bare \`\`\` closer
+$(printf '%s\n' "$stdout" | sed 's/^/        /')"
+    rm -rf "$root"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+  rm -rf "$root"
+}
+
 run_release_extract_notes_indented_fence_closure_case() {
   local root changelog_path stdout stderr stdout_file stderr_file ec filler
 
@@ -14271,6 +14333,7 @@ run_release_extract_notes_max_bytes_rejects_invalid_value_case "1.5" "decimal"
 run_release_extract_notes_max_bytes_closes_open_fence_case
 run_release_extract_notes_max_bytes_fence_does_not_overflow_case
 run_release_extract_notes_indented_fence_closure_case
+run_release_extract_notes_fence_marker_with_trailing_text_case
 run_release_extract_notes_tilde_fence_closure_case
 run_release_extract_notes_max_bytes_boundary_case
 run_release_extract_notes_rejects_invalid_repo_url_case "ftp://example.com" "non-http-scheme"
