@@ -68,16 +68,15 @@ rename to src/new-name.ts`;
 
   it("rejects a renamed file without the original path", () => {
     // Given parse-diff produced a renamed file with no previous path.
-    const result = () =>
-      mapParsedDiffFiles(
-        [{ to: "src/new-name.ts", renamed: true, additions: 0, deletions: 0, chunks: [] }],
-        "diff --git a/src/old-name.ts b/src/new-name.ts",
-      );
+    const renamed = [
+      { to: "src/new-name.ts", renamed: true, additions: 0, deletions: 0, chunks: [] },
+    ];
+    const rawDiff = "diff --git a/src/old-name.ts b/src/new-name.ts";
 
     // When the maintainer maps the parse-diff output.
     // Then the DiffSchema renamed-file invariant fails.
-    expect(result).toThrow(DiffParseError);
-    expect(result).toThrow("DiffSchema");
+    expect(() => mapParsedDiffFiles(renamed, rawDiff)).toThrow(DiffParseError);
+    expect(() => mapParsedDiffFiles(renamed, rawDiff)).toThrow("DiffSchema");
   });
 
   it("maps a deleted textual file to removed status without previous_path", () => {

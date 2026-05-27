@@ -66,13 +66,14 @@ describe("parse-diff mapping", () => {
 
   it("rejects an unsupported file shape without a normalizable path", () => {
     // Given parse-diff produced a file with no `from` path and no `to` path.
-    const result = () =>
-      mapParsedDiffFiles([{ chunks: [], deletions: 0, additions: 0 }], "diff --git");
+    const unshaped = [{ chunks: [], deletions: 0, additions: 0 }];
 
     // When the maintainer maps the parse-diff output.
     // Then parsing fails and identifies path normalization.
-    expect(result).toThrow(DiffParseError);
-    expect(result).toThrow("file path could not be normalized");
+    expect(() => mapParsedDiffFiles(unshaped, "diff --git")).toThrow(DiffParseError);
+    expect(() => mapParsedDiffFiles(unshaped, "diff --git")).toThrow(
+      "file path could not be normalized",
+    );
   });
 
   it.each([

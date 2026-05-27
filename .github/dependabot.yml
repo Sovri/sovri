@@ -49,6 +49,18 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
+    # Major bumps blocked because they conflict with ADR locks. Re-evaluate
+    # only when the underlying ADR is superseded.
+    # - @types/node must track the runtime engines constraint (Node 24 LTS, ADR-001)
+    # - pino API stability is required for @sovri/observability v0.1 → v0.5 (ADR-006)
+    # - turbo is pinned to v2.x by ADR-002
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pino"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "turbo"
+        update-types: ["version-update:semver-major"]
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -80,6 +92,11 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
+    # Runtime image stays on Node 24 LTS (ADR-001). The next LTS migration
+    # lands as a deliberate ADR-tracked change, never a Dependabot auto-bump.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   # ── GitHub Actions ─────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"

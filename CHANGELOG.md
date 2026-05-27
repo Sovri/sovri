@@ -19,6 +19,46 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Changed
+
+- `chore(deps)`: bump `@anthropic-ai/sdk` 0.96.0 → 0.99.0 (features: cache
+  diagnostics beta, thinking-token-count beta, sandbox helpers — no breaking
+  change for `messages.create` / `jsonSchemaOutputFormat` / `ContentBlock`
+  import paths used by `@sovri/llm-providers`).
+- `chore(deps)`: bump `@mistralai/mistralai` 2.2.1 → 2.2.5 (patch releases
+  only post-2.2.0; no breaking change for `chat.complete` / `SDKOptions`
+  usage in `MistralProvider`).
+- `chore(deps-dev)`: bump `oxlint` 1.64.0 → 1.67.0 (minor: adds
+  `unicorn/consistent-function-scoping` rule — two test files fixed).
+- `chore(deps-dev)`: bump `oxfmt` 0.49.0 → 0.52.0 (minor: formatter
+  improvements, no source changes required after format check).
+- `chore(deps-dev)`: bump `knip` 6.13.1 → 6.14.2 (minor: Svelte dynamic
+  import detection, transitive peer resolution — no action required).
+- `chore(deps-dev)`: bump `lefthook` 2.1.6 → 2.1.8 (patch).
+- `chore(deps-dev)`: bump `turbo` 2.9.12 → 2.9.15 (patch; stays on v2.x
+  per ADR-002).
+- `chore(deps-dev)`: bump `vitest` 4.1.6 → 4.1.7, `@vitest/coverage-v8` and
+  `@vitest/coverage-istanbul` 4.1.6 → 4.1.7 (patch, across all workspaces).
+- `chore(deps/ci)`: bump `docker/setup-qemu-action` v3.7.0 → v4.0.0
+  (Node 24 runtime, ESM — no input changes).
+- `chore(deps/ci)`: bump `docker/build-push-action` v6.19.2 → v7.1.0
+  (Node 24 runtime, ESM — `platforms`, `push`, `tags` inputs unchanged).
+- `chore(deps/ci)`: bump `docker/login-action` v3.7.0 → v4.1.0
+  (Node 24 runtime, ESM — `registry`/`username`/`password` inputs unchanged).
+- `chore(deps/ci)`: bump `actions/setup-node` v4.4.0 → v6.4.0
+  (`cache: pnpm` and `node-version-file` inputs confirmed stable in v6).
+- `chore(deps/ci)`: bump `actions/download-artifact` v4.3.0 → v8.0.1
+  (CJK character support; `name`/`path` inputs unchanged for our SBOM usage).
+- `chore(deps/ci)`: add Dependabot `ignore` rules for `@types/node` major
+  (tracks Node 24 LTS engine constraint), `pino` major (ADR-006 API
+  stability), `turbo` major (ADR-002), and Docker `node` major (ADR-001) to
+  prevent recurring ADR-violating PRs.
+
+### Fixed
+
+- `fix(test)`: inline arrow functions in `expect(...).toThrow()` calls in
+  `parser.mapping.test.ts` and `parser.entries.test.ts` to satisfy the new
+  `unicorn/consistent-function-scoping` rule introduced in oxlint 1.67.
 
 ## [0.2.0] - 2026-05-26
 ### Changed
