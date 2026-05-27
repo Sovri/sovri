@@ -2,8 +2,9 @@
 // Copyright 2026 Sovri SAS
 
 import { ComplianceMappingEntrySchema, type ComplianceMappingEntry } from "./schema.js";
+import cwe798Entry from "./data/CWE-798.json" with { type: "json" };
 
-const mappingEntries = [] satisfies readonly unknown[];
+const mappingEntries = [cwe798Entry] satisfies readonly unknown[];
 const cweMap = buildCweMap(mappingEntries);
 
 function buildCweMap(entries: readonly unknown[]): ReadonlyMap<string, ComplianceMappingEntry> {

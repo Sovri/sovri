@@ -32,6 +32,14 @@ describe("getCweMap", () => {
     expect(cweMap.get("CWE-9999")).toBeUndefined();
   });
 
+  it("returns the statically imported CWE-798 mapping entry", () => {
+    const entry = getCweMap().get("CWE-798");
+
+    expect(entry?.cwe_id).toBe("CWE-798");
+    expect(entry?.title).toBe("Use of Hard-coded Credentials");
+    expect(entry?.references[0]?.framework).toBe("CWE");
+  });
+
   it("does not return a placeholder entry for an unknown CWE", () => {
     const entry = getCweMap().get("CWE-9999");
 
