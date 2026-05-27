@@ -20,15 +20,34 @@ const baseReference = {
   applicability: "informational",
 } satisfies ComplianceReferenceEntry;
 
+const sourceUrlByFramework = {
+  CWE: "https://cwe.mitre.org/data/definitions/798.html",
+  "OWASP-TOP10-2021": "https://owasp.org/Top10/",
+  "ISO27001-2022": "https://www.iso.org/standard/27001",
+  GDPR: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679",
+  DORA: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+  NIS2: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+  "AI-ACT": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689",
+  CRA: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R2847",
+} satisfies Record<ComplianceReferenceEntry["framework"], string>;
+
 function buildEntry(
   referenceOverrides: Partial<ComplianceReferenceEntry> = {},
 ): ComplianceMappingEntry {
+  const framework = referenceOverrides.framework ?? baseReference.framework;
+
   return {
     cwe_id: "CWE-798",
     title: "Use of Hard-coded Credentials",
     mitre_url: "https://cwe.mitre.org/data/definitions/798.html",
     impacts: ["Credential compromise", "Unauthorized access"],
-    references: [{ ...baseReference, ...referenceOverrides }],
+    references: [
+      {
+        ...baseReference,
+        source_url: sourceUrlByFramework[framework],
+        ...referenceOverrides,
+      },
+    ],
   };
 }
 
@@ -97,6 +116,7 @@ describe("ComplianceMappingEntrySchema", () => {
     const entry = buildRawEntry({
       framework: "DORA",
       identifier: "Art. 9",
+      source_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
       applicability: "confirmed",
       condition: "ICT risk management is in scope",
     });

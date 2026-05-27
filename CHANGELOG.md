@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(compliance)`: reject compliance mapping references whose `source_url`
+  host does not match the official host for the referenced framework.
+
+- `test(compliance)`: add acceptance coverage for the non-official
+  compliance reference source URL host audit.
+
 - `feat(compliance)`: reject mapping candidates whose `mitre_url` does not
   match the canonical MITRE definition URL for their `cwe_id`.
 
