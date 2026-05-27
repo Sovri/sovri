@@ -100,6 +100,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   (tracks Node 24 LTS engine constraint), `pino` major (ADR-006 API
   stability), `turbo` major (ADR-002), and Docker `node` major (ADR-001) to
   prevent recurring ADR-violating PRs.
+- `ci(release)`: include `packages/compliance/package.json` in the
+  `release-verify-tag` `--package-files` list so the new workspace package
+  cannot drift from the release tag.
 
 ### Fixed
 
