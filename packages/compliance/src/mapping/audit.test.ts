@@ -33,6 +33,43 @@ function buildCwe120EntryWithoutIsoReference(): ComplianceMappingEntry {
   };
 }
 
+function buildCwe862EntryWithoutDoraReference(): ComplianceMappingEntry {
+  return {
+    cwe_id: "CWE-862",
+    title: "Missing Authorization",
+    mitre_url: "https://cwe.mitre.org/data/definitions/862.html",
+    impacts: ["Unauthorized access", "Privilege abuse"],
+    references: [
+      {
+        framework: "CWE",
+        identifier: "CWE-862",
+        description: "Missing Authorization",
+        source_url: "https://cwe.mitre.org/data/definitions/862.html",
+        applicability: "informational",
+      },
+      {
+        framework: "GDPR",
+        identifier: "Art. 32",
+        description:
+          "Security of processing for missing authorization when personal data access is affected.",
+        source_url:
+          "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679#d1e3316-1-1",
+        applicability: "applicable_if",
+        condition: "The affected system processes personal data as defined by GDPR Art. 4",
+      },
+      {
+        framework: "NIS2",
+        identifier: "Art. 21(2)(i)",
+        description:
+          "Access control policies and asset management for essential or important entities.",
+        source_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+        applicability: "applicable_if",
+        condition: "The entity is an essential or important entity subject to NIS2",
+      },
+    ],
+  };
+}
+
 describe("Compliance mapping data audits", () => {
   it("rejects CWE-120 when the ISO 27001 A.8.28 reference is missing", () => {
     // Given a candidate batch 1 map contains "CWE-120"
@@ -62,5 +99,35 @@ describe("Compliance mapping data audits", () => {
 
     // And the failure reports missing identifier "A.8.28"
     expect(failureText).toContain("A.8.28");
+  });
+
+  it("rejects a critical ICT CWE when the DORA reference is missing", () => {
+    // Given a candidate batch 1 map contains "CWE-862"
+    const candidateBatchOneMap = new Map<string, ComplianceMappingEntry>([
+      ["CWE-862", buildCwe862EntryWithoutDoraReference()],
+    ]);
+
+    // And the "CWE-862" entry has no DORA reference
+    const candidateEntry = candidateBatchOneMap.get("CWE-862");
+    if (candidateEntry === undefined) {
+      throw new TypeError("Expected candidate batch 1 map to contain CWE-862.");
+    }
+
+    // When the critical ICT regulatory audit runs
+    const result = ComplianceMappingEntrySchema.safeParse(candidateEntry);
+
+    // Then the audit fails
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError("Expected the critical ICT regulatory audit to fail.");
+    }
+
+    const failureText = result.error.issues.map((issue) => issue.message).join("\n");
+
+    // And the failure reports "CWE-862"
+    expect(failureText).toContain("CWE-862");
+
+    // And the failure reports missing framework "DORA"
+    expect(failureText).toContain("DORA");
   });
 });
