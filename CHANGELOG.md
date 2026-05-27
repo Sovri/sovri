@@ -152,6 +152,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(compliance)`: add the first 13 static CWE mapping data files and
+  import them in the static compliance map loader.
+
 - `test(compliance)`: add acceptance coverage proving batch 1 CWE mapping
   `applicable_if` references carry explicit regulated-context conditions.
 
