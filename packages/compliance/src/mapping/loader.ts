@@ -14,5 +14,5 @@ function buildCweMap(entries: readonly unknown[]): ReadonlyMap<string, Complianc
 }
 
 export function getCweMap(): ReadonlyMap<string, ComplianceMappingEntry> {
-  return cweMap;
+  return new Map(cweMap);
 }

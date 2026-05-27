@@ -76,4 +76,15 @@ describe("getCweMap", () => {
     expect(getCweMap()).toEqual(getCweMap());
     expect(getCweMap().get("CWE-9999")).toBeUndefined();
   });
+
+  it("prevents mutation of one returned map from corrupting later lookups", () => {
+    const returnedMap = getCweMap();
+    if (!(returnedMap instanceof Map)) {
+      throw new TypeError("Expected getCweMap to return a Map-compatible value.");
+    }
+
+    returnedMap.clear();
+
+    expect(getCweMap().get("CWE-798")?.cwe_id).toBe("CWE-798");
+  });
 });
