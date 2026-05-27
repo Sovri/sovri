@@ -15,10 +15,29 @@ export const ComplianceFrameworkSchema = z.enum([
 ]);
 export type ComplianceFramework = z.infer<typeof ComplianceFrameworkSchema>;
 
+const officialSourceHostByFramework = {
+  CWE: "cwe.mitre.org",
+  "OWASP-TOP10-2021": "owasp.org",
+  "ISO27001-2022": "www.iso.org",
+  GDPR: "eur-lex.europa.eu",
+  DORA: "eur-lex.europa.eu",
+  NIS2: "eur-lex.europa.eu",
+  "AI-ACT": "eur-lex.europa.eu",
+  CRA: "eur-lex.europa.eu",
+} satisfies Record<ComplianceFramework, string>;
+
 export const ComplianceReferenceApplicabilitySchema = z.enum(["applicable_if", "informational"]);
 export type ComplianceReferenceApplicability = z.infer<
   typeof ComplianceReferenceApplicabilitySchema
 >;
+
+function getUrlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+}
 
 export const ComplianceReferenceEntrySchema = z
   .object({
@@ -38,6 +57,16 @@ export const ComplianceReferenceEntrySchema = z
         code: "custom",
         path: ["condition"],
         message: "condition is required when applicability is applicable_if",
+      });
+    }
+
+    const expectedSourceHost = officialSourceHostByFramework[reference.framework];
+    const sourceHost = getUrlHost(reference.source_url);
+    if (sourceHost !== undefined && sourceHost !== expectedSourceHost) {
+      context.addIssue({
+        code: "custom",
+        path: ["source_url"],
+        message: `${reference.framework} source_url must use official host ${expectedSourceHost}: ${reference.source_url}`,
       });
     }
   });

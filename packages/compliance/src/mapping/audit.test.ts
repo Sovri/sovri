@@ -107,6 +107,34 @@ function buildZeroPaddedCwe89Entry(): ComplianceMappingEntry {
   };
 }
 
+function buildCwe89EntryWithNonOfficialGdprSourceUrl(): ComplianceMappingEntry {
+  return {
+    cwe_id: "CWE-89",
+    title: "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+    mitre_url: "https://cwe.mitre.org/data/definitions/89.html",
+    impacts: ["Data breach", "Unauthorized data modification"],
+    references: [
+      {
+        framework: "CWE",
+        identifier: "CWE-89",
+        description:
+          "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+        source_url: "https://cwe.mitre.org/data/definitions/89.html",
+        applicability: "informational",
+      },
+      {
+        framework: "GDPR",
+        identifier: "Art. 32",
+        description:
+          "Security of processing for SQL injection exposure when personal data storage is affected.",
+        source_url: "https://example.com/gdpr-art-32",
+        applicability: "applicable_if",
+        condition: "The affected system processes personal data as defined by GDPR Art. 4",
+      },
+    ],
+  };
+}
+
 describe("Compliance mapping data audits", () => {
   it("rejects CWE-120 when the ISO 27001 A.8.28 reference is missing", () => {
     // Given a candidate batch 1 map contains "CWE-120"
@@ -203,5 +231,29 @@ describe("Compliance mapping data audits", () => {
 
     expect(failureText).toContain("CWE-089");
     expect(failureText).toContain("https://cwe.mitre.org/data/definitions/89.html");
+  });
+
+  it("rejects a compliance reference whose source URL host is not official", () => {
+    // Given a candidate reference has framework "GDPR"
+    const candidateEntry = buildCwe89EntryWithNonOfficialGdprSourceUrl();
+
+    // And source_url is "https://example.com/gdpr-art-32"
+
+    // When the batch 1 source URL audit runs
+    const result = ComplianceMappingEntrySchema.safeParse(candidateEntry);
+
+    // Then the audit fails
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError("Expected the source URL host audit to fail.");
+    }
+
+    const failureText = result.error.issues.map((issue) => issue.message).join("\n");
+
+    // And the failure reports framework "GDPR"
+    expect(failureText).toContain("GDPR");
+
+    // And the failure reports source_url "https://example.com/gdpr-art-32"
+    expect(failureText).toContain("https://example.com/gdpr-art-32");
   });
 });
