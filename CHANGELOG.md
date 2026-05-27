@@ -21,6 +21,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `fix(config)`: block symlink following (CWE-59) in `loadConfig`
+  (`packages/config/src/loader.ts`) — a malicious repo could ship `.sovri.yml`
+  as a symlink to any file the bot can read (`/etc/passwd`, `~/.ssh/id_rsa`,
+  the GitHub App private key), and on YAML parse failure a fragment of the
+  target bytes could leak via `SovriConfigParseError.cause` into PR
+  comments. Two-layer defense: pre-open `lstat` check rejects symlinks
+  cross-platform, and `O_NOFOLLOW` on the subsequent `open()` provides
+  atomic POSIX backup against a TOCTOU swap. New error class
+  `SovriConfigSymlinkError` is intentionally minimal (no `cause` field) so
+  no file-content fragments can leak via error serialization. Resolves
+  issue #1744 (identified during adversarial review of PR #1743).
 - `fix(config)`: harden `loadConfig` against path-traversal (CWE-22) in
   `packages/config/src/loader.ts` — added early input validation that throws
   `TypeError` when `repoRoot` is not a non-empty string, is not absolute
