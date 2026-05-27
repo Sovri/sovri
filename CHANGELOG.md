@@ -150,6 +150,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(compliance)`: normalize zero-padded CWE identifiers before applying
+  the web vulnerability GDPR Art. 32 audit.
+
 - `fix(compliance)`: normalize zero-padded CWE identifiers before comparing
   canonical MITRE definition URLs.
 

@@ -90,14 +90,21 @@ const gdprFramework = "GDPR";
 const gdprArt32Identifier = "Art. 32";
 const cweIdentifierPattern = /^CWE-(\d+)$/u;
 
-function buildCanonicalMitreUrl(cweId: string): string | undefined {
+function getCanonicalCweNumber(cweId: string): string | undefined {
   const cweIdMatch = cweIdentifierPattern.exec(cweId);
   const cweNumber = cweIdMatch?.[1];
   if (cweNumber === undefined) {
     return undefined;
   }
 
-  const canonicalCweNumber = Number.parseInt(cweNumber, 10).toString();
+  return Number.parseInt(cweNumber, 10).toString();
+}
+
+function buildCanonicalMitreUrl(cweId: string): string | undefined {
+  const canonicalCweNumber = getCanonicalCweNumber(cweId);
+  if (canonicalCweNumber === undefined) {
+    return undefined;
+  }
 
   return `https://cwe.mitre.org/data/definitions/${canonicalCweNumber}.html`;
 }
@@ -150,7 +157,10 @@ export const ComplianceMappingEntrySchema = z
       }
     }
 
-    if (webVulnerabilityCweIds.has(entry.cwe_id)) {
+    const canonicalCweNumber = getCanonicalCweNumber(entry.cwe_id);
+    const canonicalCweId =
+      canonicalCweNumber === undefined ? undefined : `CWE-${canonicalCweNumber}`;
+    if (canonicalCweId !== undefined && webVulnerabilityCweIds.has(canonicalCweId)) {
       const hasGdprArt32Reference = entry.references.some(
         (reference) =>
           reference.framework === gdprFramework && reference.identifier === gdprArt32Identifier,

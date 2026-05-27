@@ -164,6 +164,25 @@ function buildCwe79EntryWithoutGdprReference(): ComplianceMappingEntry {
   };
 }
 
+function buildZeroPaddedCwe89EntryWithoutGdprReference(): ComplianceMappingEntry {
+  return {
+    cwe_id: "CWE-089",
+    title: "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+    mitre_url: "https://cwe.mitre.org/data/definitions/89.html",
+    impacts: ["Data breach", "Unauthorized data modification"],
+    references: [
+      {
+        framework: "CWE",
+        identifier: "CWE-89",
+        description:
+          "Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+        source_url: "https://cwe.mitre.org/data/definitions/89.html",
+        applicability: "informational",
+      },
+    ],
+  };
+}
+
 describe("Compliance mapping data audits", () => {
   it("rejects CWE-120 when the ISO 27001 A.8.28 reference is missing", () => {
     // Given a candidate batch 1 map contains "CWE-120"
@@ -331,6 +350,22 @@ describe("Compliance mapping data audits", () => {
     expect(failureText).toContain("CWE-79");
 
     // And the failure reports missing framework "GDPR"
+    expect(failureText).toContain("GDPR");
+  });
+
+  it("normalizes zero-padded web vulnerability CWE identifiers before auditing GDPR references", () => {
+    const candidateEntry = buildZeroPaddedCwe89EntryWithoutGdprReference();
+
+    const result = ComplianceMappingEntrySchema.safeParse(candidateEntry);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError("Expected the web vulnerability GDPR audit to fail.");
+    }
+
+    const failureText = result.error.issues.map((issue) => issue.message).join("\n");
+
+    expect(failureText).toContain("CWE-089");
     expect(failureText).toContain("GDPR");
   });
 });
