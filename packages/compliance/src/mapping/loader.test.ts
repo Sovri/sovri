@@ -107,7 +107,7 @@ describe("getCweMap", () => {
     });
 
     // When a GDPR Art. 32 applicable_if reference is inspected
-    const gdprReference = references.find(
+    const gdprReferences = references.filter(
       (reference) =>
         reference.framework === "GDPR" &&
         reference.identifier === "Art. 32" &&
@@ -115,7 +115,10 @@ describe("getCweMap", () => {
     );
 
     // Then its condition is "The affected system processes personal data as defined by GDPR Art. 4"
-    expect(gdprReference?.condition).toBe(canonicalConditions.gdpr);
+    expect(gdprReferences.length).toBeGreaterThan(0);
+    for (const reference of gdprReferences) {
+      expect(reference.condition).toBe(canonicalConditions.gdpr);
+    }
 
     // When a DORA Art. 9 applicable_if reference is inspected
     const doraReferences = references.filter(

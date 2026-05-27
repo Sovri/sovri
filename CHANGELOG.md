@@ -152,6 +152,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(compliance)`: verify every repeated GDPR batch 1 reference uses
+  canonical `applicable_if` condition wording.
+
 - `test(compliance)`: verify every repeated DORA and NIS2 batch 1 reference
   uses canonical `applicable_if` condition wording.
 
