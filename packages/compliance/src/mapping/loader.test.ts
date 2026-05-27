@@ -87,4 +87,25 @@ describe("getCweMap", () => {
 
     expect(getCweMap().get("CWE-798")?.cwe_id).toBe("CWE-798");
   });
+
+  it("prevents mutation of returned mapping entries from corrupting later lookups", () => {
+    const entry = getCweMap().get("CWE-798");
+    if (entry === undefined) {
+      throw new TypeError("Expected CWE-798 to be mapped.");
+    }
+    const reference = entry.references[0];
+    if (reference === undefined) {
+      throw new TypeError("Expected CWE-798 to include a reference.");
+    }
+
+    expect(() => {
+      entry.title = "Corrupted mapping";
+    }).toThrow(TypeError);
+    expect(() => {
+      entry.references.push(reference);
+    }).toThrow(TypeError);
+
+    expect(getCweMap().get("CWE-798")?.title).toBe("Use of Hard-coded Credentials");
+    expect(getCweMap().get("CWE-798")?.references).toHaveLength(1);
+  });
 });
