@@ -487,11 +487,13 @@ describe.skipIf(process.platform === "win32")(
     });
 
     it("rejects .sovri.yml that is a FIFO with SovriConfigParseError before open()", async () => {
+      vi.mocked(mockedOpen).mockRejectedValue(
+        new Error("loadConfig should reject FIFO before open()"),
+      );
+
       // Pre-open `lstat` sees a non-regular file (FIFO) and rejects before
-      // any byte flows into `readFile()`. This is the documented contract
-      // for issue #1745. The `mockedOpen` assertion proves the rejection
-      // fired at lstat() — not at the post-open `fd.stat()` guard which
-      // would emit the same SovriConfigParseError sentinel.
+      // any byte flows into `readFile()`. The mocked `open()` makes guard
+      // regressions fail deterministically instead of blocking on the FIFO.
       await expect(loadConfig(fifoDir)).rejects.toBeInstanceOf(SovriConfigParseError);
       expect(mockedOpen).not.toHaveBeenCalled();
 
