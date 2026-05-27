@@ -112,6 +112,12 @@ async function readBoundedConfigFile(filePath: string): Promise<string> {
 
   try {
     const stats = await fd.stat();
+    if (!stats.isFile()) {
+      // TOCTOU type-flip between lstat (regular file) and open (now dir,
+      // FIFO, …). Promote to the typed contract instead of letting readFile
+      // surface a raw EISDIR/EINVAL.
+      throw new SovriConfigParseError(filePath, new Error(`.sovri.yml is not a regular file`));
+    }
     if (stats.size > MAX_CONFIG_BYTES) {
       throw new SovriConfigParseError(
         filePath,
@@ -206,7 +212,15 @@ export async function loadConfig(repoRoot: string): Promise<SovriConfig> {
   const readable = await assertReadableConfigFile(filePath);
   if (!readable) return DEFAULT_CONFIG;
 
-  const raw = await readBoundedConfigFile(filePath);
+  let raw: string;
+  try {
+    raw = await readBoundedConfigFile(filePath);
+  } catch (err) {
+    // TOCTOU disappearance between lstat and open: surface the missing-file
+    // contract (DEFAULT_CONFIG) instead of raw ENOENT/ENOTDIR.
+    if (isMissingFileError(err)) return DEFAULT_CONFIG;
+    throw err;
+  }
   return parseConfigContent(raw, filePath);
 }
 

@@ -226,7 +226,10 @@ describe("loadConfig — I/O errors after open()", () => {
     const eio = Object.assign(new Error("EIO: input/output error"), { code: "EIO" });
     const closeMock = vi.fn<FileHandle["close"]>().mockResolvedValue(undefined);
     vi.mocked(mockedOpen).mockResolvedValueOnce({
-      stat: vi.fn<FileHandle["stat"]>().mockResolvedValue({ size: 100 } as import("node:fs").Stats),
+      stat: vi.fn<FileHandle["stat"]>().mockResolvedValue({
+        size: 100,
+        isFile: () => true,
+      } as unknown as import("node:fs").Stats),
       readFile: vi.fn<FileHandle["readFile"]>().mockRejectedValueOnce(eio),
       close: closeMock,
     } as unknown as FileHandle);
@@ -399,6 +402,51 @@ describe.skipIf(process.platform === "win32")(
           expect(err.cause.message).toMatch(/regular file/i);
         }
       }
+    });
+
+    it("returns DEFAULT_CONFIG when open() races to ENOENT after lstat (TOCTOU disappearance)", async () => {
+      // Simulates the file vanishing between lstat (which saw a regular
+      // file) and open() (which now sees nothing). Per contract, missing
+      // file → DEFAULT_CONFIG, not raw ENOENT.
+      const root = path.join(symlinkDir, "case-regular");
+      const enoent = Object.assign(new Error("ENOENT: no such file"), { code: "ENOENT" });
+      vi.mocked(mockedOpen).mockRejectedValueOnce(enoent);
+
+      const cfg = await loadConfig(root);
+
+      expect(cfg).toEqual(DEFAULT_CONFIG);
+    });
+
+    it("returns DEFAULT_CONFIG when open() races to ENOTDIR after lstat", async () => {
+      const root = path.join(symlinkDir, "case-regular");
+      const enotdir = Object.assign(new Error("ENOTDIR: not a directory"), { code: "ENOTDIR" });
+      vi.mocked(mockedOpen).mockRejectedValueOnce(enotdir);
+
+      const cfg = await loadConfig(root);
+
+      expect(cfg).toEqual(DEFAULT_CONFIG);
+    });
+
+    it("throws SovriConfigParseError when fd.stat() reveals a non-regular file (TOCTOU type-flip)", async () => {
+      // Simulates the file morphing into a directory/FIFO between lstat
+      // and open. fd.stat().isFile() returns false; the loader must
+      // promote to the typed contract before readFile() surfaces raw EISDIR.
+      const root = path.join(symlinkDir, "case-regular");
+      const closeMock = vi.fn<FileHandle["close"]>().mockResolvedValue(undefined);
+      const fakeDirStats = {
+        size: 100,
+        isFile: () => false,
+        isDirectory: () => true,
+        isSymbolicLink: () => false,
+      } as unknown as import("node:fs").Stats;
+      vi.mocked(mockedOpen).mockResolvedValueOnce({
+        stat: vi.fn<FileHandle["stat"]>().mockResolvedValue(fakeDirStats),
+        readFile: vi.fn<FileHandle["readFile"]>(),
+        close: closeMock,
+      } as unknown as FileHandle);
+
+      await expect(loadConfig(root)).rejects.toBeInstanceOf(SovriConfigParseError);
+      expect(closeMock).toHaveBeenCalledOnce();
     });
 
     it("maps ELOOP from O_NOFOLLOW open() to SovriConfigSymlinkError (TOCTOU defense)", async () => {
