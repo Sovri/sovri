@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(compliance)`: add acceptance coverage for the critical ICT missing-DORA
+  data audit.
+
 - `feat(compliance)`: reject `CWE-120` mapping candidates missing the ISO
   27001:2022 A.8.28 secure coding reference.
 
