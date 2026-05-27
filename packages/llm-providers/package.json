@@ -35,8 +35,8 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.96.0",
-    "@mistralai/mistralai": "2.2.1",
+    "@anthropic-ai/sdk": "0.99.0",
+    "@mistralai/mistralai": "2.2.5",
     "@sovri/config": "workspace:*",
     "@sovri/core": "workspace:*",
     "@sovri/observability": "workspace:*",
@@ -46,7 +46,7 @@
     "@types/node": "24.12.4",
     "msw": "2.14.6",
     "tsup": "8.5.1",
-    "vitest": "4.1.6"
+    "vitest": "4.1.7"
   },
   "engines": {
     "node": ">=24.8.0 <25.0.0",
