@@ -85,6 +85,9 @@ const isoSecureCodingFramework = "ISO27001-2022";
 const isoSecureCodingIdentifier = "A.8.28";
 const missingAuthorizationCweId = "CWE-862";
 const doraFramework = "DORA";
+const webVulnerabilityCweIds = new Set(["CWE-79", "CWE-89"]);
+const gdprFramework = "GDPR";
+const gdprArt32Identifier = "Art. 32";
 const cweIdentifierPattern = /^CWE-(\d+)$/u;
 
 function buildCanonicalMitreUrl(cweId: string): string | undefined {
@@ -143,6 +146,21 @@ export const ComplianceMappingEntrySchema = z
           code: "custom",
           path: ["references"],
           message: `${missingAuthorizationCweId} requires ${doraFramework} reference`,
+        });
+      }
+    }
+
+    if (webVulnerabilityCweIds.has(entry.cwe_id)) {
+      const hasGdprArt32Reference = entry.references.some(
+        (reference) =>
+          reference.framework === gdprFramework && reference.identifier === gdprArt32Identifier,
+      );
+
+      if (!hasGdprArt32Reference) {
+        context.addIssue({
+          code: "custom",
+          path: ["references"],
+          message: `${entry.cwe_id} requires ${gdprFramework} reference ${gdprArt32Identifier}`,
         });
       }
     }

@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(compliance)`: reject web vulnerability CWE mapping candidates missing
+  a GDPR Art. 32 reference.
+
+- `test(compliance)`: add acceptance coverage for the missing-GDPR web
+  vulnerability data audit.
+
 - `feat(compliance)`: reject compliance mapping references whose `source_url`
   does not use HTTPS.
 
