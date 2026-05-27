@@ -67,6 +67,15 @@ export const DEFAULT_CONFIG: SovriConfig = deepFreeze(
 /**
  * Load and validate `.sovri.yml` from a repository root.
  *
+ * @param repoRoot Absolute path to the repository root. Must be a non-empty
+ *   string, an absolute path (`path.isAbsolute(repoRoot)` must return true),
+ *   AND already normalized (`path.normalize(repoRoot) === repoRoot`).
+ *   Relative paths are rejected to eliminate any ambiguity about the
+ *   resolved file location; non-normalized absolute paths (containing `.`
+ *   or `..` segments, e.g. `"/repo/../../etc"`) are rejected because
+ *   `path.join` would silently collapse them and read outside the intended
+ *   directory.
+ *
  * Resolution order:
  *   1. File missing (`ENOENT`/`ENOTDIR`)         → returns `DEFAULT_CONFIG`.
  *   2. File empty or YAML root is null/undefined → returns `DEFAULT_CONFIG`.
@@ -78,6 +87,10 @@ export const DEFAULT_CONFIG: SovriConfig = deepFreeze(
  * Any other I/O failure (`EACCES`, `EISDIR`, …) is propagated as-is so the
  * caller can decide whether to bail out or surface it to the operator.
  *
+ * @throws {TypeError} If `repoRoot` is not a non-empty absolute path. This is
+ *   a programmer-error guard (CWE-22 hardening) — every caller in this repo
+ *   already resolves to an absolute path before invoking `loadConfig`.
+ *
  * SECURITY: `SovriConfigParseError.cause` (`YAMLException`) may quote a
  * fragment of the offending YAML. Callers must NOT log `err.cause` raw —
  * the snippet may contain text from the repo's `.sovri.yml` (e.g. a real
@@ -85,6 +98,20 @@ export const DEFAULT_CONFIG: SovriConfig = deepFreeze(
  * env-var-name regex would have rejected it).
  */
 export async function loadConfig(repoRoot: string): Promise<SovriConfig> {
+  if (typeof repoRoot !== "string" || repoRoot.length === 0) {
+    throw new TypeError("loadConfig: repoRoot must be a non-empty string");
+  }
+  if (!path.isAbsolute(repoRoot)) {
+    throw new TypeError(
+      `loadConfig: repoRoot must be an absolute path (got ${JSON.stringify(repoRoot)})`,
+    );
+  }
+  if (path.normalize(repoRoot) !== repoRoot) {
+    throw new TypeError(
+      `loadConfig: repoRoot must be normalized — no ".", "..", or duplicate "/" segments (got ${JSON.stringify(repoRoot)})`,
+    );
+  }
+
   const filePath = path.join(repoRoot, CONFIG_FILENAME);
 
   let fd: FileHandle | undefined;

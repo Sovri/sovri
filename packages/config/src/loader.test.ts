@@ -27,6 +27,58 @@ const FIXTURES_ROOT = path.resolve(
   "../test-fixtures",
 );
 
+describe("loadConfig — invalid repoRoot", () => {
+  it("throws TypeError when repoRoot is an empty string", async () => {
+    await expect(loadConfig("")).rejects.toBeInstanceOf(TypeError);
+
+    try {
+      await loadConfig("");
+      expect.unreachable("loadConfig should have thrown TypeError");
+    } catch (err) {
+      if (!(err instanceof TypeError)) throw err;
+      expect(err.message).toMatch(/repoRoot/);
+    }
+  });
+
+  it("throws TypeError when repoRoot is a relative path", async () => {
+    await expect(loadConfig("./relative/path")).rejects.toBeInstanceOf(TypeError);
+
+    try {
+      await loadConfig("./relative/path");
+      expect.unreachable("loadConfig should have thrown TypeError");
+    } catch (err) {
+      if (!(err instanceof TypeError)) throw err;
+      expect(err.message).toMatch(/absolute/i);
+    }
+  });
+
+  it("throws TypeError when repoRoot is a parent-traversal relative path", async () => {
+    await expect(loadConfig("../traversal")).rejects.toBeInstanceOf(TypeError);
+  });
+
+  it("throws TypeError when repoRoot is absolute but contains parent-traversal segments", async () => {
+    // /a/../etc passes path.isAbsolute but path.join normalizes it to /etc,
+    // letting the loader read outside the caller's intended directory.
+    await expect(loadConfig("/a/../etc")).rejects.toBeInstanceOf(TypeError);
+
+    try {
+      await loadConfig("/a/../etc");
+      expect.unreachable("loadConfig should have thrown TypeError");
+    } catch (err) {
+      if (!(err instanceof TypeError)) throw err;
+      expect(err.message).toMatch(/normalized/i);
+    }
+  });
+
+  it("throws TypeError when repoRoot is absolute but contains current-directory segments", async () => {
+    await expect(loadConfig("/a/./b")).rejects.toBeInstanceOf(TypeError);
+  });
+
+  it("throws TypeError when repoRoot is absolute but contains duplicate separators", async () => {
+    await expect(loadConfig("/a//b")).rejects.toBeInstanceOf(TypeError);
+  });
+});
+
 describe("loadConfig — file missing", () => {
   it("returns DEFAULT_CONFIG without throwing when no .sovri.yml exists at repoRoot", async () => {
     const root = path.join(FIXTURES_ROOT, "no-file");

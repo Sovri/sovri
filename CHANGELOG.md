@@ -21,6 +21,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `fix(config)`: harden `loadConfig` against path-traversal (CWE-22) in
+  `packages/config/src/loader.ts` — added early input validation that throws
+  `TypeError` when `repoRoot` is not a non-empty string, is not absolute
+  per `path.isAbsolute`, or is not normalized
+  (`path.normalize(repoRoot) !== repoRoot`). The normalization check rejects
+  inputs such as `"/repo/../../etc"`, `"/a/./b"`, and `"/a//b"` that pass
+  `path.isAbsolute` but whose `path.join(repoRoot, ".sovri.yml")` resolves
+  outside the caller's intended directory. JSDoc updated to document the
+  new contract. Resolves issue #1746 (raised during adversarial review of
+  PR #1743).
 - `fix(config)`: eliminate TOCTOU race condition (CWE-367) in `loadConfig`
   (`packages/config/src/loader.ts`) — replaced separate `stat(path)` +
   `readFile(path)` path-based calls with a single file-descriptor approach
