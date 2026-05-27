@@ -153,8 +153,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `feat(compliance)`: add the compliance mapping entry schema, static CWE map
-  loader API contract, and acceptance coverage for applicability, conditional
-  references, missing CWE lookups, and public type exports.
+  loader API implementation, and acceptance coverage for applicability,
+  conditional references, missing CWE lookups, and public type exports.
 
 - `test(compliance)`: add acceptance coverage for the new `@sovri/compliance`
   workspace package scaffold manifest fields.
