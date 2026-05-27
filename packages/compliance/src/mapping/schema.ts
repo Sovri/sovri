@@ -57,7 +57,9 @@ function buildCanonicalMitreUrl(cweId: string): string | undefined {
     return undefined;
   }
 
-  return `https://cwe.mitre.org/data/definitions/${cweNumber}.html`;
+  const canonicalCweNumber = Number.parseInt(cweNumber, 10).toString();
+
+  return `https://cwe.mitre.org/data/definitions/${canonicalCweNumber}.html`;
 }
 
 export const ComplianceMappingEntrySchema = z

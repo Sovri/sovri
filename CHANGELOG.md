@@ -132,6 +132,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(compliance)`: normalize zero-padded CWE identifiers before comparing
+  canonical MITRE definition URLs.
+
 - `fix(test)`: inline arrow functions in `expect(...).toThrow()` calls in
   `parser.mapping.test.ts` and `parser.entries.test.ts` to satisfy the new
   `unicorn/consistent-function-scoping` rule introduced in oxlint 1.67.
