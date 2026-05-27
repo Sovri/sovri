@@ -152,6 +152,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(compliance)`: add acceptance coverage proving batch 1 CWE mapping
+  `applicable_if` references carry explicit regulated-context conditions.
+
 - `feat(compliance)`: add the compliance mapping entry schema, static CWE map
   loader API implementation with defensive map reads and frozen mapping
   entries, initial `CWE-798` static mapping data, and acceptance coverage for
