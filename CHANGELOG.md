@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add MSW integration coverage for compliance wiring in
+  `reviewPullRequest()` — a finding with a mapped `cwe` (`CWE-798`) gains an
+  `audit_reference` and its compliance references, a finding without a `cwe` or
+  with an unmapped one keeps empty references, and every LLM-derived finding in
+  the returned `Review` carries an `audit_reference`.
+
 - `feat(review-engine)`: accept an optional `cwe` (`/^CWE-\d+$/`) on the
   provider finding schema (`ProviderFindingSchema`), so an LLM provider may hint
   a CWE on the hot path used by `reviewPullRequest()`; the derived

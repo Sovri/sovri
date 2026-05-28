@@ -269,6 +269,148 @@ describe("reviewPullRequest MSW integration paths", () => {
   });
 });
 
+const mockProviderFindings = (findings: readonly unknown[]): void => {
+  server.use(
+    http.post(ProviderUrl, () =>
+      HttpResponse.json({
+        data: {
+          summary: "Compliance review.",
+          findings,
+          walkthrough_markdown: "## Sovri review\n\nCompliance review.",
+        },
+        tokenUsage: { prompt: 100, completion: 20 },
+      }),
+    ),
+  );
+};
+
+const findingFor = (cwe: string | undefined, category: string, severity: string) => ({
+  severity,
+  category,
+  file: "packages/review-engine/src/orchestrator.ts",
+  line_start: 42,
+  line_end: 42,
+  title: "Finding title",
+  body: "Finding body.",
+  confidence: 0.9,
+  ...(cwe === undefined ? {} : { cwe }),
+});
+
+// Acceptance test for: "Orchestrator wires compliance enrichment and audit
+// references into findings" (issue #1912). Rules R-03 (every LLM-derived finding
+// carries a defined audit_reference), R-04 (compliance_references populated from
+// the CWE map or empty), R-06 (cwe propagated then enriched). R-07 (enrichment
+// failure degrades the finding) is covered in orchestrator.compliance-failure.test.ts.
+describe("reviewPullRequest compliance enrichment", () => {
+  const config = {
+    review: { severityThreshold: "nitpick" as const },
+    ignores: [] as readonly string[],
+    limits: { maxFilesPerReview: 5, maxLinesPerReview: 50 },
+  };
+
+  // Rule: R-03, R-04, R-06
+  it("gives a finding with a mapped CWE an audit reference and populated compliance references", async () => {
+    // Given the LLM provider returns one "major" finding for category "security" with cwe "CWE-798"
+    mockProviderFindings([findingFor("CWE-798", "security", "major")]);
+    const diff = parseUnifiedDiff(unifiedDiff);
+
+    // When reviewPullRequest runs with the injected provider
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+
+    // Then the returned Review status is "success"
+    expect(review.status).toBe("success");
+    const finding = review.findings.at(0);
+    // And that finding's cwe equals "CWE-798"
+    expect(finding?.cwe).toBe("CWE-798");
+    // And that finding's audit_reference is defined
+    expect(finding?.audit_reference).toBeDefined();
+    // And that finding's audit_reference matches "^SOVRI-SC-[A-F0-9]{4}-[A-F0-9]{4}$"
+    expect(finding?.audit_reference).toMatch(/^SOVRI-SC-[A-F0-9]{4}-[A-F0-9]{4}$/u);
+    // And that finding's compliance_references has at least 4 entries
+    expect(finding?.compliance_references.length).toBeGreaterThanOrEqual(4);
+    // And that finding's compliance_references include the frameworks GDPR, ISO27001-2022, DORA, NIS2
+    const frameworks = (finding?.compliance_references ?? []).map((ref) => ref.framework);
+    expect(frameworks).toEqual(expect.arrayContaining(["GDPR", "ISO27001-2022", "DORA", "NIS2"]));
+  });
+
+  // Rule: R-04
+  it("gives a finding without a CWE an audit reference but empty compliance references", async () => {
+    // Given the LLM provider returns one "minor" finding for category "bug" with no cwe
+    mockProviderFindings([findingFor(undefined, "bug", "minor")]);
+    const diff = parseUnifiedDiff(unifiedDiff);
+
+    // When reviewPullRequest runs with the injected provider
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+
+    // Then the returned Review status is "success"
+    expect(review.status).toBe("success");
+    const finding = review.findings.at(0);
+    // And that finding's audit_reference is defined and matches the bug category code
+    expect(finding?.audit_reference).toBeDefined();
+    expect(finding?.audit_reference).toMatch(/^SOVRI-BG-[A-F0-9]{4}-[A-F0-9]{4}$/u);
+    // And that finding's compliance_references is empty
+    expect(finding?.compliance_references).toEqual([]);
+  });
+
+  // Rule: R-04
+  it("gives a finding whose CWE does not resolve empty compliance references", async () => {
+    // Given the LLM provider returns one "major" finding for category "security" with cwe "CWE-9999"
+    mockProviderFindings([findingFor("CWE-9999", "security", "major")]);
+    const diff = parseUnifiedDiff(unifiedDiff);
+
+    // When reviewPullRequest runs with the injected provider
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+
+    // Then the returned Review status is "success"
+    expect(review.status).toBe("success");
+    const finding = review.findings.at(0);
+    // And that finding's audit_reference is defined
+    expect(finding?.audit_reference).toBeDefined();
+    // And that finding's compliance_references is empty
+    expect(finding?.compliance_references).toEqual([]);
+  });
+
+  // Rule: R-03 (triangulation across a mixed batch)
+  it("gives every LLM-derived finding in the Review an audit reference", async () => {
+    // Given the LLM provider returns three findings (mapped cwe, no cwe, unmapped cwe)
+    mockProviderFindings([
+      findingFor("CWE-798", "security", "blocker"),
+      findingFor(undefined, "bug", "major"),
+      findingFor("CWE-9999", "security", "minor"),
+    ]);
+    const diff = parseUnifiedDiff(unifiedDiff);
+
+    // When reviewPullRequest runs with the injected provider
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+
+    // Then the returned Review status is "success"
+    expect(review.status).toBe("success");
+    expect(review.findings).toHaveLength(3);
+    // And every returned finding has a defined audit_reference
+    expect(review.findings.every((f) => f.audit_reference !== undefined)).toBe(true);
+    // And the finding with cwe "CWE-798" has at least 4 compliance_references
+    expect(
+      review.findings.find((f) => f.cwe === "CWE-798")?.compliance_references.length,
+    ).toBeGreaterThanOrEqual(4);
+    // And the finding with no cwe has empty compliance_references
+    expect(review.findings.find((f) => f.cwe === undefined)?.compliance_references).toEqual([]);
+    // And the finding with cwe "CWE-9999" has empty compliance_references
+    expect(review.findings.find((f) => f.cwe === "CWE-9999")?.compliance_references).toEqual([]);
+  });
+});
+
 function createHttpProvider(): LLMProvider {
   const model = "test-model";
 
