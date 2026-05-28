@@ -1,0 +1,23 @@
+{
+  "cwe_id": "CWE-918",
+  "title": "Server-Side Request Forgery (SSRF)",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/918.html",
+  "impacts": ["Internal service access", "Data exfiltration"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-918",
+      "description": "Server-Side Request Forgery (SSRF)",
+      "source_url": "https://cwe.mitre.org/data/definitions/918.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "AI-ACT",
+      "identifier": "Art. 12",
+      "description": "Record-keeping and traceability for SSRF exposure inside a high-risk AI system.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32024R1689",
+      "applicability": "applicable_if",
+      "condition": "The system is a high-risk AI system subject to AI Act Art. 6"
+    }
+  ]
+}

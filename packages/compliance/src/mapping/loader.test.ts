@@ -237,6 +237,6 @@ describe("getCweMap", () => {
     }).toThrow(TypeError);
 
     expect(getCweMap().get("CWE-798")?.title).toBe("Use of Hard-coded Credentials");
-    expect(getCweMap().get("CWE-798")?.references).toHaveLength(1);
+    expect(getCweMap().get("CWE-798")?.references).toHaveLength(6);
   });
 });

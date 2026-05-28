@@ -1,0 +1,15 @@
+{
+  "cwe_id": "CWE-502",
+  "title": "Deserialization of Untrusted Data",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/502.html",
+  "impacts": ["Remote code execution", "Object injection"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-502",
+      "description": "Deserialization of Untrusted Data",
+      "source_url": "https://cwe.mitre.org/data/definitions/502.html",
+      "applicability": "informational"
+    }
+  ]
+}

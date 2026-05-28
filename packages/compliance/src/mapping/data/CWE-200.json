@@ -1,0 +1,23 @@
+{
+  "cwe_id": "CWE-200",
+  "title": "Exposure of Sensitive Information to an Unauthorized Actor",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/200.html",
+  "impacts": ["Information disclosure", "Privacy breach"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-200",
+      "description": "Exposure of Sensitive Information to an Unauthorized Actor",
+      "source_url": "https://cwe.mitre.org/data/definitions/200.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "GDPR",
+      "identifier": "Art. 32",
+      "description": "Security of processing when the exposed information includes personal data.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679#d1e3316-1-1",
+      "applicability": "applicable_if",
+      "condition": "The exposed information includes personal data"
+    }
+  ]
+}
