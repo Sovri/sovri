@@ -149,7 +149,7 @@ describe("composeWalkthrough compliance references block", () => {
     // When the walkthrough is composed
     const markdown = composeWalkthrough(review);
 
-    // Then the compliance block renders exactly the PRD §4.1.1 tree
+    // Then the walkthrough renders the exact compliance tree block
     expect(markdown).toContain(
       [
         "📋 Potential compliance references",
