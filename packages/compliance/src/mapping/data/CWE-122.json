@@ -1,0 +1,15 @@
+{
+  "cwe_id": "CWE-122",
+  "title": "Heap-based Buffer Overflow",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/122.html",
+  "impacts": ["Memory corruption", "Arbitrary code execution"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-122",
+      "description": "Heap-based Buffer Overflow",
+      "source_url": "https://cwe.mitre.org/data/definitions/122.html",
+      "applicability": "informational"
+    }
+  ]
+}

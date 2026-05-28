@@ -10,6 +10,44 @@
       "description": "Use of Hard-coded Credentials",
       "source_url": "https://cwe.mitre.org/data/definitions/798.html",
       "applicability": "informational"
+    },
+    {
+      "framework": "OWASP-TOP10-2021",
+      "identifier": "A07:2021",
+      "description": "Identification and Authentication Failures covering hard-coded credentials.",
+      "source_url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/",
+      "applicability": "informational"
+    },
+    {
+      "framework": "GDPR",
+      "identifier": "Art. 32",
+      "description": "Security of processing when hard-coded credentials expose personal data.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679#d1e3316-1-1",
+      "applicability": "applicable_if",
+      "condition": "The hardcoded credential gives access to a system processing personal data"
+    },
+    {
+      "framework": "ISO27001-2022",
+      "identifier": "A.5.17",
+      "description": "Authentication information management guidance for hard-coded credentials.",
+      "source_url": "https://www.iso.org/standard/82875.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "DORA",
+      "identifier": "Art. 9",
+      "description": "ICT risk management protection and prevention controls for hard-coded credentials.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+      "applicability": "applicable_if",
+      "condition": "The affected system is part of the ICT infrastructure of a financial entity"
+    },
+    {
+      "framework": "NIS2",
+      "identifier": "Art. 21(2)(i)",
+      "description": "Access control and asset management measures for hard-coded credentials.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+      "applicability": "applicable_if",
+      "condition": "The entity is an essential or important entity subject to NIS2"
     }
   ]
 }

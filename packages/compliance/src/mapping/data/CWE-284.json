@@ -1,0 +1,31 @@
+{
+  "cwe_id": "CWE-284",
+  "title": "Improper Access Control",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/284.html",
+  "impacts": ["Unauthorized access", "Privilege escalation"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-284",
+      "description": "Improper Access Control",
+      "source_url": "https://cwe.mitre.org/data/definitions/284.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "GDPR",
+      "identifier": "Art. 32",
+      "description": "Security of processing for improper access control when personal data access is affected.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679#d1e3316-1-1",
+      "applicability": "applicable_if",
+      "condition": "The affected system processes personal data as defined by GDPR Art. 4"
+    },
+    {
+      "framework": "DORA",
+      "identifier": "Art. 9",
+      "description": "ICT risk management protection and prevention controls for improper access control.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+      "applicability": "applicable_if",
+      "condition": "The affected system is part of the ICT infrastructure of a financial entity subject to DORA"
+    }
+  ]
+}

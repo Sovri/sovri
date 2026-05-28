@@ -1,0 +1,31 @@
+{
+  "cwe_id": "CWE-770",
+  "title": "Allocation of Resources Without Limits or Throttling",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/770.html",
+  "impacts": ["Denial of service", "Resource exhaustion"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-770",
+      "description": "Allocation of Resources Without Limits or Throttling",
+      "source_url": "https://cwe.mitre.org/data/definitions/770.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "DORA",
+      "identifier": "Art. 9",
+      "description": "ICT risk management protection and prevention controls against resource exhaustion.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+      "applicability": "applicable_if",
+      "condition": "The affected system is part of the ICT infrastructure of a financial entity subject to DORA"
+    },
+    {
+      "framework": "NIS2",
+      "identifier": "Art. 21(2)(b)",
+      "description": "Incident handling measures, including DDoS protection, for unthrottled resource allocation.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+      "applicability": "applicable_if",
+      "condition": "The entity is an essential or important entity subject to NIS2"
+    }
+  ]
+}

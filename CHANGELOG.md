@@ -21,6 +21,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(compliance)`: add batch 2 CWE mapping data — 12 new CWE Top 25 2025
+  entries (CWE-20, 77, 121, 122, 200, 284, 306, 502, 639, 770, 863, 918) and
+  enrich CWE-798 into the flagship hard-coded credentials mapping, bringing
+  `getCweMap` to 26 entries.
+
+- `test(compliance)`: add acceptance coverage for batch 2 schema validity,
+  map size (26), explicit `applicable_if` conditions, and no `confirmed`
+  applicability.
+
 - `test(compliance)`: add acceptance coverage rejecting `CWE-862` mappings
   whose DORA reference is not Art. 9.
 
