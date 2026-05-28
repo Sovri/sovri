@@ -19,6 +19,74 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `test(compliance)`: add acceptance coverage rejecting `CWE-862` mappings
+  whose DORA reference is not Art. 9.
+
+- `test(compliance)`: add acceptance coverage for zero-padded CWE
+  normalization before the ISO 27001 and DORA required-reference audits.
+
+- `feat(compliance)`: reject web vulnerability CWE mapping candidates missing
+  a GDPR Art. 32 reference.
+
+- `test(compliance)`: add acceptance coverage for the missing-GDPR web
+  vulnerability data audit.
+
+- `feat(compliance)`: reject compliance mapping references whose `source_url`
+  does not use HTTPS.
+
+- `test(compliance)`: add acceptance coverage for the non-HTTPS compliance
+  reference source URL audit.
+
+- `feat(compliance)`: reject compliance mapping references whose `source_url`
+  host does not match the official host for the referenced framework.
+
+- `test(compliance)`: add acceptance coverage for the non-official
+  compliance reference source URL host audit.
+
+- `feat(compliance)`: reject mapping candidates whose `mitre_url` does not
+  match the canonical MITRE definition URL for their `cwe_id`.
+
+- `test(compliance)`: add acceptance coverage for the canonical MITRE URL
+  mismatch data audit.
+
+- `feat(compliance)`: reject `CWE-862` mapping candidates missing a DORA
+  reference.
+
+- `test(compliance)`: add acceptance coverage for the critical ICT missing-DORA
+  data audit.
+
+- `feat(compliance)`: reject `CWE-120` mapping candidates missing the ISO
+  27001:2022 A.8.28 secure coding reference.
+
+- `test(compliance)`: add acceptance coverage for the `CWE-120`
+  missing-ISO-reference data audit.
+
+- `feat(compliance)`: map `CWE-120` to the ISO 27001:2022 A.8.28 secure
+  coding control as an informational reference.
+
+- `test(compliance)`: add acceptance coverage for the `CWE-120` ISO
+  27001:2022 A.8.28 informational mapping.
+
+- `test(compliance)`: verify every repeated GDPR batch 1 reference uses
+  canonical `applicable_if` condition wording.
+
+- `test(compliance)`: verify every repeated DORA and NIS2 batch 1 reference
+  uses canonical `applicable_if` condition wording.
+
+- `feat(compliance)`: add canonical DORA Art. 9 and NIS2 conditional
+  references for `CWE-78` and `CWE-862` batch 1 mappings.
+
+- `test(compliance)`: add acceptance coverage for canonical GDPR, DORA, and
+  NIS2 `applicable_if` condition wording in batch 1 CWE mapping data.
+
+- `feat(compliance)`: add the first 13 static CWE mapping data files and
+  import them in the static compliance map loader.
+
+- `test(compliance)`: add acceptance coverage proving batch 1 CWE mapping
+  `applicable_if` references carry explicit regulated-context conditions.
+
 ### Security
 
 - `fix(config)`: block symlink following (CWE-59) in `loadConfig`
@@ -105,6 +173,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   cannot drift from the release tag.
 
 ### Fixed
+
+- `fix(compliance)`: require the canonical DORA Art. 9 identifier for `CWE-862`
+  mappings instead of accepting any DORA reference.
+
+- `fix(compliance)`: normalize zero-padded CWE identifiers before enforcing
+  the ISO 27001 secure coding and DORA required references.
+
+- `fix(compliance)`: normalize zero-padded CWE identifiers before applying
+  the web vulnerability GDPR Art. 32 audit.
+
+- `fix(compliance)`: normalize zero-padded CWE identifiers before comparing
+  canonical MITRE definition URLs.
 
 - `fix(test)`: inline arrow functions in `expect(...).toThrow()` calls in
   `parser.mapping.test.ts` and `parser.entries.test.ts` to satisfy the new
