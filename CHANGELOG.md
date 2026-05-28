@@ -21,6 +21,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: wire compliance enrichment and audit references into the
+  orchestrator — `reviewPullRequest()` now propagates the provider `cwe`, stamps
+  each LLM-derived finding with an `audit_reference`, and fills its
+  `compliance_references` via `enrichFindingCompliance()`; on enrichment failure
+  the finding degrades to empty references with a logged error and the review
+  still completes. Adds `@sovri/compliance` as a workspace dependency.
+
 - `test(review-engine)`: add MSW integration coverage for compliance wiring in
   `reviewPullRequest()` — a finding with a mapped `cwe` (`CWE-798`) gains an
   `audit_reference` and its compliance references, a finding without a `cwe` or

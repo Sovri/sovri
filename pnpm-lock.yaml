@@ -197,6 +197,9 @@ importers:
 
   packages/review-engine:
     dependencies:
+      '@sovri/compliance':
+        specifier: workspace:*
+        version: link:../compliance
       '@sovri/core':
         specifier: workspace:*
         version: link:../core
