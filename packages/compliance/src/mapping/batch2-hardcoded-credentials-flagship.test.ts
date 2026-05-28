@@ -82,6 +82,25 @@ describe("CWE-798 is the flagship hard-coded credentials mapping", () => {
     expect(auditFlagshipCredentials(readFlagship())).toBeUndefined();
   });
 
+  it("rejects a flagship candidate whose DORA reference cites the wrong article", () => {
+    const candidate = {
+      cwe_id: "CWE-798",
+      references: [
+        { framework: "CWE", identifier: "CWE-798" },
+        { framework: "OWASP-TOP10-2021", identifier: "A07:2021" },
+        { framework: "GDPR", identifier: "Art. 32" },
+        { framework: "ISO27001-2022", identifier: "A.5.17" },
+        { framework: "DORA", identifier: "Art. 5" },
+        { framework: "NIS2", identifier: "Art. 21(2)(i)" },
+      ],
+    };
+
+    const failure = auditFlagshipCredentials(candidate);
+
+    expect(failure?.cwe_id).toBe("CWE-798");
+    expect(failure?.missingFrameworks).toContain("DORA");
+  });
+
   it("cites official HTTPS hosts on every flagship reference", () => {
     const entry = readFlagship();
 

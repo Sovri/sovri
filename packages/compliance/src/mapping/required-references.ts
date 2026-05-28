@@ -13,41 +13,55 @@ interface ReferenceLike {
   readonly identifier: string;
 }
 
-const requiredReferenceByCwe: Record<string, RequiredReference> = {
-  "CWE-200": { framework: "GDPR", identifier: "Art. 32" },
-  "CWE-284": { framework: "DORA", identifier: "Art. 9" },
-  "CWE-639": { framework: "ISO27001-2022", identifier: "A.5.15" },
-  "CWE-770": { framework: "DORA", identifier: "Art. 9" },
-  "CWE-863": { framework: "DORA", identifier: "Art. 9" },
-  "CWE-918": { framework: "AI-ACT", identifier: "Art. 12" },
+const requiredReferencesByCwe: Record<string, readonly RequiredReference[]> = {
+  "CWE-200": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-284": [
+    { framework: "GDPR", identifier: "Art. 32" },
+    { framework: "DORA", identifier: "Art. 9" },
+  ],
+  "CWE-639": [
+    { framework: "GDPR", identifier: "Art. 32" },
+    { framework: "ISO27001-2022", identifier: "A.5.15" },
+  ],
+  "CWE-770": [
+    { framework: "DORA", identifier: "Art. 9" },
+    { framework: "NIS2", identifier: "Art. 21(2)(b)" },
+  ],
+  "CWE-863": [
+    { framework: "GDPR", identifier: "Art. 32" },
+    { framework: "DORA", identifier: "Art. 9" },
+  ],
+  "CWE-918": [{ framework: "AI-ACT", identifier: "Art. 12" }],
 };
+
+function hasReference(references: readonly ReferenceLike[], required: RequiredReference): boolean {
+  return references.some(
+    (reference) =>
+      reference.framework === required.framework && reference.identifier === required.identifier,
+  );
+}
 
 export function findMissingRequiredReference(
   canonicalCweId: string,
   references: readonly ReferenceLike[],
 ): RequiredReference | undefined {
-  const required = requiredReferenceByCwe[canonicalCweId];
+  const required = requiredReferencesByCwe[canonicalCweId];
   if (required === undefined) {
     return undefined;
   }
 
-  const isPresent = references.some(
-    (reference) =>
-      reference.framework === required.framework && reference.identifier === required.identifier,
-  );
-
-  return isPresent ? undefined : required;
+  return required.find((candidate) => !hasReference(references, candidate));
 }
 
 export const FLAGSHIP_CREDENTIALS_CWE_ID = "CWE-798";
 
-const flagshipRequiredFrameworks = [
-  "OWASP-TOP10-2021",
-  "GDPR",
-  "ISO27001-2022",
-  "DORA",
-  "NIS2",
-] as const satisfies readonly ComplianceFramework[];
+const flagshipRequiredReferences: readonly RequiredReference[] = [
+  { framework: "OWASP-TOP10-2021", identifier: "A07:2021" },
+  { framework: "GDPR", identifier: "Art. 32" },
+  { framework: "ISO27001-2022", identifier: "A.5.17" },
+  { framework: "DORA", identifier: "Art. 9" },
+  { framework: "NIS2", identifier: "Art. 21(2)(i)" },
+];
 
 export interface FlagshipAuditFailure {
   readonly cwe_id: string;
@@ -62,10 +76,9 @@ export function auditFlagshipCredentials(entry: {
     return undefined;
   }
 
-  const presentFrameworks = new Set(entry.references.map((reference) => reference.framework));
-  const missingFrameworks = flagshipRequiredFrameworks.filter(
-    (framework) => !presentFrameworks.has(framework),
-  );
+  const missingFrameworks = flagshipRequiredReferences
+    .filter((required) => !hasReference(entry.references, required))
+    .map((required) => required.framework);
 
   return missingFrameworks.length === 0
     ? undefined

@@ -66,6 +66,41 @@ describe("User-controlled key authorization bypass maps to GDPR and ISO access c
     expect(failureText).toContain("ISO27001-2022");
   });
 
+  it("fails the data audit when CWE-639 keeps ISO but omits GDPR", () => {
+    const candidate = {
+      cwe_id: "CWE-639",
+      title: "Authorization Bypass Through User-Controlled Key",
+      mitre_url: "https://cwe.mitre.org/data/definitions/639.html",
+      impacts: ["Unauthorized data access"],
+      references: [
+        {
+          framework: "CWE",
+          identifier: "CWE-639",
+          description: "Authorization Bypass Through User-Controlled Key",
+          source_url: "https://cwe.mitre.org/data/definitions/639.html",
+          applicability: "informational",
+        },
+        {
+          framework: "ISO27001-2022",
+          identifier: "A.5.15",
+          description: "Access control policy guidance.",
+          source_url: "https://www.iso.org/standard/82875.html",
+          applicability: "informational",
+        },
+      ],
+    };
+
+    const result = ComplianceMappingEntrySchema.safeParse(candidate);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError("Expected the GDPR companion audit to fail.");
+    }
+    const failureText = result.error.issues.map((issue) => issue.message).join("\n");
+    expect(failureText).toContain("CWE-639");
+    expect(failureText).toContain("GDPR");
+  });
+
   it("cites the official hosts on the CWE-639 GDPR and ISO references", () => {
     const gdpr = reference("CWE-639", "GDPR");
     const iso = reference("CWE-639", "ISO27001-2022");

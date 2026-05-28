@@ -69,6 +69,43 @@ describe("Authorization CWEs map to GDPR and DORA", () => {
     expect(failureText).toContain("DORA");
   });
 
+  it("fails the data audit when an authorization CWE keeps DORA but omits GDPR", () => {
+    const candidate = {
+      cwe_id: "CWE-863",
+      title: "Incorrect Authorization",
+      mitre_url: "https://cwe.mitre.org/data/definitions/863.html",
+      impacts: ["Unauthorized access"],
+      references: [
+        {
+          framework: "CWE",
+          identifier: "CWE-863",
+          description: "Incorrect Authorization",
+          source_url: "https://cwe.mitre.org/data/definitions/863.html",
+          applicability: "informational",
+        },
+        {
+          framework: "DORA",
+          identifier: "Art. 9",
+          description: "ICT risk management protection and prevention controls.",
+          source_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+          applicability: "applicable_if",
+          condition:
+            "The affected system is part of the ICT infrastructure of a financial entity subject to DORA",
+        },
+      ],
+    };
+
+    const result = ComplianceMappingEntrySchema.safeParse(candidate);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError("Expected the GDPR companion audit to fail.");
+    }
+    const failureText = result.error.issues.map((issue) => issue.message).join("\n");
+    expect(failureText).toContain("CWE-863");
+    expect(failureText).toContain("GDPR");
+  });
+
   it("cites EUR-Lex on the authorization GDPR and DORA references", () => {
     for (const cweId of ["CWE-863", "CWE-284"]) {
       const gdpr = reference(cweId, "GDPR");

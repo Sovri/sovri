@@ -22,9 +22,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `feat(compliance)`: require batch 2 regulatory references — reject mapping
-  candidates for CWE-200 (GDPR Art. 32), CWE-284/770/863 (DORA Art. 9),
-  CWE-639 (ISO 27001 A.5.15), and CWE-918 (AI Act Art. 12) when the required
-  reference is missing, and audit the CWE-798 flagship reference set.
+  candidates that miss any required reference: CWE-200 (GDPR Art. 32),
+  CWE-284 and CWE-863 (GDPR Art. 32 + DORA Art. 9), CWE-639 (GDPR Art. 32 +
+  ISO 27001 A.5.15), CWE-770 (DORA Art. 9 + NIS2 Art. 21(2)(b)), and CWE-918
+  (AI Act Art. 12), and audit the full CWE-798 flagship reference set by
+  framework and identifier.
 
 - `test(compliance)`: add acceptance coverage for the batch 2 regulatory
   gates (CWE-798 flagship, CWE-200, CWE-770, CWE-639, CWE-863/284, CWE-918).
