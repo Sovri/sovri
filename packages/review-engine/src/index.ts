@@ -54,6 +54,8 @@ export type {
   WalkthroughInput,
 } from "./walkthrough/index.js";
 
+export { generateAuditReference } from "./audit-ref.js";
+
 export { reviewPullRequest, runReview } from "./orchestrator.js";
 export type {
   ReviewEngineResult,
