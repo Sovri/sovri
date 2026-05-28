@@ -21,6 +21,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: wire compliance enrichment and audit references into the
+  orchestrator — `reviewPullRequest()` now propagates the provider `cwe`, stamps
+  each LLM-derived finding with an `audit_reference`, and fills its
+  `compliance_references` via `enrichFindingCompliance()`; on enrichment failure
+  the finding degrades to empty references with a logged error and the review
+  still completes. Adds `@sovri/compliance` as a workspace dependency.
+
+- `test(review-engine)`: add MSW integration coverage for compliance wiring in
+  `reviewPullRequest()` — a finding with a mapped `cwe` (`CWE-798`) gains an
+  `audit_reference` and its compliance references, a finding without a `cwe` or
+  with an unmapped one keeps empty references, and every LLM-derived finding in
+  the returned `Review` carries an `audit_reference`.
+
 - `feat(review-engine)`: accept an optional `cwe` (`/^CWE-\d+$/`) on the
   provider finding schema (`ProviderFindingSchema`), so an LLM provider may hint
   a CWE on the hot path used by `reviewPullRequest()`; the derived
@@ -153,6 +166,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `applicable_if` references carry explicit regulated-context conditions.
 
 ### Fixed
+
+- `fix(compliance)`: build the CWE map lazily (memoized in `getCweMap()`) instead
+  of at module import. A malformed bundled entry now throws inside a caller's
+  guarded path rather than crashing `@sovri/compliance` consumers at load time —
+  this is what lets the review-engine orchestrator degrade an affected finding
+  to empty `compliance_references` instead of failing the whole review.
 
 - `test`: exclude gitignored git worktrees (`.worktrees/**`) from Vitest test
   discovery, so stale duplicate test files inside local worktrees no longer run

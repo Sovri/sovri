@@ -3,6 +3,7 @@
 
 import { posix } from "node:path";
 
+import { enrichFindingCompliance } from "@sovri/compliance";
 import {
   applyIgnoreRules,
   computeSeverityRank,
@@ -21,6 +22,7 @@ import type { GenerateStructuredParams, LLMProvider } from "@sovri/llm-providers
 import type { Logger } from "@sovri/observability";
 import { v4 as uuidv4, v7 as uuidv7 } from "uuid";
 
+import { generateAuditReference } from "./audit-ref.js";
 import { filterDiffByIgnores, parseUnifiedDiff } from "./diff/index.js";
 import {
   buildReviewPrompt,
@@ -270,7 +272,7 @@ export async function reviewPullRequest(
   }
 
   const findings = applyReviewFilters(
-    generation.parsed.findings.map(toFinding),
+    generation.parsed.findings.map((finding) => toFinding(finding, options.logger)),
     reviewInput.config.review.severityThreshold,
     reviewInput.config.ignores,
   );
@@ -658,8 +660,8 @@ function applyReviewFilters(
   return applyIgnoreRules(bySeverity, ignores);
 }
 
-function toFinding(finding: ProviderFinding): Finding {
-  return {
+function toFinding(finding: ProviderFinding, logger?: Logger): Finding {
+  const base: Finding = {
     id: uuidv4(),
     severity: finding.severity,
     category: finding.category,
@@ -670,8 +672,21 @@ function toFinding(finding: ProviderFinding): Finding {
     body: finding.body,
     source: "llm",
     confidence: finding.confidence,
+    audit_reference: generateAuditReference(finding.category),
     compliance_references: [],
+    ...(finding.cwe === undefined ? {} : { cwe: finding.cwe }),
   };
+
+  try {
+    return enrichFindingCompliance(base);
+  } catch (error) {
+    logger?.error(
+      { err: error, audit_reference: base.audit_reference },
+      "Compliance enrichment failed; keeping finding without references",
+    );
+
+    return base;
+  }
 }
 
 function normalizeFindingPath(file: string): string {
