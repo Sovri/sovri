@@ -35,6 +35,7 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@sovri/compliance": "workspace:*",
     "@sovri/core": "workspace:*",
     "@sovri/llm-providers": "workspace:*",
     "@sovri/observability": "workspace:*",
