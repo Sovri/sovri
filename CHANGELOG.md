@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: accept an optional `cwe` (`/^CWE-\d+$/`) on the
+  provider finding schema (`ProviderFindingSchema`), so an LLM provider may hint
+  a CWE on the hot path used by `reviewPullRequest()`; the derived
+  `ProviderFinding` type gains `cwe?: string`. The strict schema still rejects
+  any model-supplied `compliance_references`.
+
 - `test(review-engine)`: add acceptance coverage for an optional `cwe` on the
   provider finding schema — a valid `CWE-798` is accepted and surfaced, an
   absent `cwe` stays `undefined`, well-formed identifiers (`CWE-0`, `CWE-79`,
