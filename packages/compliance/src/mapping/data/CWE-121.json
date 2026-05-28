@@ -1,0 +1,15 @@
+{
+  "cwe_id": "CWE-121",
+  "title": "Stack-based Buffer Overflow",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/121.html",
+  "impacts": ["Memory corruption", "Arbitrary code execution"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-121",
+      "description": "Stack-based Buffer Overflow",
+      "source_url": "https://cwe.mitre.org/data/definitions/121.html",
+      "applicability": "informational"
+    }
+  ]
+}

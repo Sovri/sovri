@@ -1,0 +1,30 @@
+{
+  "cwe_id": "CWE-639",
+  "title": "Authorization Bypass Through User-Controlled Key",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/639.html",
+  "impacts": ["Unauthorized data access", "Horizontal privilege escalation"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-639",
+      "description": "Authorization Bypass Through User-Controlled Key",
+      "source_url": "https://cwe.mitre.org/data/definitions/639.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "GDPR",
+      "identifier": "Art. 32",
+      "description": "Security of processing for authorization bypass when personal data access is affected.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32016R0679#d1e3316-1-1",
+      "applicability": "applicable_if",
+      "condition": "The affected system processes personal data as defined by GDPR Art. 4"
+    },
+    {
+      "framework": "ISO27001-2022",
+      "identifier": "A.5.15",
+      "description": "Access control policy guidance for object-level authorization bypass.",
+      "source_url": "https://www.iso.org/standard/82875.html",
+      "applicability": "informational"
+    }
+  ]
+}
