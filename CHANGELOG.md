@@ -21,6 +21,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: render a `### Compliance & audit` walkthrough section
+  (task-93, #1918) — `composeWalkthrough()` now appends, for each finding carrying
+  `compliance_references`, the `📋 Potential compliance references` tree (`├─`/`└─`)
+  with human-readable framework labels, `applicable_if` conditions in parentheses,
+  and a `🔍 Audit Reference` line; the section is omitted when no finding carries
+  references.
+
 - `test(review-engine)`: add failing acceptance test for the walkthrough compliance
   references block (task-93, #1918) — `composeWalkthrough()` must render a
   `### Compliance & audit` section with the `📋 Potential compliance references`
