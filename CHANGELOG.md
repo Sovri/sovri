@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add failing acceptance test for the walkthrough compliance
+  references block (task-93, #1918) — `composeWalkthrough()` must render a
+  `### Compliance & audit` section with the `📋 Potential compliance references`
+  tree (`├─`/`└─`), human-readable framework labels, `applicable_if` conditions in
+  parentheses, and the `🔍 Audit Reference` line per finding.
+
 - `feat(review-engine)`: wire compliance enrichment and audit references into the
   orchestrator — `reviewPullRequest()` now propagates the provider `cwe`, stamps
   each LLM-derived finding with an `audit_reference`, and fills its
