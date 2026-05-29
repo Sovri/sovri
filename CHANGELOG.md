@@ -21,6 +21,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(compliance)`: add a failing acceptance test for the audit trail event Zod
+  schemas (task-95, #1930) — `AuditTrailLogicalEventSchema` (7 discriminated logical
+  event types: `trail.started`, `review.started`, `llm.called`, `finding.created`,
+  `review.completed`, `review.failed`, `correction`) and `SignedAuditTrailEntrySchema`
+  (logical event + `previous_hash` / `entry_hash` / `signature`), with strict payload
+  hygiene and public exports from `@sovri/compliance`.
+
 - `feat(review-engine)`: append a `🔍 Audit Reference` line to each inline PR comment
   (task-94, #1925) — `buildInlineComments()` now appends `🔍 Audit Reference: {audit_reference}`
   as the last line of every inline comment body (separated by a blank line); an undefined
