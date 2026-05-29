@@ -216,6 +216,22 @@ class MalformedThenTransportErrorProvider implements LLMProvider {
   }
 }
 
+// Throws an error whose message echoes PR content (a provider SDK error that quotes the
+// request). The audit error_message must not persist it.
+class SecretEchoingProvider implements LLMProvider {
+  public readonly name = "anthropic";
+  public readonly model = "claude-sonnet-4-6";
+  public readonly maxTokens = 2048;
+  public calls = 0;
+
+  constructor(private readonly secret: string) {}
+
+  async generateStructured<T>(): Promise<T> {
+    this.calls += 1;
+    throw new Error(`provider rejected request containing ${this.secret}`);
+  }
+}
+
 // Throws a ZodError, which the orchestrator propagates (re-throws).
 class PropagatingProvider implements LLMProvider {
   public readonly name = "anthropic";
@@ -680,6 +696,20 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       );
 
       // Then neither error_code nor error_message leak the secret or raw diff lines
+      const failed = findEvent(sink, "review.failed");
+      expect(failed?.["error_code"]).toBe("provider_error");
+      expect(JSON.stringify(failed)).not.toContain(secret);
+    });
+
+    it("review.failed does not persist a provider error message that echoes PR content", async () => {
+      const secret = "SECRET-LEAK-CANARY-4242";
+      const provider = new SecretEchoingProvider(secret);
+      const sink = new MemoryAuditTrailSink();
+
+      // When the provider's own error message quotes the request content
+      await reviewPullRequest({ pullRequest, diff, config }, { provider, auditTrailSink: sink });
+
+      // Then the signed trail records only a generic message, never the echoed secret
       const failed = findEvent(sink, "review.failed");
       expect(failed?.["error_code"]).toBe("provider_error");
       expect(JSON.stringify(failed)).not.toContain(secret);

@@ -31,9 +31,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `audit_reference`, `severity`, optional `cwe`, and `framework:identifier` compliance
   references), then `review.completed` or `review.failed`. It
   never emits `trail.started`, which stays the Cloud wrapper's job (it owns the
-  Ed25519 key and `trail_id`). `review.failed` carries a sanitized, PII-free
-  `error_code` from a fixed taxonomy (`limit_exceeded`, `provider_error`,
-  `parse_error`, `unexpected_error`); a propagated exception is re-thrown after the
+  Ed25519 key and `trail_id`). `review.failed` carries an `error_code` from a fixed
+  taxonomy (`limit_exceeded`, `provider_error`, `parse_error`, `unexpected_error`) and a
+  fixed, content-free `error_message` per code — raw provider or exception text (which
+  can echo prompt or diff content) is never written to the signed trail, only to the
+  returned Review and the logs; a propagated exception is re-thrown after the
   event is recorded, so caller-visible behavior is unchanged. A sink whose `append()`
   rejects is logged and never blocks the review, and `strictAudit` is accepted as a
   no-op in v0.3. Without a sink, behavior and overhead are unchanged; the Community

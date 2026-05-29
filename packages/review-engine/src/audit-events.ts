@@ -8,14 +8,22 @@ import type { Finding, PullRequest } from "@sovri/core";
 import type { LLMProvider } from "@sovri/llm-providers";
 import type { Logger } from "@sovri/observability";
 
-const ErrorMessageMaxLength = 500;
-
 /**
  * The PII-free taxonomy carried by a `review.failed` event's `error_code`. Drawn
  * from the failure kind, never from user content, so the audit code is stable and
  * greppable.
  */
 type AuditFailureCode = "limit_exceeded" | "provider_error" | "parse_error" | "unexpected_error";
+
+// Fixed, content-free `error_message` per code. Raw provider / exception text (which can
+// echo prompt or diff content) is NEVER written to the signed trail — it stays in the
+// returned Review and the logs. The trail records only the failure category.
+const AuditFailureMessages: Record<AuditFailureCode, string> = {
+  limit_exceeded: "Pull request exceeds configured review limits",
+  provider_error: "LLM provider call failed",
+  parse_error: "LLM response failed schema validation",
+  unexpected_error: "Unexpected error during review",
+};
 
 /**
  * Append one unsigned logical event to an injected sink. An audit failure is logged
@@ -94,19 +102,13 @@ export function reviewCompletedEvent(): AuditTrailLogicalEvent {
   return { ts: new Date().toISOString(), event: "review.completed" };
 }
 
-export function reviewFailedEvent(code: AuditFailureCode, message: string): AuditTrailLogicalEvent {
+export function reviewFailedEvent(code: AuditFailureCode): AuditTrailLogicalEvent {
   return {
     ts: new Date().toISOString(),
     event: "review.failed",
     error_code: code,
-    error_message: sanitizeErrorMessage(message),
+    error_message: AuditFailureMessages[code],
   };
-}
-
-function sanitizeErrorMessage(message: string): string {
-  return message.length <= ErrorMessageMaxLength
-    ? message
-    : message.slice(0, ErrorMessageMaxLength);
 }
 
 function hashPrompt(systemPrompt: string, userPrompt: string): string {

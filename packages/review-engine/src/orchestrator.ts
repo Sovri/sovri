@@ -247,7 +247,7 @@ export async function reviewPullRequest(
   try {
     const limitError = getLimitError(reviewInput.pullRequest, reviewInput.config);
     if (limitError !== undefined) {
-      await emitAuditEvent(sink, reviewFailedEvent("limit_exceeded", limitError), logger);
+      await emitAuditEvent(sink, reviewFailedEvent("limit_exceeded"), logger);
 
       return buildFailedReview(reviewInput.pullRequest, provider, startedAt, limitError);
     }
@@ -307,7 +307,7 @@ export async function reviewPullRequest(
 
     if (generation.status === "failed") {
       const errorCode = generation.failureKind === "parse" ? "parse_error" : "provider_error";
-      await emitAuditEvent(sink, reviewFailedEvent(errorCode, generation.error), logger);
+      await emitAuditEvent(sink, reviewFailedEvent(errorCode), logger);
 
       const findings =
         generation.failureKind === "parse"
@@ -356,18 +356,10 @@ export async function reviewPullRequest(
       status: generation.status,
     });
   } catch (error) {
-    await emitAuditEvent(
-      sink,
-      reviewFailedEvent("unexpected_error", errorToMessage(error)),
-      logger,
-    );
+    await emitAuditEvent(sink, reviewFailedEvent("unexpected_error"), logger);
 
     throw error;
   }
-}
-
-function errorToMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Unexpected review error";
 }
 
 function buildNoFilesReview(
