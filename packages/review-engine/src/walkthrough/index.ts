@@ -3,6 +3,7 @@
 
 import { ReviewSchema, z, type Review } from "@sovri/core";
 
+import { renderComplianceSection } from "./compliance.js";
 import { renderCostFooter } from "./cost.js";
 import { formatMarkdownText } from "./markdown.js";
 import { renderFiles, renderFindings, sortFindings } from "./sections.js";
@@ -78,6 +79,11 @@ export function composeWalkthrough(input: unknown): string {
     "",
     ...renderFiles(findings),
   ];
+
+  const complianceSection = renderComplianceSection(findings);
+  if (complianceSection.length > 0) {
+    sections.push("", ...complianceSection);
+  }
 
   if (costFooter.length > 0) {
     sections.push("", "---", "", costFooter);

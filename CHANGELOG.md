@@ -21,6 +21,33 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `chore(review-engine)`: drop an internal-doc reference from a walkthrough test
+  comment so the public Apache surface carries no dead link.
+
+- `feat(review-engine)`: render a `🔍 Audit Reference` line for every finding in the
+  walkthrough `### Compliance & audit` section (task-93, #1919) — the section now
+  lists all findings (not only those with compliance references), each with its audit
+  reference and an `n/a` placeholder when `audit_reference` is undefined; the `📋`
+  references tree stays conditional and the section is still omitted for empty reviews.
+
+- `test(review-engine)`: add failing acceptance test for the per-finding audit
+  reference line (task-93, #1919) — every finding must render a `🔍 Audit Reference`
+  line (incl. ref-less findings), with an `n/a` placeholder when `audit_reference`
+  is undefined.
+
+- `feat(review-engine)`: render a `### Compliance & audit` walkthrough section
+  (task-93, #1918) — `composeWalkthrough()` now appends, for each finding carrying
+  `compliance_references`, the `📋 Potential compliance references` tree (`├─`/`└─`)
+  with human-readable framework labels, `applicable_if` conditions in parentheses,
+  and a `🔍 Audit Reference` line; the section is omitted only when the review has
+  no findings.
+
+- `test(review-engine)`: add failing acceptance test for the walkthrough compliance
+  references block (task-93, #1918) — `composeWalkthrough()` must render a
+  `### Compliance & audit` section with the `📋 Potential compliance references`
+  tree (`├─`/`└─`), human-readable framework labels, `applicable_if` conditions in
+  parentheses, and the `🔍 Audit Reference` line per finding.
+
 - `feat(review-engine)`: wire compliance enrichment and audit references into the
   orchestrator — `reviewPullRequest()` now propagates the provider `cwe`, stamps
   each LLM-derived finding with an `audit_reference`, and fills its
