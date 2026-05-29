@@ -21,6 +21,21 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: wire an optional audit-trail sink into `reviewPullRequest`
+  (task-100, #1957) — `ReviewPullRequestOptions` gains optional `auditTrailSink?` and
+  `strictAudit?`. With a sink injected, the orchestrator emits unsigned
+  `AuditTrailLogicalEvent`s: `review.started`, a single `llm.called` once a provider
+  response comes back (tokens aggregated across the corrective retry), one
+  `finding.created` per final finding, then `review.completed` or `review.failed`. It
+  never emits `trail.started`, which stays the Cloud wrapper's job (it owns the
+  Ed25519 key and `trail_id`). `review.failed` carries a sanitized, PII-free
+  `error_code` from a fixed taxonomy (`limit_exceeded`, `provider_error`,
+  `parse_error`, `unexpected_error`); a propagated exception is re-thrown after the
+  event is recorded, so caller-visible behavior is unchanged. A sink whose `append()`
+  rejects is logged and never blocks the review, and `strictAudit` is accepted as a
+  no-op in v0.3. Without a sink, behavior and overhead are unchanged; the Community
+  bot injects none.
+
 - `chore(config)`: add the repository-level `.sovri.yml` used by Sovri's own
   PR reviews, selecting the Mistral provider through the `MISTRAL_API_KEY`
   runtime environment variable and applying standard review limits/ignores.
