@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import type { KeyObject } from "node:crypto";
+import { createHash, verify, type KeyObject } from "node:crypto";
 
 import type { SignedAuditTrailEntry } from "./schema.js";
 
@@ -15,13 +15,58 @@ export interface VerifyResult {
   reason?: string;
 }
 
+// The canonical bytes the signer hashed: the entry minus its crypto fields, with `previous_hash`
+// and every logical field kept in their original order (R-03 — only `entry_hash` + `signature`
+// are excluded). The clone is typed as a plain record so removing the two fields needs no
+// rest-destructure over the entry union; spread + delete preserve the original key order.
+function canonicalize(entry: SignedAuditTrailEntry): string {
+  const withoutCryptoFields: Record<string, unknown> = { ...entry };
+  delete withoutCryptoFields.entry_hash;
+  delete withoutCryptoFields.signature;
+  return JSON.stringify(withoutCryptoFields);
+}
+
 /**
- * RED stub — implemented in green-cycle. Throws so every acceptance scenario fails loudly for the
- * expected reason (missing implementation) while the test still type-checks under `tsc -b`.
+ * Verify a signed audit trail offline: hash chain + Ed25519 signatures, no I/O.
+ *
+ * Each entry is checked in a fixed order, returning at the first failure so an auditor gets a
+ * precise `(failAt, reason)`:
+ *  1. chain — the first entry anchors to a null `previous_hash`, every later entry chains to its
+ *     predecessor's `entry_hash`;
+ *  2. `entry_hash` — recomputed as `sha256:` + SHA-256 of the canonical (matching the signer);
+ *  3. `signature` — the Ed25519 signature verifies against `publicKey` over the `entry_hash` bytes.
+ *
+ * An empty trail is vacuously valid. The verifier holds no state and reads no file or socket; the
+ * caller passes an already-parsed `SignedAuditTrailEntry[]` and the trail's public key.
  */
 export function verifyAuditTrail(
-  _entries: readonly SignedAuditTrailEntry[],
-  _publicKey: KeyObject,
+  entries: readonly SignedAuditTrailEntry[],
+  publicKey: KeyObject,
 ): VerifyResult {
-  throw new Error("verifyAuditTrail: not implemented");
+  let previousHash: string | null = null;
+  let index = 0;
+
+  for (const entry of entries) {
+    if (entry.previous_hash !== previousHash) {
+      return { valid: false, failAt: index, reason: "previous_hash mismatch" };
+    }
+
+    const computed: string = `sha256:${createHash("sha256").update(canonicalize(entry)).digest("hex")}`;
+    if (entry.entry_hash !== computed) {
+      return { valid: false, failAt: index, reason: "entry_hash mismatch" };
+    }
+
+    const signatureBytes: Buffer = Buffer.from(
+      entry.signature.replace(/^ed25519:/, ""),
+      "base64url",
+    );
+    if (!verify(null, Buffer.from(entry.entry_hash), publicKey, signatureBytes)) {
+      return { valid: false, failAt: index, reason: "signature invalid" };
+    }
+
+    previousHash = entry.entry_hash;
+    index++;
+  }
+
+  return { valid: true };
 }
