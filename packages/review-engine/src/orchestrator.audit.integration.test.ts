@@ -232,6 +232,31 @@ class SecretEchoingProvider implements LLMProvider {
   }
 }
 
+// A retryable schema-validation error that carries token usage — what real provider
+// adapters throw when the model responded but its structured output was invalid.
+class RetryableSchemaError extends Error {
+  readonly retryableWithCorrectivePrompt = true;
+  readonly tokenUsage = { prompt: 700, completion: 0 };
+}
+
+// Throws a token-bearing retryable schema error on every attempt: the model responded
+// (tokens charged) but failed schema validation both times.
+class TokenBearingSchemaErrorProvider implements LLMProvider {
+  public readonly name = "anthropic";
+  public readonly model = "claude-sonnet-4-6";
+  public readonly maxTokens = 2048;
+  public calls = 0;
+
+  async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
+    return (await this.generateStructuredWithUsage(params)).data;
+  }
+
+  async generateStructuredWithUsage<T>(): Promise<StructuredGeneration<T>> {
+    this.calls += 1;
+    throw new RetryableSchemaError("provider schema validation failed");
+  }
+}
+
 // Throws a ZodError, which the orchestrator propagates (re-throws).
 class PropagatingProvider implements LLMProvider {
   public readonly name = "anthropic";
@@ -667,6 +692,18 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       // Then llm.called is recorded even though the review fails as a provider error
       expect(eventTypes(sink)).toEqual(["review.started", "llm.called", "review.failed"]);
       expect(findEvent(sink, "review.failed")?.["error_code"]).toBe("provider_error");
+    });
+
+    it("a token-bearing retryable schema error still records llm.called", async () => {
+      const provider = new TokenBearingSchemaErrorProvider();
+      const sink = new MemoryAuditTrailSink();
+
+      // When the provider throws a retryable schema error carrying token usage on both attempts
+      await reviewPullRequest({ pullRequest, diff, config }, { provider, auditTrailSink: sink });
+
+      // Then llm.called is recorded (the model responded and was charged) before parse_error
+      expect(eventTypes(sink)).toEqual(["review.started", "llm.called", "review.failed"]);
+      expect(findEvent(sink, "review.failed")?.["error_code"]).toBe("parse_error");
     });
 
     it("a propagated exception records review.failed then re-throws", async () => {

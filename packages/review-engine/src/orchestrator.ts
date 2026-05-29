@@ -126,8 +126,9 @@ type ProviderReviewAttempt =
   | {
       readonly success: false;
       readonly error: unknown;
-      // True when the provider returned a response that then failed re-parse; false when
-      // the provider threw with no response.
+      // True when the model responded but the output was unusable — a response that
+      // failed re-parse, or a thrown error carrying token usage (charged tokens). False
+      // only when the provider threw with no response (e.g. a transport error).
       readonly responseReturned: boolean;
       readonly tokenUsage: TokenUsage;
       readonly tokenUsageReported: boolean;
@@ -521,7 +522,11 @@ async function generateProviderReviewAttempt(
     return {
       success: false,
       error,
-      responseReturned: false,
+      // The provider threw. A thrown error that carries token usage means the model did
+      // respond and was charged (e.g. a retryable schema-validation error after invalid
+      // structured output), so it counts as a returned response; a usage-less transport
+      // error does not.
+      responseReturned: tokenUsage.reported,
       tokenUsage: tokenUsage.usage,
       tokenUsageReported: tokenUsage.reported,
     };
