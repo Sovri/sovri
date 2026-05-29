@@ -17,7 +17,7 @@ const NOMINAL_PAYLOADS = {
   "trail.started": { trail_id: "trail-7f3a", public_key: "ed25519:AAAAC3NzaC1lZDI1" },
   "review.started": {
     pr_id: 42,
-    commit_sha: "abc1234",
+    commit_sha: "1234567890abcdef1234567890abcdef12345678",
     llm_provider: "mistral",
     llm_model: "mistral-large-2-2411",
   },
@@ -361,7 +361,7 @@ describe("SignedAuditTrailEntrySchema — trail.completed seal (R-08)", () => {
     expect(errorLocus(error)).toContain("entry_count");
   });
 
-  it.each([-1, 5.5])("rejects a trail.completed seal whose entry_count is %s", (entry_count) => {
+  it.each([-1, 0, 5.5])("rejects a trail.completed seal whose entry_count is %s", (entry_count) => {
     // Given a seal payload with a non-count entry_count
     // Then the result is invalid / the error path includes "entry_count"
     const error = rejectSigned({
@@ -378,5 +378,81 @@ describe("SignedAuditTrailEntrySchema — trail.completed seal (R-08)", () => {
     // And the payload {"entry_count":5}
     // When it is parsed by AuditTrailLogicalEventSchema / Then the result is invalid
     rejectLogical({ ts: "2026-05-26T14:35:00Z", event: "trail.completed", entry_count: 5 });
+  });
+});
+
+describe("AuditTrailLogicalEventSchema — identifiers match the core review contract (R-09)", () => {
+  it("rejects review.started with a non-positive-integer pr_id", () => {
+    // Given event "review.started" with pr_id -1.5 / Then invalid, error path includes "pr_id"
+    const error = rejectLogical({
+      ts: TS,
+      event: "review.started",
+      pr_id: -1.5,
+      commit_sha: "1234567890abcdef1234567890abcdef12345678",
+      llm_provider: "mistral",
+      llm_model: "mistral-large-2-2411",
+    });
+    expect(errorLocus(error)).toContain("pr_id");
+  });
+
+  it("rejects review.started with a commit_sha that is not a 40-char hex sha", () => {
+    // Given event "review.started" with commit_sha "not-a-sha" / Then invalid, path "commit_sha"
+    const error = rejectLogical({
+      ts: TS,
+      event: "review.started",
+      pr_id: 42,
+      commit_sha: "not-a-sha",
+      llm_provider: "mistral",
+      llm_model: "mistral-large-2-2411",
+    });
+    expect(errorLocus(error)).toContain("commit_sha");
+  });
+
+  it.each([
+    { field: "tokens_in", tokens_in: -3, tokens_out: 892 },
+    { field: "tokens_out", tokens_in: 4521, tokens_out: 1.5 },
+  ])(
+    "rejects llm.called with an impossible $field token count",
+    ({ field, tokens_in, tokens_out }) => {
+      // Given event "llm.called" with a negative or fractional token count
+      // Then the result is invalid / the error path includes the offending field
+      const error = rejectLogical({
+        ts: TS,
+        event: "llm.called",
+        prompt_hash: "sha256:7f3a",
+        tokens_in,
+        tokens_out,
+      });
+      expect(errorLocus(error)).toContain(field);
+    },
+  );
+});
+
+describe("SignedAuditTrailEntrySchema — previous_hash is null only for the first entry (R-10)", () => {
+  it("accepts previous_hash null for the trail.started first entry", () => {
+    // Given a trail.started signed entry with previous_hash null / Then valid
+    const result = SignedAuditTrailEntrySchema.safeParse({
+      ts: TS,
+      event: "trail.started",
+      ...NOMINAL_PAYLOADS["trail.started"],
+      previous_hash: null,
+      entry_hash: "sha256:1111",
+      signature: "ed25519:zzzz",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects previous_hash null on a non-first entry (review.started)", () => {
+    // Given a review.started signed entry with previous_hash null
+    // Then the result is invalid / the error path includes "previous_hash"
+    const error = rejectSigned({
+      ts: "2026-05-26T14:32:01Z",
+      event: "review.started",
+      ...NOMINAL_PAYLOADS["review.started"],
+      previous_hash: null,
+      entry_hash: "sha256:1111",
+      signature: "ed25519:zzzz",
+    });
+    expect(errorLocus(error)).toContain("previous_hash");
   });
 });
