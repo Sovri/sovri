@@ -21,6 +21,37 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(compliance)`: harden audit-trail field validation to match the core review
+  contract (task-95, #1932) — `review.started.pr_id` is a positive integer, `commit_sha`
+  is a 40-char hex sha, `llm.called.tokens_in` / `tokens_out` are non-negative integers,
+  the `trail.completed` seal `entry_count` is a positive integer, and a signed entry's
+  `previous_hash` is non-null except for the first entry (`trail.started`), whose
+  `previous_hash` is exactly `null`. Addresses the Codex and CodeRabbit review notes on
+  #1932.
+
+- `feat(compliance)`: add the ADR-014 `trail.completed` seal to
+  `SignedAuditTrailEntrySchema` (task-95, #1933) — a signed-only 8th variant carrying
+  `entry_count` (a positive integer) plus the chain/signature fields. The seal is not
+  an `AuditTrailLogicalEvent` (the logical union stays at 7 types) and is rejected by
+  `AuditTrailLogicalEventSchema`. Addresses the Codex review note on #1931.
+
+- `feat(compliance)`: add audit trail event Zod schemas (task-95, #1930) —
+  `AuditTrailLogicalEventSchema` is a strict `z.discriminatedUnion` over the 7 logical
+  event types (`trail.started`, `review.started`, `llm.called`, `finding.created`,
+  `review.completed`, `review.failed`, `correction`), and `SignedAuditTrailEntrySchema`
+  adds the writer's `previous_hash` (nullable for the first entry), `entry_hash` and
+  `signature`. Strict objects reject raw payloads (prompt / diff / token / body /
+  webhook) and a `correction` `decision` field; `finding.created` reuses `@sovri/core`
+  `SeveritySchema` and validates the `SOVRI-XX-HHHH-HHHH` audit reference and `CWE-N`.
+  Both schemas and their inferred types are exported from `@sovri/compliance`.
+
+- `test(compliance)`: add a failing acceptance test for the audit trail event Zod
+  schemas (task-95, #1930) — `AuditTrailLogicalEventSchema` (7 discriminated logical
+  event types: `trail.started`, `review.started`, `llm.called`, `finding.created`,
+  `review.completed`, `review.failed`, `correction`) and `SignedAuditTrailEntrySchema`
+  (logical event + `previous_hash` / `entry_hash` / `signature`), with strict payload
+  hygiene and public exports from `@sovri/compliance`.
+
 - `feat(review-engine)`: append a `🔍 Audit Reference` line to each inline PR comment
   (task-94, #1925) — `buildInlineComments()` now appends `🔍 Audit Reference: {audit_reference}`
   as the last line of every inline comment body (separated by a blank line); an undefined
