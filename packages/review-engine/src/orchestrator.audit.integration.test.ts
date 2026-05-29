@@ -191,6 +191,31 @@ class TransportErrorProvider implements LLMProvider {
   }
 }
 
+// Call 1 returns malformed data (a response WAS received), call 2 throws a transport
+// error. The review fails as a provider error, but llm.called must still be recorded
+// because tokens were charged on the first response.
+class MalformedThenTransportErrorProvider implements LLMProvider {
+  public readonly name = "anthropic";
+  public readonly model = "claude-sonnet-4-6";
+  public readonly maxTokens = 2048;
+  public calls = 0;
+
+  async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
+    return (await this.generateStructuredWithUsage(params)).data;
+  }
+
+  async generateStructuredWithUsage<T>(): Promise<StructuredGeneration<T>> {
+    this.calls += 1;
+    if (this.calls === 1) {
+      // Cast: malformed first response that triggers the corrective retry.
+      const malformed = { summary: "", findings: [] } as unknown as T;
+
+      return { data: malformed, tokenUsage: { prompt: 600, completion: 0 } };
+    }
+    throw new Error("provider transport failure on retry");
+  }
+}
+
 // Throws a ZodError, which the orchestrator propagates (re-throws).
 class PropagatingProvider implements LLMProvider {
   public readonly name = "anthropic";
@@ -614,6 +639,18 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       // Then llm.called fired (a response came back) and the terminal is parse_error
       expect(eventTypes(sink)).toEqual(["review.started", "llm.called", "review.failed"]);
       expect(findEvent(sink, "review.failed")?.["error_code"]).toBe("parse_error");
+    });
+
+    it("a malformed first response then a retry transport error still records llm.called", async () => {
+      const provider = new MalformedThenTransportErrorProvider();
+      const sink = new MemoryAuditTrailSink();
+
+      // When reviewPullRequest runs (a response WAS received on the first attempt)
+      await reviewPullRequest({ pullRequest, diff, config }, { provider, auditTrailSink: sink });
+
+      // Then llm.called is recorded even though the review fails as a provider error
+      expect(eventTypes(sink)).toEqual(["review.started", "llm.called", "review.failed"]);
+      expect(findEvent(sink, "review.failed")?.["error_code"]).toBe("provider_error");
     });
 
     it("a propagated exception records review.failed then re-throws", async () => {

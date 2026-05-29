@@ -25,8 +25,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   (task-100, #1957) — `ReviewPullRequestOptions` gains optional `auditTrailSink?` and
   `strictAudit?`. With a sink injected, the orchestrator emits unsigned
   `AuditTrailLogicalEvent`s: `review.started`, a single `llm.called` once a provider
-  response comes back (carrying a SHA-256 `prompt_hash` and tokens aggregated across the
-  corrective retry), one `finding.created` per final finding (with the finding's
+  response comes back — including a malformed response whose corrective retry then fails,
+  so a charged call is never dropped from the trail — (carrying a SHA-256 `prompt_hash`
+  and tokens aggregated across the retry), one `finding.created` per final finding (with the finding's
   `audit_reference`, `severity`, optional `cwe`, and `framework:identifier` compliance
   references), then `review.completed` or `review.failed`. It
   never emits `trail.started`, which stays the Cloud wrapper's job (it owns the

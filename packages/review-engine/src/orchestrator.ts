@@ -98,6 +98,8 @@ interface SuccessfulReviewGeneration {
   readonly parsed: ProviderReviewResponse;
   readonly tokenUsage: TokenUsage;
   readonly tokenUsageReported: boolean;
+  // True once the provider returned a response on any attempt. Success always has one.
+  readonly responseReturned: true;
   readonly status: "success" | "partial";
 }
 
@@ -106,6 +108,11 @@ interface FailedReviewGeneration {
   readonly failureKind: "parse" | "provider";
   readonly tokenUsage: TokenUsage;
   readonly tokenUsageReported: boolean;
+  // True if any attempt returned a response (even one that failed re-parse), so the
+  // orchestrator can record llm.called even when the final outcome is a failure. This
+  // is independent of failureKind: a malformed first response followed by a provider
+  // error on retry fails as "provider" yet a response was received.
+  readonly responseReturned: boolean;
   readonly status: "failed";
 }
 
@@ -119,6 +126,9 @@ type ProviderReviewAttempt =
   | {
       readonly success: false;
       readonly error: unknown;
+      // True when the provider returned a response that then failed re-parse; false when
+      // the provider threw with no response.
+      readonly responseReturned: boolean;
       readonly tokenUsage: TokenUsage;
       readonly tokenUsageReported: boolean;
     };
@@ -282,7 +292,7 @@ export async function reviewPullRequest(
       maxTokens: provider.maxTokens,
     });
 
-    if (providerResponseReturned(generation)) {
+    if (generation.responseReturned) {
       await emitAuditEvent(
         sink,
         llmCalledEvent(
@@ -356,13 +366,6 @@ export async function reviewPullRequest(
   }
 }
 
-// llm.called fires when the provider returned a response — including one that
-// failed re-parse (parse failure) — but not when the provider threw with no
-// response (provider failure).
-function providerResponseReturned(generation: ParsedReviewGeneration): boolean {
-  return generation.status !== "failed" || generation.failureKind === "parse";
-}
-
 function errorToMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected review error";
 }
@@ -430,6 +433,7 @@ async function generateParsedProviderReview(
       parsed: firstAttempt.parsed,
       tokenUsage: firstAttempt.tokenUsage,
       tokenUsageReported: firstAttempt.tokenUsageReported,
+      responseReturned: true,
       status: "success",
     };
   }
@@ -444,6 +448,7 @@ async function generateParsedProviderReview(
       failureKind: "provider",
       tokenUsage: firstAttempt.tokenUsage,
       tokenUsageReported: firstAttempt.tokenUsageReported,
+      responseReturned: firstAttempt.responseReturned,
       status: "failed",
     };
   }
@@ -452,6 +457,7 @@ async function generateParsedProviderReview(
     ...params,
     systemPrompt: buildCorrectiveSystemPrompt(params.systemPrompt, firstAttempt.error),
   });
+  const responseReturned = firstAttempt.responseReturned || attemptReturnedResponse(retryAttempt);
 
   if (!retryAttempt.success) {
     if (!isRetryableSchemaFailure(retryAttempt.error)) {
@@ -464,6 +470,7 @@ async function generateParsedProviderReview(
         failureKind: "provider",
         tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
         tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
+        responseReturned,
         status: "failed",
       };
     }
@@ -473,6 +480,7 @@ async function generateParsedProviderReview(
       failureKind: "parse",
       tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
       tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
+      responseReturned,
       status: "failed",
     };
   }
@@ -481,8 +489,15 @@ async function generateParsedProviderReview(
     parsed: retryAttempt.parsed,
     tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
     tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
+    responseReturned: true,
     status: "partial",
   };
+}
+
+// A successful attempt always carried a response; a failed one only if it failed
+// re-parse (the provider threw with no response otherwise).
+function attemptReturnedResponse(attempt: ProviderReviewAttempt): boolean {
+  return attempt.success || attempt.responseReturned;
 }
 
 async function generateProviderReviewAttempt(
@@ -503,6 +518,7 @@ async function generateProviderReviewAttempt(
       return {
         success: false,
         error: new ProviderReviewSchemaError(error),
+        responseReturned: true,
         tokenUsage: generation.tokenUsage,
         tokenUsageReported: generation.tokenUsageReported,
       };
@@ -513,6 +529,7 @@ async function generateProviderReviewAttempt(
     return {
       success: false,
       error,
+      responseReturned: false,
       tokenUsage: tokenUsage.usage,
       tokenUsageReported: tokenUsage.reported,
     };
