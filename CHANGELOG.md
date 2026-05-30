@@ -29,7 +29,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `test(docs)`: add a failing acceptance test (`tests/changelog.docs.test.ts`) pinning the
   `[Unreleased]` section to Keep a Changelog 1.1.0 — a single `Added` category, a Conventional
-  Commit prefix on every entry in any category (type-only and slashed scopes allowed), the
+  Commit prefix on every entry in any category — types drawn from the allowed list in
+  `CONTRIBUTING.md`, with type-only leads and slashed scopes accepted — the
   required v0.3 scopes present under `Added` (`feat(compliance)`, `feat(core)`,
   `feat(review-engine)`, `docs(adr)`), no references to unversioned internal docs, and a
   self-sufficient summary per `Added` entry (task-102, #1968)

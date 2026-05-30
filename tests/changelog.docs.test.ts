@@ -27,8 +27,19 @@ const KEEP_A_CHANGELOG_CATEGORIES = [
   "Security",
 ] as const;
 
-// Conventional Commit types accepted on a changelog entry (R-02).
-const ALLOWED_TYPES = ["feat", "fix", "chore", "refactor", "test", "docs", "ci"] as const;
+// Conventional Commit types accepted on a changelog entry (R-02). Mirrors the allowed-types
+// list published in CONTRIBUTING.md; keep the two in sync.
+const ALLOWED_TYPES = [
+  "feat",
+  "fix",
+  "refactor",
+  "test",
+  "docs",
+  "chore",
+  "ci",
+  "perf",
+  "build",
+] as const;
 
 // The v0.3 scopes that MUST all appear under [Unreleased] -> Added (R-02).
 const REQUIRED_V03_SCOPES = [
@@ -41,8 +52,10 @@ const REQUIRED_V03_SCOPES = [
 // Files unversioned from an external contributor's point of view (R-03).
 const FORBIDDEN_INTERNAL_DOCS = ["CLAUDE.md", "PRD.md", "ARCHI.md"] as const;
 
-// "- `<type>(<scope>)`: <summary>" — the lead of a well-formed entry's first line.
-const SCOPE_PREFIX = /^- `([a-z]+)\(([a-z0-9-]+)\)`:\s*(.*)$/;
+// "- `<type>(<scope>)`: <summary>" — the lead of a well-formed entry's first line. The scope
+// character class matches CONVENTIONAL_PREFIX so a documented slashed scope (e.g.
+// `chore(deps/ci)`) is accepted here too, not only in the whole-section check.
+const SCOPE_PREFIX = /^- `([a-z]+)\(([a-z0-9/._-]+)\)`:\s*(.*)$/;
 
 // A valid Conventional Commit lead for ANY [Unreleased] entry, in any category. The scope
 // is optional (type-only commits like `test:` are valid) and may contain "/" (e.g.
