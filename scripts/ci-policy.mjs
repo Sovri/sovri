@@ -582,6 +582,18 @@ const stepCoverageGateThreshold = (step, packagePath) => {
   return match?.[1] === undefined ? undefined : Number(match[1]);
 };
 
+// True when a backend-checks step's `run` is the Vitest coverage command itself (trailing
+// flags such as `--reporter=verbose` allowed), not an echoed copy. Same anchoring rationale
+// as the gate match above, so a decoy like `echo "pnpm exec vitest run --coverage"` does not
+// count as the coverage run that produces the summary.
+const stepRunsCoverage = (step) => {
+  const command = getStepPropertyValue(step.block, "run");
+  return (
+    command !== undefined &&
+    /^pnpm\s+exec\s+vitest\s+run\s+--coverage(?:\s.*)?$/u.test(command.trim())
+  );
+};
+
 // Generic per-package coverage workflow gate. Asserts the backend-checks job runs
 // Vitest with coverage and wires `<package>` at a branch threshold of at least
 // `--branches`. Generalises `runLlmProvidersCoverageWorkflow` to any workspace
@@ -599,9 +611,7 @@ const runPackageCoverageWorkflow = (args) => {
   // echoed from another job or buried in a comment must NOT satisfy the policy.
   const steps = getBackendChecksStepEntries(workflow);
 
-  const coverageRunIndex = steps.findIndex((step) =>
-    stepRunsCommand(step, /pnpm\s+exec\s+vitest\s+run\s+--coverage/u),
-  );
+  const coverageRunIndex = steps.findIndex(stepRunsCoverage);
   if (coverageRunIndex === -1) {
     writeStdout(`${key}=fail\ncoverage_run=missing\n`);
     fail("backend-checks must run Vitest with coverage before evaluating package gates", 1);

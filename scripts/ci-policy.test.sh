@@ -14333,6 +14333,62 @@ $(printf '%s\n' "$stderr" | sed 's/^/        /')"
   PASS=$((PASS + 1))
 }
 
+# The coverage step only echoes the Vitest command, so no real coverage summary is produced.
+# The policy must not treat an echoed coverage run as the real one.
+run_package_coverage_workflow_echoed_coverage_case() {
+  local package="$1" min="$2"
+  local tmp stdout stderr stdout_file stderr_file ec
+
+  tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'ci-policy-pkg-echocov')
+  stdout_file=$(mktemp)
+  stderr_file=$(mktemp)
+  cat >"$tmp/ci.yml" <<EOF
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable pnpm for setup-node cache
+        run: corepack enable
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Run coverage
+        run: echo "pnpm exec vitest run --coverage --reporter=verbose"
+      - name: Coverage gate — ${package}
+        run: node scripts/check-coverage.mjs coverage/coverage-summary.json ${package} ${min}
+EOF
+
+  node "$SCRIPT" package-coverage-workflow --workflow "$tmp/ci.yml" \
+    --package "$package" --branches "$min" \
+    >"$stdout_file" 2>"$stderr_file" && ec=0 || ec=$?
+
+  stdout=$(cat "$stdout_file" 2>/dev/null || true)
+  stderr=$(cat "$stderr_file" 2>/dev/null || true)
+  rm -rf "$tmp"
+  rm -f "$stdout_file" "$stderr_file"
+
+  if [ "$ec" -ne 1 ] || ! printf '%s\n' "$stdout" | grep -Fq "coverage_run=missing"; then
+    FAIL=$((FAIL + 1))
+    FAILURES="${FAILURES}
+  ✗ ${package} echoed coverage run must not count as a real coverage step
+      exit: ${ec}
+      stdout:
+$(printf '%s\n' "$stdout" | sed 's/^/        /')
+      stderr:
+$(printf '%s\n' "$stderr" | sed 's/^/        /')"
+    return
+  fi
+
+  PASS=$((PASS + 1))
+}
+
 # A backend-checks job that runs coverage but wires NO package gate, plus a separate job
 # that echoes the gate command. A whole-YAML match would be fooled; step-scoped parsing
 # must report the gate as missing.
@@ -14741,6 +14797,7 @@ run_package_coverage_workflow_decoy_job_case packages/compliance 90
 run_package_coverage_workflow_gate_before_coverage_case packages/compliance 90
 run_package_coverage_workflow_tampered_gate_case "compliance gate echoed only" packages/compliance 90 'echo "node scripts/check-coverage.mjs coverage/coverage-summary.json packages/compliance 90"' "coverage_gate=missing"
 run_package_coverage_workflow_tampered_gate_case "compliance gate failure suppressed" packages/compliance 90 "node scripts/check-coverage.mjs coverage/coverage-summary.json packages/compliance 90 || true" "coverage_gate=missing"
+run_package_coverage_workflow_echoed_coverage_case packages/compliance 90
 # R-03 — CI enforces the @sovri/review-engine branch coverage gate (>= 85 %).
 run_package_coverage_workflow_real_ci_case packages/review-engine 85 review_engine_threshold
 run_package_coverage_workflow_case "review-engine gate missing" packages/review-engine 85 "" 1 "coverage_gate=missing"
