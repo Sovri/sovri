@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `docs(adr)`: record ADR-013 (Compliance Trail as primary differentiator) and ADR-014
+  (Ed25519 hash-chain audit trail), both accepted 2026-05-27 — ADR-013 makes the Compliance
+  Trail Sovri's product distinction for regulated EU buyers, and ADR-014 defines the
+  offline-verifiable, append-only audit trail signed with a per-entry SHA-256 hash chain and
+  Ed25519 signatures and no proprietary verification service (task-102)
+
 - `test(docs)`: add a failing acceptance test (`tests/changelog.docs.test.ts`) pinning the
   `[Unreleased]` section to Keep a Changelog 1.1.0 — a single `Added` category, a Conventional
   Commit scope on every entry, every v0.3 scope present (`feat(compliance)`, `feat(core)`,
