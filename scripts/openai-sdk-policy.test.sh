@@ -229,7 +229,11 @@ run_changelog_entry() {
 run_no_adapter_wiring_changes() {
   local label="no OpenAI adapter or wiring code changes"
   local forbidden_path changed_files
-  changed_files="$(cd "$ROOT" && git diff --name-only "$BASE_BRANCH" --)"
+
+  if ! changed_files="$(cd "$ROOT" && git diff --name-only "$BASE_BRANCH" -- 2>&1)"; then
+    record_failure "$label" "could not diff against $BASE_BRANCH: $changed_files"
+    return
+  fi
 
   # And no OpenAI adapter, OpenAI-compatible adapter, provider factory, config parser, or community-bot provider wiring file changes
   for forbidden_path in \
