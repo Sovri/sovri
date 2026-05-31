@@ -64,6 +64,26 @@ describe("OpenAIProvider schema normalization", () => {
       anyOf: [{ type: "string" }, { type: "number" }],
     });
   });
+
+  it("rejects nested allOf schemas before provider requests", async () => {
+    vi.resetModules();
+    vi.doMock(ProviderJsonSchemaHelper, () => ({
+      zodToProviderJsonSchema: () => ({
+        type: "object",
+        properties: {
+          item: {
+            allOf: [{ type: "object" }, { type: "object" }],
+          },
+        },
+        required: ["item"],
+      }),
+    }));
+
+    const { createOpenAIStrictJsonSchema } =
+      await import("./OpenAIProvider.schema-normalization.js");
+
+    expect(() => createOpenAIStrictJsonSchema(z.strictObject({}))).toThrow("allOf");
+  });
 });
 
 function requireRecord(value: unknown): Record<string, unknown> {

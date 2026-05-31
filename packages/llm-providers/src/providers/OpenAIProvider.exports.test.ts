@@ -18,6 +18,7 @@ const ProviderFiles = [
   "OpenAIProvider.ts",
   "OpenAIProvider.options.ts",
   "OpenAIProvider.response.ts",
+  "OpenAIProvider.schema-matching.ts",
   "OpenAIProvider.schema-normalization.ts",
   "OpenAIProvider.schema-stripping.ts",
   "OpenAIProvider.retry.ts",

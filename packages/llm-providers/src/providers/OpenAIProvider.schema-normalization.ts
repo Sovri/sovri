@@ -60,6 +60,10 @@ function normalizeJsonSchemaObject(value: Record<string, unknown>): Record<strin
 }
 
 function rewriteOpenAISupportedSchemaKeywords(schema: Record<string, unknown>): void {
+  if (schema["allOf"] !== undefined) {
+    throw new OpenAIProviderError("OpenAI strict JSON schemas do not support allOf.");
+  }
+
   if (Object.hasOwn(schema, "const")) {
     const constantValue = schema["const"];
     delete schema["const"];
