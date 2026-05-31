@@ -351,7 +351,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   also activates dismissal of inline findings by id. Reconciliation logic stays
   pure in `@sovri/review-engine` (exposed as `computeFindingFingerprint`,
   `reconcileFindings`, `classifyResolvedComments`, `extractFindingFingerprint`);
-  the bot remains a thin GitHub adapter.
+  the bot remains a thin GitHub adapter. The reconciliation seam is wired into
+  the pull-request handler and degrades fail-open — if the prior-comment fetch
+  errors, every finding is posted rather than suppressed, and minimization is
+  best-effort.
 
 - `test`: alias `@sovri/compliance` to its source entrypoint in the root Vitest
   config so review-engine source tests do not resolve the package through
