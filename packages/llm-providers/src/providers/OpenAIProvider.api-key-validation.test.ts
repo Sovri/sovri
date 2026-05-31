@@ -149,11 +149,15 @@ function mockOpenAIModule(sdkConstructorOptions: unknown[]): Record<string, unkn
   }
 
   class MockAPIError extends Error {}
+  class MockAPIConnectionError extends MockAPIError {}
+  class MockAPIConnectionTimeoutError extends MockAPIError {}
   class MockAuthenticationError extends MockAPIError {}
   class MockPermissionDeniedError extends MockAPIError {}
 
   return {
     default: MockOpenAI,
+    APIConnectionError: MockAPIConnectionError,
+    APIConnectionTimeoutError: MockAPIConnectionTimeoutError,
     APIError: MockAPIError,
     AuthenticationError: MockAuthenticationError,
     PermissionDeniedError: MockPermissionDeniedError,
