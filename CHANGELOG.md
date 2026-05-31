@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: cover OpenAI base URL optionality separately from
+  OpenAI-compatible's required `llm.baseUrl` rule.
+
 - `test(config)`: assert OpenAI-compatible configs that omit `llm.baseUrl` fail on
   `llm.baseUrl` without reviving the provider allow-list error.
 
