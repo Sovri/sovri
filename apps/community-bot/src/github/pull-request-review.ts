@@ -13,6 +13,8 @@ import {
 } from "@sovri/review-engine";
 
 import { postReview as postPullRequestReview } from "./comment-poster.js";
+import { readBotLogin } from "./issue-comment-dispatcher.js";
+import { fetchPostedFindings, minimizeFindingComments } from "./posted-findings.js";
 import type {
   PullRequestHandlerDependencies,
   PullRequestWebhookContext,
@@ -29,12 +31,21 @@ export function createPullRequestHandlerDependencies(
   context: PullRequestWebhookContext,
   env: NodeJS.ProcessEnv = process.env,
 ): PullRequestHandlerDependencies {
+  const botLogin = readBotLogin(env);
   return {
     buildReviewOptions: (config) => buildReviewOptions(config, env),
     fetchDiff: (target) =>
       fetchPullRequestDiff(context.octokit, splitRepoFullName(target.repoFullName), target.number),
+    fetchPostedFindings: (target) =>
+      fetchPostedFindings(
+        context.octokit,
+        splitRepoFullName(target.repoFullName),
+        target.number,
+        botLogin,
+      ),
     loadConfig: (target) => loadRepositoryConfig(context, target, env),
     logger,
+    minimizeComments: (_target, nodeIds) => minimizeFindingComments(context.octokit, nodeIds),
     postErrorComment: (target, message) => postErrorComment(context, target, message),
     postReview: (target, review, diff) => postReview(context, target, review, diff),
     reviewPullRequest,

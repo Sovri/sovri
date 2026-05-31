@@ -59,6 +59,28 @@ const ReviewThreadsResponseSchema = z.object({
     .nullable(),
 });
 
+const MINIMIZE_COMMENT_MUTATION = `
+  mutation MinimizeFinding($subjectId: ID!) {
+    minimizeComment(input: { subjectId: $subjectId, classifier: OUTDATED }) {
+      minimizedComment { isMinimized }
+    }
+  }
+`;
+
+/**
+ * Minimize the given review comments as OUTDATED via GitHub GraphQL. Used to mark
+ * findings whose code the current run no longer produces as resolved. The calls
+ * are independent, so they run concurrently.
+ */
+export async function minimizeFindingComments(
+  octokit: ReviewThreadsOctokit,
+  nodeIds: readonly string[],
+): Promise<void> {
+  await Promise.all(
+    nodeIds.map((subjectId) => octokit.graphql(MINIMIZE_COMMENT_MUTATION, { subjectId })),
+  );
+}
+
 const REVIEW_THREADS_QUERY = `
   query PostedFindings($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     repository(owner: $owner, name: $repo) {

@@ -7,10 +7,11 @@
 // stays counted).
 // Mirrors specs/bug-1965-rereview-finding-dedup/r-06-only-bot-comments-count.feature
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   fetchPostedFindings,
+  minimizeFindingComments,
   type ReviewThreadsOctokit,
 } from "../../src/github/posted-findings.js";
 
@@ -164,5 +165,22 @@ describe("fetchPostedFindings", () => {
     const result = await fetchPostedFindings(octokit, REPO, 42, "my-sovri[bot]");
 
     expect(result.fingerprints.has(FP_A)).toBe(true);
+  });
+});
+
+describe("minimizeFindingComments", () => {
+  it("minimizes each node id as OUTDATED via GraphQL", async () => {
+    const graphql = vi.fn().mockResolvedValue({});
+    const octokit: ReviewThreadsOctokit = { graphql };
+
+    await minimizeFindingComments(octokit, ["RC_gone_1", "RC_gone_2"]);
+
+    expect(graphql).toHaveBeenCalledTimes(2);
+    expect(graphql).toHaveBeenCalledWith(expect.stringContaining("classifier: OUTDATED"), {
+      subjectId: "RC_gone_1",
+    });
+    expect(graphql).toHaveBeenCalledWith(expect.stringContaining("minimizeComment"), {
+      subjectId: "RC_gone_2",
+    });
   });
 });
