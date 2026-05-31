@@ -11,6 +11,7 @@ export const MAX_OPENAI_MAX_TOKENS = 64_000;
 export const DEFAULT_OPENAI_TIMEOUT_MS = 60_000;
 export const MAX_OPENAI_TIMEOUT_MS = 2_147_483_647;
 export const DEFAULT_OPENAI_MAX_ATTEMPTS = 3;
+export const MAX_OPENAI_MAX_ATTEMPTS = 10;
 
 export interface OpenAIProviderConfigOptions {
   readonly apiKey: string;
@@ -101,8 +102,14 @@ function resolveTimeoutMs(timeoutMs: number | undefined): number {
 function resolveMaxAttempts(maxAttempts: number | undefined): number {
   const resolvedMaxAttempts = maxAttempts ?? DEFAULT_OPENAI_MAX_ATTEMPTS;
 
-  if (!Number.isSafeInteger(resolvedMaxAttempts) || resolvedMaxAttempts <= 0) {
-    throw new OpenAIProviderError("OpenAI maxAttempts must be a positive integer");
+  if (
+    !Number.isSafeInteger(resolvedMaxAttempts) ||
+    resolvedMaxAttempts <= 0 ||
+    resolvedMaxAttempts > MAX_OPENAI_MAX_ATTEMPTS
+  ) {
+    throw new OpenAIProviderError(
+      `OpenAI maxAttempts must be a positive integer no greater than ${String(MAX_OPENAI_MAX_ATTEMPTS)}`,
+    );
   }
 
   return resolvedMaxAttempts;

@@ -47,6 +47,7 @@ const InvalidNumericOptions = [
   ["timeoutMs", 2_147_483_648, "timeoutMs must be a positive integer no greater than"],
   ["maxAttempts", 0, "maxAttempts must be a positive integer"],
   ["maxAttempts", 1.5, "maxAttempts must be a positive integer"],
+  ["maxAttempts", 11, "maxAttempts must be a positive integer"],
 ] satisfies ReadonlyArray<readonly [NumericOptionName, number, string]>;
 
 describe("OpenAIProvider numeric option bounds acceptance", () => {
@@ -73,6 +74,7 @@ describe("OpenAIProvider numeric option bounds acceptance", () => {
     expect(module.DEFAULT_OPENAI_TIMEOUT_MS).toBe(60_000);
     expect(module.MAX_OPENAI_TIMEOUT_MS).toBe(2_147_483_647);
     expect(module.DEFAULT_OPENAI_MAX_ATTEMPTS).toBe(3);
+    expect(module.MAX_OPENAI_MAX_ATTEMPTS).toBe(10);
     expect(provider.maxTokens).toBe(4096);
     expect(provider.timeoutMs).toBe(60_000);
     expect(provider.maxAttempts).toBe(3);
@@ -91,7 +93,6 @@ describe("OpenAIProvider numeric option bounds acceptance", () => {
       // Then OpenAIProviderError is thrown
       // And the error message contains "<message_fragment>"
       // And the fake OpenAI client receives 0 requests
-      expect(error.name).toBe("OpenAIProviderError");
       expect(error.message).toContain(messageFragment);
       expect(requests).toEqual([]);
     },
@@ -117,7 +118,7 @@ describe("OpenAIProvider numeric option bounds acceptance", () => {
     );
     // Then OpenAIProviderError is thrown
     // And the fake OpenAI client does not receive a request for the invalid call
-    expect(error.name).toBe("OpenAIProviderError");
+    expect(error).toBeInstanceOf(OpenAIProviderError);
     expect(requests).toHaveLength(1);
   });
 });
@@ -135,6 +136,7 @@ function openAIProviderExports() {
     DEFAULT_OPENAI_TIMEOUT_MS: Reflect.get(LlmProviders, "DEFAULT_OPENAI_TIMEOUT_MS"),
     MAX_OPENAI_TIMEOUT_MS: Reflect.get(LlmProviders, "MAX_OPENAI_TIMEOUT_MS"),
     DEFAULT_OPENAI_MAX_ATTEMPTS: Reflect.get(LlmProviders, "DEFAULT_OPENAI_MAX_ATTEMPTS"),
+    MAX_OPENAI_MAX_ATTEMPTS: Reflect.get(LlmProviders, "MAX_OPENAI_MAX_ATTEMPTS"),
   };
 }
 
