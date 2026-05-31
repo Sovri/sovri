@@ -69,8 +69,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving case-insensitive detection of forbidden real OpenAI API dependencies.
 
 - `fix(llm-providers)`: handle OpenAI optional null sentinels inside union schema branches and
-  optional enum schemas, preserve caller-allowed null values, and document the typed OpenAI
-  provider error hierarchy.
+  optional enum schemas, rewrite literal/one-of schema keywords for OpenAI strict structured
+  outputs, preserve caller-allowed null values, and document the typed OpenAI provider error
+  hierarchy.
 
 ## [0.3.0] - 2026-05-31
 

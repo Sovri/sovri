@@ -54,8 +54,28 @@ function normalizeJsonSchemaObject(value: Record<string, unknown>): Record<strin
   for (const [key, child] of Object.entries(value)) {
     normalized[key] = normalizeJsonSchemaValue(child);
   }
+  rewriteOpenAISupportedSchemaKeywords(normalized);
 
   return normalized;
+}
+
+function rewriteOpenAISupportedSchemaKeywords(schema: Record<string, unknown>): void {
+  if (Object.hasOwn(schema, "const")) {
+    const constantValue = schema["const"];
+    delete schema["const"];
+    schema["enum"] = [constantValue];
+  }
+
+  const oneOf = schema["oneOf"];
+  if (!Array.isArray(oneOf)) {
+    return;
+  }
+  if (schema["anyOf"] !== undefined) {
+    throw new OpenAIProviderError("OpenAI strict JSON schemas do not support mixed oneOf/anyOf");
+  }
+
+  delete schema["oneOf"];
+  schema["anyOf"] = oneOf;
 }
 
 function normalizeOpenAIObjectShape(schema: Record<string, unknown>): void {

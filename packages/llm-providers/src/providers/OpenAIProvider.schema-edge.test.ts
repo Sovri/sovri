@@ -79,7 +79,26 @@ describe("OpenAIProvider schema edge cases", () => {
     });
 
     expect(calls).toHaveLength(1);
+    expect(JSON.stringify(openAIJsonSchema(firstCall(calls)))).not.toContain('"const"');
     expect(result).toEqual({ item: { kind: "first" } });
+  });
+
+  it("keeps nullable required union fields when stripping optional null sentinels", async () => {
+    const schema = z.strictObject({
+      item: z.union([
+        z.strictObject({ kind: z.literal("first"), value: z.string().nullable() }),
+        z.strictObject({ kind: z.literal("second"), note: z.string().optional() }),
+      ]),
+    });
+    const calls: unknown[] = [];
+    const provider = newProvider(openAIResponse('{"item":{"kind":"first","value":null}}'), calls);
+
+    const result = await provider.generateStructured({
+      ...ReviewParams,
+      schema,
+    });
+
+    expect(result).toEqual({ item: { kind: "first", value: null } });
   });
 
   it("preserves null values that are valid in optional nullable fields", async () => {
@@ -140,9 +159,7 @@ function openAIResponse(content: string): unknown {
 }
 
 function nestedCweSchema(requestValue: unknown): Record<string, unknown> {
-  const request = requireRecord(requestValue);
-  const responseFormat = requireRecord(request["response_format"]);
-  const jsonSchema = requireRecord(requireRecord(responseFormat["json_schema"])["schema"]);
+  const jsonSchema = openAIJsonSchema(requestValue);
   const properties = requireRecord(jsonSchema["properties"]);
   const groups = requireRecord(properties["groups"]);
   const groupItem = requireRecord(groups["items"]);
@@ -153,6 +170,12 @@ function nestedCweSchema(requestValue: unknown): Record<string, unknown> {
   expect(checkItem["required"]).toEqual(["id", "cwe"]);
 
   return requireRecord(checkProperties["cwe"]);
+}
+
+function openAIJsonSchema(requestValue: unknown): Record<string, unknown> {
+  const request = requireRecord(requestValue);
+  const responseFormat = requireRecord(request["response_format"]);
+  return requireRecord(requireRecord(responseFormat["json_schema"])["schema"]);
 }
 
 function firstCall(calls: ReadonlyArray<unknown>): unknown {

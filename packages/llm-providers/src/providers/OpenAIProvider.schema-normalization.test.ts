@@ -12,7 +12,7 @@ describe("OpenAIProvider schema normalization", () => {
     vi.resetModules();
   });
 
-  it("makes optional enum-only and const-only schemas nullable", async () => {
+  it("makes optional enum-only and const-only schemas nullable with supported keywords", async () => {
     vi.resetModules();
     vi.doMock(ProviderJsonSchemaHelper, () => ({
       zodToProviderJsonSchema: () => ({
@@ -32,12 +32,37 @@ describe("OpenAIProvider schema normalization", () => {
     const properties = requireRecord(normalized["properties"]);
 
     expect(properties["mode"]).toEqual({
-      anyOf: [{ const: "manual" }, { type: "null" }],
+      anyOf: [{ enum: ["manual"] }, { type: "null" }],
     });
     expect(properties["status"]).toEqual({
       anyOf: [{ enum: ["ok", "err"] }, { type: "null" }],
     });
     expect(normalized["required"]).toEqual(["mode", "status"]);
+  });
+
+  it("rewrites oneOf branches to the supported anyOf keyword", async () => {
+    vi.resetModules();
+    vi.doMock(ProviderJsonSchemaHelper, () => ({
+      zodToProviderJsonSchema: () => ({
+        type: "object",
+        properties: {
+          item: {
+            oneOf: [{ type: "string" }, { type: "number" }],
+          },
+        },
+        required: ["item"],
+      }),
+    }));
+
+    const { createOpenAIStrictJsonSchema } =
+      await import("./OpenAIProvider.schema-normalization.js");
+
+    const normalized = createOpenAIStrictJsonSchema(z.strictObject({}));
+    const properties = requireRecord(normalized["properties"]);
+
+    expect(properties["item"]).toEqual({
+      anyOf: [{ type: "string" }, { type: "number" }],
+    });
   });
 });
 
