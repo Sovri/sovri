@@ -119,7 +119,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   helper boundary before OpenAI SDK construction, matching the config-layer HTTPS contract.
 
 - `test(llm-providers)`: move OpenAI-compatible export, SDK mock, and no-network guard helpers into
-  package test utilities and document the direct provider helper HTTPS `baseUrl` constraint.
+  package test utilities, document the direct provider helper HTTPS `baseUrl` constraint, and name
+  repeated compatible-provider token and default-limit test fixtures.
 
 ## [0.3.0] - 2026-05-31
 

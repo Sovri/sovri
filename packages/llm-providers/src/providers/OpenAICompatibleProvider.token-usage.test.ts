@@ -10,6 +10,7 @@ import { OpenAIProviderError } from "./OpenAIProvider.js";
 const TestApiKey = "test-openai-compatible-key";
 const TestBaseUrl = "https://ollama.eu.example/v1";
 const ReviewedContent = '{"summary":"Reviewed"}';
+const CompatibleTokenUsage = { prompt: 321, completion: 54 };
 const MissingUsage = Symbol("missing OpenAI-compatible usage");
 
 const ReviewParams = {
@@ -43,13 +44,16 @@ interface OpenAICompatibleProviderExports {
 
 const InvalidUsageShapes = [
   ["missing", MissingUsage],
-  ['{"prompt_tokens":321}', { prompt_tokens: 321 }],
-  ['{"prompt_tokens":321,"completion_tokens":-1}', { prompt_tokens: 321, completion_tokens: -1 }],
+  ['{"prompt_tokens":321}', { prompt_tokens: CompatibleTokenUsage.prompt }],
+  [
+    '{"prompt_tokens":321,"completion_tokens":-1}',
+    { prompt_tokens: CompatibleTokenUsage.prompt, completion_tokens: -1 },
+  ],
   [
     '{"prompt_tokens":"321","completion_tokens":54}',
     {
       prompt_tokens: "321",
-      completion_tokens: 54,
+      completion_tokens: CompatibleTokenUsage.completion,
     },
   ],
 ] satisfies ReadonlyArray<readonly [string, UsageShape]>;
@@ -69,7 +73,7 @@ describe("OpenAI-compatible token usage parity", () => {
     // Then data equals {"summary":"Reviewed"}
     // And tokenUsage equals {"prompt":321,"completion":54}
     expect(result.data).toEqual({ summary: "Reviewed" });
-    expect(result.tokenUsage).toEqual({ prompt: 321, completion: 54 });
+    expect(result.tokenUsage).toEqual(CompatibleTokenUsage);
   });
 
   it.each(InvalidUsageShapes)(
@@ -156,8 +160,8 @@ function openAIResponse(content: string, usage: UsageShape): unknown {
 
 function compatibleTokenUsage(): unknown {
   return {
-    prompt_tokens: 321,
-    completion_tokens: 54,
+    prompt_tokens: CompatibleTokenUsage.prompt,
+    completion_tokens: CompatibleTokenUsage.completion,
   };
 }
 

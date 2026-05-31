@@ -15,6 +15,8 @@ const CompatibleApiKey = "test-openai-compatible-key";
 const CompatibleBaseUrl = "https://scaleway-llm.eu.example/v1";
 const TestModel = "gpt-5.5";
 const ReviewedContent = '{"summary":"Reviewed"}';
+const SharedTokenUsage = { prompt: 123, completion: 45 };
+const RetriedTokenUsage = { prompt: 200, completion: 25 };
 
 const ReviewParams = {
   systemPrompt: "Review code safely.",
@@ -151,7 +153,7 @@ describe("OpenAI-compatible protocol parity", () => {
       maxAttempts: 2,
       client: fakeOpenAIClientWithRetry(
         retryableError,
-        openAIResponse('{"summary":"Retried"}'),
+        openAIResponse('{"summary":"Retried"}', RetriedTokenUsage),
         calls,
       ),
     });
@@ -169,7 +171,7 @@ describe("OpenAI-compatible protocol parity", () => {
     // And tokenUsage equals {"prompt":200,"completion":25}
     // And exactly 2 compatible client calls are observed
     expect(result.data).toEqual({ summary: "Retried" });
-    expect(result.tokenUsage).toEqual({ prompt: 200, completion: 25 });
+    expect(result.tokenUsage).toEqual(RetriedTokenUsage);
     expect(calls).toHaveLength(2);
   });
 });
@@ -232,12 +234,12 @@ function fakeOpenAIClientWithCreate(
   };
 }
 
-function openAIResponse(content: string): unknown {
+function openAIResponse(content: string, tokenUsage = SharedTokenUsage): unknown {
   return {
     choices: [{ message: { content } }],
     usage: {
-      prompt_tokens: content.includes("Retried") ? 200 : 123,
-      completion_tokens: content.includes("Retried") ? 25 : 45,
+      prompt_tokens: tokenUsage.prompt,
+      completion_tokens: tokenUsage.completion,
     },
   };
 }

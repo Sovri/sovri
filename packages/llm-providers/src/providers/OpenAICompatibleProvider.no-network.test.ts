@@ -26,6 +26,7 @@ const ReviewParams = {
   userPrompt: "Diff contents",
   schema: z.strictObject({ summary: z.string() }),
 };
+const ReviewTokenUsage = { prompt: 123, completion: 45 };
 
 type ReviewData = z.infer<typeof ReviewParams.schema>;
 
@@ -57,7 +58,7 @@ describe("OpenAI-compatible no-network test guard", () => {
     // And no real OpenAI SDK network request is attempted
     // And no real API key environment variable is read
     expect(result.data).toEqual({ summary: "Reviewed" });
-    expect(result.tokenUsage).toEqual({ prompt: 123, completion: 45 });
+    expect(result.tokenUsage).toEqual(ReviewTokenUsage);
     expect(calls).toHaveLength(1);
     expect(committedSourceViolations(await readOpenAICompatibleProviderTestSources())).toEqual([]);
   });
@@ -106,8 +107,8 @@ function fakeOpenAIClient(calls: unknown[]): FakeOpenAIChatClient {
           return {
             choices: [{ message: { content: '{"summary":"Reviewed"}' } }],
             usage: {
-              prompt_tokens: 123,
-              completion_tokens: 45,
+              prompt_tokens: ReviewTokenUsage.prompt,
+              completion_tokens: ReviewTokenUsage.completion,
             },
           };
         },

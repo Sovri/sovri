@@ -16,6 +16,7 @@ import {
 const TestApiKey = "test-openai-compatible-key";
 const TestModel = "llama-3.3-70b-instruct";
 const TestBaseUrl = "https://vllm.eu.example/v1";
+const DefaultMaxTokens = 4096;
 const MissingBaseUrl = Symbol("missing baseUrl");
 
 type BaseUrlInput = typeof MissingBaseUrl | string;
@@ -54,7 +55,7 @@ describe("OpenAI-compatible base URL acceptance", () => {
     // And no OpenAI chat completion request is attempted during construction
     expect(provider.name).toBe("openai-compatible");
     expect(provider.model).toBe(TestModel);
-    expect(provider.maxTokens).toBe(4096);
+    expect(provider.maxTokens).toBe(DefaultMaxTokens);
     expect(requests).toEqual([]);
   });
 

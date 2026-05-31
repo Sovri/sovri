@@ -11,6 +11,7 @@ import type { LLMProvider } from "../types/LLMProvider.js";
 const TestApiKey = "test-openai-compatible-key";
 const TestBaseUrl = "https://gateway.eu.example/v1";
 const TestModel = "qwen2.5-coder-32b";
+const ReviewTokenUsage = { prompt: 123, completion: 45 };
 
 const ReviewParams = {
   systemPrompt: "Review code safely.",
@@ -78,7 +79,7 @@ describe("OpenAI-compatible provider metadata", () => {
     // Then provider.name still equals "openai-compatible"
     // And tokenUsage equals {"prompt":123,"completion":45}
     expect(provider.name).toBe("openai-compatible");
-    expect(result.tokenUsage).toEqual({ prompt: 123, completion: 45 });
+    expect(result.tokenUsage).toEqual(ReviewTokenUsage);
   });
 });
 
@@ -89,8 +90,8 @@ function fakeOpenAIClient(): FakeOpenAIChatClient {
         create: async () => ({
           choices: [{ message: { content: '{"summary":"Reviewed"}' } }],
           usage: {
-            prompt_tokens: 123,
-            completion_tokens: 45,
+            prompt_tokens: ReviewTokenUsage.prompt,
+            completion_tokens: ReviewTokenUsage.completion,
           },
         }),
       },

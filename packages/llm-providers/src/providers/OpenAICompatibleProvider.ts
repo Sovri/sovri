@@ -5,6 +5,9 @@ import type { GenerateStructuredParams, LLMProvider } from "../types/LLMProvider
 import { OpenAIProvider, type OpenAIProviderOptions } from "./OpenAIProvider.js";
 import { OpenAIProviderError } from "./OpenAIProvider.errors.js";
 
+/**
+ * Configuration for an OpenAI-compatible provider endpoint.
+ */
 export interface OpenAICompatibleProviderOptions extends OpenAIProviderOptions {
   /**
    * Absolute HTTPS endpoint for the OpenAI-compatible server.
@@ -12,6 +15,20 @@ export interface OpenAICompatibleProviderOptions extends OpenAIProviderOptions {
   readonly baseUrl: string;
 }
 
+/**
+ * Creates an `LLMProvider` backed by a caller-supplied OpenAI-compatible HTTPS endpoint.
+ *
+ * @param options - API key, model settings, retry/timeout settings, and required HTTPS `baseUrl`.
+ * @returns An `LLMProvider` named `openai-compatible`.
+ *
+ * @example
+ * ```ts
+ * const provider = createOpenAICompatibleProvider({
+ *   apiKey: "test-key",
+ *   baseUrl: "https://inference.eu.example/v1",
+ * });
+ * ```
+ */
 export function createOpenAICompatibleProvider(
   options: OpenAICompatibleProviderOptions,
 ): LLMProvider {
