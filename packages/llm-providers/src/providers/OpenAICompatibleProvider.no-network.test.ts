@@ -93,7 +93,8 @@ const NonInlineCompatibleProviderConstructionPattern =
   /\bcreateOpenAICompatibleProvider\s*\(\s*([A-Za-z_$][\w$]*(?:\s*\([^)]*\))?)\s*\)/g;
 const IdentifierPattern = /^[A-Za-z_$][\w$]*$/;
 const HelperCallPattern = /^([A-Za-z_$][\w$]*)\s*\(/;
-const ClientOptionPattern = /\bclient\s*:/;
+const TopLevelClientOptionPattern = /\bclient\s*:/g;
+const HelperObjectLiteralPattern = /(?:return|=)\s*\{([\s\S]*?)\}/g;
 
 afterEach(() => {
   vi.doUnmock("openai");
@@ -205,6 +206,21 @@ test("unmocked", () => {
   it("rejects non-inline compatible SDK options without an injected client", () => {
     const source = `it("unmocked variable options", () => {
   const options = { apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" };
+  createOpenAICompatibleProvider(options);
+});`;
+
+    const violations = findForbiddenCompatibleNetworkPatterns(source);
+
+    expect(violations).toContain(UnmockedCompatibleSdkConstructionLabel);
+  });
+
+  it("rejects nested compatible SDK client options", () => {
+    const source = `it("nested client", () => {
+  const options = {
+    apiKey: "${CompatibleProviderFixture.apiKey}",
+    baseUrl: "${CompatibleProviderFixture.baseUrl}",
+    metadata: { client: fakeOpenAIClient() },
+  };
   createOpenAICompatibleProvider(options);
 });`;
 
@@ -400,7 +416,7 @@ function hasUnmockedCompatibleProviderConstruction(source: string): boolean {
     const options = match[1];
     if (
       options !== undefined &&
-      !ClientOptionPattern.test(options) &&
+      !hasTopLevelClientOption(options) &&
       !hasOpenAIMockInCurrentTestBlock(source, match.index)
     ) {
       return true;
@@ -459,7 +475,7 @@ function assignedOptionsIncludeClient(
     optionsSource = match[1];
   }
 
-  return optionsSource !== undefined && ClientOptionPattern.test(optionsSource);
+  return optionsSource !== undefined && hasTopLevelClientOption(optionsSource);
 }
 
 function helperOptionsIncludeClient(source: string, helperName: string): boolean {
@@ -473,7 +489,10 @@ function helperOptionsIncludeClient(source: string, helperName: string): boolean
     functionStart,
     nextFunction === -1 ? source.length : nextFunction,
   );
-  return ClientOptionPattern.test(functionSource);
+  return Array.from(functionSource.matchAll(HelperObjectLiteralPattern)).some((match) => {
+    const optionsSource = match[1];
+    return optionsSource !== undefined && hasTopLevelClientOption(optionsSource);
+  });
 }
 
 function hasOpenAIMockInCurrentTestBlock(source: string, constructionIndex: number): boolean {
@@ -494,4 +513,30 @@ function currentTestBlockStart(source: string, constructionIndex: number): numbe
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasTopLevelClientOption(optionsSource: string): boolean {
+  for (const match of optionsSource.matchAll(TopLevelClientOptionPattern)) {
+    if (objectLiteralDepthAt(optionsSource, match.index) === 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function objectLiteralDepthAt(source: string, targetIndex: number): number {
+  let depth = 0;
+
+  for (let index = 0; index < targetIndex; index += 1) {
+    const char = source.at(index);
+    if (char === "{") {
+      depth += 1;
+    }
+    if (char === "}" && depth > 0) {
+      depth -= 1;
+    }
+  }
+
+  return depth;
 }
