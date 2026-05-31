@@ -86,7 +86,7 @@ const ForbiddenEnvironmentLookupSamples = [
 const UnmockedCompatibleSdkConstructionLabel =
   "createOpenAICompatibleProvider without client or mocked OpenAI SDK";
 const OpenAIMockPattern = /vi\.doMock\(\s*["']openai["']/;
-const TestBlockPattern = /\bit(?:\.each)?\s*\(/g;
+const TestBlockPattern = /\b(?:it|test)(?:\.each)?\s*\(/g;
 const DirectCompatibleProviderConstructionPattern =
   /\bcreateOpenAICompatibleProvider\s*\(\s*\{([\s\S]*?)\}\s*\)/g;
 const NonInlineCompatibleProviderConstructionPattern =
@@ -179,6 +179,21 @@ describe("OpenAI-compatible no-network test guard", () => {
 });
 
 it("unmocked", () => {
+  createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });
+});`;
+
+    const violations = findForbiddenCompatibleNetworkPatterns(source);
+
+    expect(violations).toContain(UnmockedCompatibleSdkConstructionLabel);
+  });
+
+  it("rejects unmocked compatible SDK construction after a Vitest test alias block", () => {
+    const source = `test("mocked", () => {
+  vi.doMock("openai", () => mockOpenAIModule([]));
+  createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });
+});
+
+test("unmocked", () => {
   createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });
 });`;
 
