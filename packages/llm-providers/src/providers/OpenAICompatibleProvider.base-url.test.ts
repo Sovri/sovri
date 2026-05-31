@@ -112,7 +112,7 @@ describe("OpenAI-compatible base URL acceptance", () => {
 
     // Then OpenAIProviderError is thrown
     // And the OpenAI SDK constructor receives 0 calls
-    // And no request can fall back to "https://api.openai.com"
+    // And no request can fall back to the public OpenAI endpoint
     expect(error).toBeInstanceOf(OpenAIProviderError);
     expect(sdkConstructorOptions).toEqual([]);
   });
