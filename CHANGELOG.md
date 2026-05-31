@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: pin `llm.baseUrl` HTTPS validation and the 2048-character
+  boundary for OpenAI-compatible configuration.
+
 - `test(config)`: cover OpenAI base URL optionality separately from
   OpenAI-compatible's required `llm.baseUrl` rule.
 
