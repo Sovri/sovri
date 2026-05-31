@@ -67,6 +67,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   temperature values before requests, preserving optional-field semantics in strict OpenAI JSON
   schemas, and hardening the no-network test guard against formatting bypasses.
 
+- `fix(llm-providers)`: make the OpenAI no-network guard use a CodeQL-safe host matcher while
+  preserving case-insensitive detection of forbidden real OpenAI API dependencies.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed

@@ -18,24 +18,24 @@ const OpenAIChatCompletionsUrl = "https://api.openai.com/v1/chat/completions";
 
 interface ForbiddenOpenAINetworkPattern {
   readonly label: string;
-  readonly pattern: RegExp;
+  readonly matches: (source: string) => boolean;
   readonly sample: string;
 }
 
 const ForbiddenOpenAINetworkPatterns = [
   {
     label: "https://api.openai.com",
-    pattern: /https:\/\/api\.openai\.com/i,
+    matches: (source) => source.toLowerCase().includes("https://api.openai.com"),
     sample: "https://api.openai.com",
   },
   {
     label: "OPENAI_API_KEY",
-    pattern: /\bOPENAI_API_KEY\b/,
+    matches: (source) => /\bOPENAI_API_KEY\b/.test(source),
     sample: "OPENAI_API_KEY",
   },
   {
     label: "new OpenAI({ apiKey })",
-    pattern: /\bnew\s+OpenAI\s*\(\s*\{\s*apiKey\b[\s\S]*?\}\s*\)/,
+    matches: (source) => /\bnew\s+OpenAI\s*\(\s*\{\s*apiKey\b[\s\S]*?\}\s*\)/.test(source),
     sample: "new OpenAI({apiKey: key})",
   },
 ] satisfies readonly ForbiddenOpenAINetworkPattern[];
@@ -145,7 +145,7 @@ function allSourcesText(sources: ReadonlyArray<ProviderTestSource>): string {
 }
 
 function findForbiddenOpenAINetworkPatterns(source: string): string[] {
-  return ForbiddenOpenAINetworkPatterns.filter(({ pattern }) => pattern.test(source)).map(
+  return ForbiddenOpenAINetworkPatterns.filter(({ matches }) => matches(source)).map(
     ({ label }) => label,
   );
 }
