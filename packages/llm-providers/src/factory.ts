@@ -117,9 +117,19 @@ function createOpenAICompatibleProviderFromConfig(
   return createOpenAICompatibleProvider({
     apiKey,
     model: config.llm.model,
-    baseUrl: config.llm.baseUrl ?? "",
+    baseUrl: readOpenAICompatibleBaseUrl(config),
     ...timeoutOptions(factoryOptions),
   });
+}
+
+function readOpenAICompatibleBaseUrl(config: SovriConfig): string {
+  if (config.llm.baseUrl === undefined) {
+    throw new UnsupportedProviderError(config.llm.provider, {
+      cause: new Error("OpenAI-compatible provider requires llm.baseUrl"),
+    });
+  }
+
+  return config.llm.baseUrl;
 }
 
 function timeoutOptions(options: ProviderFactoryOptions): { readonly timeoutMs?: number } {

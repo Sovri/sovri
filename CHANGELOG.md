@@ -28,6 +28,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(config)`: widen `.sovri.yml` provider validation to accept `openai` and
   `openai-compatible` alongside Anthropic and Mistral.
 
+- `feat(config)`: require `llm.baseUrl` at validation time when
+  `llm.provider` is `openai-compatible`.
+
 - `feat(llm-providers)`: wire the shared provider factory to construct OpenAI and
   OpenAI-compatible adapters from accepted `.sovri.yml` provider configuration.
 

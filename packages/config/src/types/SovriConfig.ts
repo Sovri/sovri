@@ -46,29 +46,39 @@ const EnabledReviewModeSchema = ReviewModeSchema.refine((mode) => mode !== "stri
 export const SeverityThresholdSchema = z.enum(["blocker", "major", "minor"]);
 export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>;
 
-const LlmSchema = z.strictObject({
-  provider: ProviderSchema,
-  model: z
-    .string()
-    .min(1)
-    .max(MAX_MODEL_LEN)
-    .regex(
-      ModelNamePattern,
-      "model must contain only letters, digits, dot, hyphen, underscore, or colon",
-    ),
-  baseUrl: z
-    .url({ protocol: /^https$/ })
-    .max(MAX_BASE_URL_LEN)
-    .optional(),
-  apiKeySecret: z
-    .string()
-    .min(1)
-    .max(MAX_API_KEY_SECRET_LEN)
-    .regex(
-      EnvVarNamePattern,
-      "apiKeySecret must be the *name* of an environment variable (UPPER_SNAKE_CASE), never the secret itself",
-    ),
-});
+const LlmSchema = z
+  .strictObject({
+    provider: ProviderSchema,
+    model: z
+      .string()
+      .min(1)
+      .max(MAX_MODEL_LEN)
+      .regex(
+        ModelNamePattern,
+        "model must contain only letters, digits, dot, hyphen, underscore, or colon",
+      ),
+    baseUrl: z
+      .url({ protocol: /^https$/ })
+      .max(MAX_BASE_URL_LEN)
+      .optional(),
+    apiKeySecret: z
+      .string()
+      .min(1)
+      .max(MAX_API_KEY_SECRET_LEN)
+      .regex(
+        EnvVarNamePattern,
+        "apiKeySecret must be the *name* of an environment variable (UPPER_SNAKE_CASE), never the secret itself",
+      ),
+  })
+  .superRefine((llm, context) => {
+    if (llm.provider === "openai-compatible" && llm.baseUrl === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["baseUrl"],
+        message: "llm.baseUrl is required when llm.provider is 'openai-compatible'.",
+      });
+    }
+  });
 
 // `.prefault({})` (not `.default({})`): when the block is omitted, feed
 // `{}` *into* the inner strictObject so the per-field `.default()`

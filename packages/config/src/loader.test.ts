@@ -602,18 +602,32 @@ describe("loadConfig — schema violation", () => {
     await expect(loadConfig(root)).rejects.toBeInstanceOf(SovriConfigValidationError);
   });
 
-  // OpenAI-compatible is accepted once the provider allow-list is widened.
+  // OpenAI-compatible requires a baseUrl once the provider allow-list is widened.
   // Scenario:
   //   Given a .sovri.yml at "/repo/.sovri.yml" with llm.provider
   //     "openai-compatible"
-  //   When loadConfig("/repo") runs
-  //   Then the resolved config has llm.provider equal to "openai-compatible"
-  it("loads openai-compatible provider config through the widened allow-list", async () => {
+  //   When loadConfig("/repo") validates the file
+  //   Then SovriConfigValidationError is thrown
+  //   And the validation error includes an issue with path ["llm", "baseUrl"]
+  it("throws SovriConfigValidationError when openai-compatible omits baseUrl", async () => {
     const root = path.join(FIXTURES_ROOT, "schema-violation-openai-compatible");
 
-    const cfg = await loadConfig(root);
+    try {
+      await loadConfig(root);
+      expect.unreachable("loadConfig should have thrown SovriConfigValidationError");
+    } catch (err) {
+      if (!(err instanceof SovriConfigValidationError)) throw err;
 
-    expect(cfg.llm.provider).toBe("openai-compatible");
+      const baseUrlIssue = err.issues.find(
+        (issue) =>
+          issue.path.length === 2 && issue.path[0] === "llm" && issue.path[1] === "baseUrl",
+      );
+
+      expect(baseUrlIssue).toBeDefined();
+      expect(baseUrlIssue?.message).toBe(
+        "llm.baseUrl is required when llm.provider is 'openai-compatible'.",
+      );
+    }
   });
 });
 
