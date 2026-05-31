@@ -24,6 +24,7 @@ import {
   type OpenAIChatClient,
   type OpenAIChatRequest,
 } from "./OpenAIProvider.retry.js";
+import { OpenAIProviderError } from "./OpenAIProvider.errors.js";
 
 export {
   OpenAIProviderAuthError,
@@ -50,6 +51,9 @@ export type {
 export interface OpenAIProviderOptions extends OpenAIProviderConfigOptions {
   readonly client?: OpenAIChatClient;
 }
+
+const MIN_OPENAI_TEMPERATURE = 0;
+const MAX_OPENAI_TEMPERATURE = 2;
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
@@ -78,12 +82,18 @@ export class OpenAIProvider implements LLMProvider {
       );
   }
 
+  /**
+   * Generates structured data from OpenAI and returns only the schema-validated payload.
+   */
   async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
     const result = await this.generateStructuredWithUsage(params);
 
     return result.data;
   }
 
+  /**
+   * Generates structured data from OpenAI with schema validation and token usage metadata.
+   */
   async generateStructuredWithUsage<T>(
     params: GenerateStructuredParams<T>,
   ): Promise<StructuredGeneration<T>> {
@@ -116,9 +126,23 @@ export class OpenAIProvider implements LLMProvider {
     };
 
     if (params.temperature !== undefined) {
-      request.temperature = params.temperature;
+      request.temperature = resolveTemperature(params.temperature);
     }
 
     return request;
   }
+}
+
+function resolveTemperature(temperature: number): number {
+  if (
+    !Number.isFinite(temperature) ||
+    temperature < MIN_OPENAI_TEMPERATURE ||
+    temperature > MAX_OPENAI_TEMPERATURE
+  ) {
+    throw new OpenAIProviderError(
+      `OpenAI temperature must be between ${String(MIN_OPENAI_TEMPERATURE)} and ${String(MAX_OPENAI_TEMPERATURE)}`,
+    );
+  }
+
+  return temperature;
 }

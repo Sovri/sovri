@@ -46,6 +46,8 @@ describe("OpenAIProvider schema conversion", () => {
     const properties = requireRecord(jsonSchema["properties"]);
     const findings = requireRecord(properties["findings"]);
     const findingItem = requireRecord(findings["items"]);
+    const findingProperties = requireRecord(findingItem["properties"]);
+    const cwe = requireRecord(findingProperties["cwe"]);
     expect(jsonSchema["additionalProperties"]).toBe(false);
     expect(jsonSchema["required"]).toEqual(["summary", "findings", "walkthrough_markdown"]);
     expect(findingItem["additionalProperties"]).toBe(false);
@@ -59,6 +61,7 @@ describe("OpenAIProvider schema conversion", () => {
       "body",
       "cwe",
     ]);
+    expect(cwe["type"]).toEqual(["string", "null"]);
   });
 
   it("fails unsupported schema conversion before sending a request", async () => {

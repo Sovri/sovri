@@ -72,6 +72,28 @@ describe("OpenAIProvider base URL override acceptance", () => {
     expect(sdkConstructorOptions).toEqual([]);
   });
 
+  it.each([
+    ["foo", "valid absolute URL"],
+    ["http//bad", "valid absolute URL"],
+    ["file:///tmp/openai", "must use http or https"],
+  ])("throws a typed error for invalid baseUrl %s", async (baseUrl, messageFragment) => {
+    const sdkConstructorOptions: unknown[] = [];
+    vi.doMock("openai", () => mockOpenAIModule(sdkConstructorOptions));
+    const { OpenAIProvider, OpenAIProviderError } = await openAIProviderExports();
+
+    const error = captureError(
+      () => new OpenAIProvider({ apiKey: TestApiKey, model: TestModel, baseUrl }),
+    );
+
+    expect(error).toBeInstanceOf(OpenAIProviderError);
+    expect(error).toEqual(
+      expect.objectContaining({
+        message: expect.stringContaining(messageFragment),
+      }),
+    );
+    expect(sdkConstructorOptions).toEqual([]);
+  });
+
   it("passes the provided baseUrl to the OpenAI SDK constructor", async () => {
     const sdkConstructorOptions: unknown[] = [];
     vi.doMock("openai", () => mockOpenAIModule(sdkConstructorOptions));

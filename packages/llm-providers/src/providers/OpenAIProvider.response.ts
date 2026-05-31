@@ -5,9 +5,12 @@ import type { ChatCompletionCreateParamsNonStreaming } from "openai/resources/ch
 
 import { z } from "@sovri/core";
 
-import { zodToProviderJsonSchema } from "../helpers/provider-json-schema.js";
 import type { TokenUsage } from "../types/LLMProvider.js";
 import { OpenAIProviderError } from "./OpenAIProvider.errors.js";
+import {
+  createOpenAIStrictJsonSchema,
+  stripOpenAIOptionalNulls,
+} from "./OpenAIProvider.schema-normalization.js";
 
 type OpenAIChatRequest = ChatCompletionCreateParamsNonStreaming;
 
@@ -34,7 +37,7 @@ export function parseStructuredOpenAIResponse<T>(
   tokenUsage: TokenUsage,
 ): T {
   const parsedJson = parseJson(extractOpenAITextContent(response));
-  const parsedSchema = schema.safeParse(parsedJson);
+  const parsedSchema = schema.safeParse(stripOpenAIOptionalNulls(parsedJson, schema));
 
   if (!parsedSchema.success) {
     throw new OpenAIProviderError("OpenAI response failed schema validation", {
@@ -72,80 +75,9 @@ export function createOpenAIJsonSchemaResponseFormat(
     json_schema: {
       name: "sovri_structured_response",
       strict: true,
-      schema: createJsonSchemaDefinition(schema),
+      schema: createOpenAIStrictJsonSchema(schema),
     },
   };
-}
-
-function createJsonSchemaDefinition(schema: z.ZodType): Record<string, unknown> {
-  try {
-    const jsonSchema = zodToProviderJsonSchema(schema);
-
-    if (!isJsonObject(jsonSchema) || jsonSchema["type"] !== "object") {
-      throw new OpenAIProviderError("OpenAI JSON schema root must be an object schema");
-    }
-
-    return normalizeOpenAIStrictJsonSchema(jsonSchema);
-  } catch (cause) {
-    if (cause instanceof OpenAIProviderError) throw cause;
-
-    throw new OpenAIProviderError("Failed to build OpenAI response schema", { cause });
-  }
-}
-
-function normalizeOpenAIStrictJsonSchema(schema: Record<string, unknown>): Record<string, unknown> {
-  const normalized = normalizeJsonSchemaValue(schema);
-  if (!isJsonObject(normalized)) {
-    throw new OpenAIProviderError("OpenAI JSON schema root must be an object schema");
-  }
-
-  return normalized;
-}
-
-function normalizeJsonSchemaValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(normalizeJsonSchemaValue);
-  }
-  if (!isJsonObject(value)) {
-    return value;
-  }
-
-  const normalized = normalizeJsonSchemaObject(value);
-  normalizeOpenAIObjectShape(normalized);
-
-  return normalized;
-}
-
-function normalizeJsonSchemaObject(value: Record<string, unknown>): Record<string, unknown> {
-  const normalized: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value)) {
-    normalized[key] = normalizeJsonSchemaValue(child);
-  }
-
-  return normalized;
-}
-
-function normalizeOpenAIObjectShape(schema: Record<string, unknown>): void {
-  const properties = schema["properties"];
-  if (schema["type"] !== "object" && !isJsonObject(properties)) {
-    return;
-  }
-  if (hasDynamicObjectProperties(schema)) {
-    throw new OpenAIProviderError(
-      "OpenAI strict JSON schemas do not support dynamic object properties",
-    );
-  }
-
-  schema["additionalProperties"] = false;
-  schema["required"] = isJsonObject(properties) ? Object.keys(properties) : [];
-}
-
-function hasDynamicObjectProperties(schema: Record<string, unknown>): boolean {
-  const additionalProperties = schema["additionalProperties"];
-  return (
-    schema["propertyNames"] !== undefined ||
-    (additionalProperties !== undefined && additionalProperties !== false)
-  );
 }
 
 function extractOpenAITextContent(response: unknown): string {
@@ -172,8 +104,4 @@ function parseJson(text: string): unknown {
   } catch (cause) {
     throw new OpenAIProviderError("OpenAI response was not valid JSON", { cause });
   }
-}
-
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

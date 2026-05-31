@@ -6,7 +6,9 @@ import type { ClientOptions } from "openai";
 import { OpenAIProviderAuthError, OpenAIProviderError } from "./OpenAIProvider.errors.js";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
+// Default review budget keeps normal PR walkthroughs roomy without spending the full provider cap.
 export const DEFAULT_OPENAI_MAX_TOKENS = 4096;
+// Provider-level ceiling prevents accidental unbounded completions from repository configuration.
 export const MAX_OPENAI_MAX_TOKENS = 64_000;
 export const DEFAULT_OPENAI_TIMEOUT_MS = 60_000;
 export const MAX_OPENAI_TIMEOUT_MS = 2_147_483_647;
@@ -104,6 +106,20 @@ function resolveBaseUrl(baseUrl: string | undefined): string | undefined {
   const trimmed = baseUrl.trim();
   if (trimmed.length === 0) {
     throw new OpenAIProviderError("OpenAI baseUrl must be a non-empty value");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch (cause) {
+    throw new OpenAIProviderError("OpenAI baseUrl must be a valid absolute URL", { cause });
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new OpenAIProviderError("OpenAI baseUrl must use http or https");
+  }
+  if (parsed.hostname.length === 0) {
+    throw new OpenAIProviderError("OpenAI baseUrl must include a hostname");
   }
 
   return trimmed;

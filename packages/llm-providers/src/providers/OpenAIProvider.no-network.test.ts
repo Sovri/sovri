@@ -15,11 +15,30 @@ import {
 const ProvidersDir = new URL(".", import.meta.url);
 const ThisTestFileName = "OpenAIProvider.no-network.test.ts";
 const OpenAIChatCompletionsUrl = "https://api.openai.com/v1/chat/completions";
+
+interface ForbiddenOpenAINetworkPattern {
+  readonly label: string;
+  readonly pattern: RegExp;
+  readonly sample: string;
+}
+
 const ForbiddenOpenAINetworkPatterns = [
-  "https://api.openai.com",
-  "OPENAI_API_KEY",
-  "new OpenAI({ apiKey })",
-] satisfies readonly string[];
+  {
+    label: "https://api.openai.com",
+    pattern: /https:\/\/api\.openai\.com/i,
+    sample: "https://api.openai.com",
+  },
+  {
+    label: "OPENAI_API_KEY",
+    pattern: /\bOPENAI_API_KEY\b/,
+    sample: "OPENAI_API_KEY",
+  },
+  {
+    label: "new OpenAI({ apiKey })",
+    pattern: /\bnew\s+OpenAI\s*\(\s*\{\s*apiKey\b[\s\S]*?\}\s*\)/,
+    sample: "new OpenAI({apiKey: key})",
+  },
+] satisfies readonly ForbiddenOpenAINetworkPattern[];
 
 interface ProviderTestSource {
   readonly fileName: string;
@@ -55,17 +74,17 @@ describe("OpenAIProvider no-network test guard", () => {
   });
 
   it.each(ForbiddenOpenAINetworkPatterns)(
-    "rejects forbidden OpenAI provider network pattern %s",
-    (forbiddenPattern) => {
+    "rejects forbidden OpenAI provider network pattern $label",
+    ({ label, sample }) => {
       // Given the OpenAI provider test code contains "<forbidden_pattern>"
-      const source = `new OpenAIProvider({ apiKey: "test-openai-key" });\n${forbiddenPattern}`;
+      const source = `new OpenAIProvider({ apiKey: "test-openai-key" });\n${sample}`;
 
       // When the no-network test guard runs
       const violations = findForbiddenOpenAINetworkPatterns(source);
 
       // Then the guard fails
       // And the failure names "<forbidden_pattern>"
-      expect(violations).toContain(forbiddenPattern);
+      expect(violations).toContain(label);
     },
   );
 
@@ -126,7 +145,7 @@ function allSourcesText(sources: ReadonlyArray<ProviderTestSource>): string {
 }
 
 function findForbiddenOpenAINetworkPatterns(source: string): string[] {
-  return ForbiddenOpenAINetworkPatterns.filter((forbiddenPattern) =>
-    source.includes(forbiddenPattern),
+  return ForbiddenOpenAINetworkPatterns.filter(({ pattern }) => pattern.test(source)).map(
+    ({ label }) => label,
   );
 }

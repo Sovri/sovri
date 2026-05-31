@@ -61,6 +61,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   of `@sovri/llm-providers`, preparing the v0.5 BYOK provider slice for OpenAI and
   OpenAI-compatible adapters while keeping this task limited to supply-chain-gated dependency metadata.
 
+### Fixed
+
+- `fix(llm-providers)`: address OpenAI provider review feedback by validating base URLs and
+  temperature values before requests, preserving optional-field semantics in strict OpenAI JSON
+  schemas, and hardening the no-network test guard against formatting bypasses.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed

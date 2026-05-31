@@ -18,6 +18,7 @@ const ProviderFiles = [
   "OpenAIProvider.ts",
   "OpenAIProvider.options.ts",
   "OpenAIProvider.response.ts",
+  "OpenAIProvider.schema-normalization.ts",
   "OpenAIProvider.retry.ts",
   "OpenAIProvider.errors.ts",
 ] satisfies readonly string[];
