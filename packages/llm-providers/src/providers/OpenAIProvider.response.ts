@@ -130,9 +130,22 @@ function normalizeOpenAIObjectShape(schema: Record<string, unknown>): void {
   if (schema["type"] !== "object" && !isJsonObject(properties)) {
     return;
   }
+  if (hasDynamicObjectProperties(schema)) {
+    throw new OpenAIProviderError(
+      "OpenAI strict JSON schemas do not support dynamic object properties",
+    );
+  }
 
   schema["additionalProperties"] = false;
   schema["required"] = isJsonObject(properties) ? Object.keys(properties) : [];
+}
+
+function hasDynamicObjectProperties(schema: Record<string, unknown>): boolean {
+  const additionalProperties = schema["additionalProperties"];
+  return (
+    schema["propertyNames"] !== undefined ||
+    (additionalProperties !== undefined && additionalProperties !== false)
+  );
 }
 
 function extractOpenAITextContent(response: unknown): string {

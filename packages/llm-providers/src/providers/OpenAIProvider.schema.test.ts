@@ -89,6 +89,22 @@ describe("OpenAIProvider schema conversion", () => {
     expect(error.message).toContain("object schema");
     expect(calls).toEqual([]);
   });
+
+  it("rejects dynamic record schemas before sending a request", async () => {
+    const calls: unknown[] = [];
+    const provider = newProvider(calls, { metadata: {} });
+
+    const error = await captureAsyncOpenAIProviderError(
+      provider.generateStructured({
+        ...validParams,
+        schema: z.strictObject({ metadata: z.record(z.string(), z.string()) }),
+      }),
+    );
+
+    expect(error.name).toBe("OpenAIProviderError");
+    expect(error.message).toContain("dynamic object");
+    expect(calls).toEqual([]);
+  });
 });
 
 function newProvider(calls: unknown[], data: unknown): LLMProvider {
