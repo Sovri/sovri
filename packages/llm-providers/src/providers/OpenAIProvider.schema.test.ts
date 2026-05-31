@@ -5,6 +5,7 @@ import { z } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import * as LlmProviders from "../index.js";
+import { LLMResponseSchema } from "../schemas/LLMResponseSchema.js";
 import type { LLMProvider } from "../types/LLMProvider.js";
 import { OpenAIProviderError } from "./OpenAIProvider.js";
 
@@ -29,9 +30,40 @@ const validParams = {
 };
 
 describe("OpenAIProvider schema conversion", () => {
+  it("normalizes nested object schemas for OpenAI strict mode", async () => {
+    const calls: unknown[] = [];
+    const provider = newProvider(calls, {
+      summary: "Reviewed",
+      findings: [],
+      walkthrough_markdown: "No findings.",
+    });
+
+    await provider.generateStructured({ ...validParams, schema: LLMResponseSchema });
+
+    const request = requireRecord(firstCall(calls));
+    const responseFormat = requireRecord(request["response_format"]);
+    const jsonSchema = requireRecord(requireRecord(responseFormat["json_schema"])["schema"]);
+    const properties = requireRecord(jsonSchema["properties"]);
+    const findings = requireRecord(properties["findings"]);
+    const findingItem = requireRecord(findings["items"]);
+    expect(jsonSchema["additionalProperties"]).toBe(false);
+    expect(jsonSchema["required"]).toEqual(["summary", "findings", "walkthrough_markdown"]);
+    expect(findingItem["additionalProperties"]).toBe(false);
+    expect(findingItem["required"]).toEqual([
+      "severity",
+      "category",
+      "file",
+      "line_start",
+      "line_end",
+      "title",
+      "body",
+      "cwe",
+    ]);
+  });
+
   it("fails unsupported schema conversion before sending a request", async () => {
     const calls: unknown[] = [];
-    const provider = newProvider(calls);
+    const provider = newProvider(calls, { summary: "Reviewed" });
 
     const error = await captureAsyncOpenAIProviderError(
       provider.generateStructured({
@@ -47,7 +79,7 @@ describe("OpenAIProvider schema conversion", () => {
 
   it("rejects schemas whose JSON Schema root is not an object", async () => {
     const calls: unknown[] = [];
-    const provider = newProvider(calls);
+    const provider = newProvider(calls, "Reviewed");
 
     const error = await captureAsyncOpenAIProviderError(
       provider.generateStructured({ ...validParams, schema: z.string() }),
@@ -59,12 +91,12 @@ describe("OpenAIProvider schema conversion", () => {
   });
 });
 
-function newProvider(calls: unknown[]): LLMProvider {
+function newProvider(calls: unknown[], data: unknown): LLMProvider {
   const Provider = openAIProviderConstructor();
 
   return new Provider({
     apiKey: TestApiKey,
-    client: fakeOpenAIClient(calls),
+    client: fakeOpenAIClient(calls, data),
   });
 }
 
@@ -81,14 +113,14 @@ function isOpenAIProviderConstructor(value: unknown): value is OpenAIProviderCon
   return typeof value === "function";
 }
 
-function fakeOpenAIClient(calls: unknown[]): FakeOpenAIChatClient {
+function fakeOpenAIClient(calls: unknown[], data: unknown): FakeOpenAIChatClient {
   return {
     chat: {
       completions: {
         create: async (request) => {
           calls.push(request);
           return {
-            choices: [{ message: { content: JSON.stringify({ summary: "Reviewed" }) } }],
+            choices: [{ message: { content: JSON.stringify(data) } }],
             usage: {
               prompt_tokens: 123,
               completion_tokens: 45,
@@ -98,6 +130,27 @@ function fakeOpenAIClient(calls: unknown[]): FakeOpenAIChatClient {
       },
     },
   };
+}
+
+function firstCall(calls: ReadonlyArray<unknown>): unknown {
+  const [call] = calls;
+  if (call === undefined) {
+    throw new Error("Expected fake OpenAI client to capture a request");
+  }
+
+  return call;
+}
+
+function requireRecord(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error("Expected value to be an object record");
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function captureAsyncOpenAIProviderError(

@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import OpenAI, { type ClientOptions } from "openai";
+import OpenAI, {
+  APIError,
+  AuthenticationError,
+  PermissionDeniedError,
+  type ClientOptions,
+} from "openai";
 import type {
   ChatCompletionCreateParamsNonStreaming,
   Completions,
@@ -12,7 +17,11 @@ import type {
   LLMProvider,
   StructuredGeneration,
 } from "../types/LLMProvider.js";
-import { OpenAIProviderAuthError, OpenAIProviderError } from "./OpenAIProvider.errors.js";
+import {
+  OpenAIProviderAuthError,
+  OpenAIProviderError,
+  type OpenAIProviderErrorOptions,
+} from "./OpenAIProvider.errors.js";
 import {
   createOpenAIJsonSchemaResponseFormat,
   extractOpenAITokenUsage,
@@ -71,13 +80,23 @@ export class OpenAIProvider implements LLMProvider {
   async generateStructuredWithUsage<T>(
     params: GenerateStructuredParams<T>,
   ): Promise<StructuredGeneration<T>> {
-    const response = await this.client.chat.completions.create(this.createRequest(params), {
-      maxRetries: 0,
-    });
+    const response = await this.createChatCompletion(params);
     const tokenUsage = extractOpenAITokenUsage(response);
     const data = parseStructuredOpenAIResponse(response, params.schema, tokenUsage);
 
     return { data, tokenUsage };
+  }
+
+  private async createChatCompletion<T>(params: GenerateStructuredParams<T>): Promise<unknown> {
+    const request = this.createRequest(params);
+
+    try {
+      return await this.client.chat.completions.create(request, {
+        maxRetries: 0,
+      });
+    } catch (cause) {
+      throw createOpenAIRequestError(cause);
+    }
   }
 
   private createRequest<T>(params: GenerateStructuredParams<T>): OpenAIChatRequest {
@@ -139,4 +158,41 @@ function resolveMaxTokens(maxTokens: number | undefined): number {
   }
 
   return resolvedMaxTokens;
+}
+
+function createOpenAIRequestError(
+  cause: unknown,
+): OpenAIProviderError<"OpenAIProviderError" | "OpenAIProviderAuthError"> {
+  const options = openAIRequestErrorOptions(cause);
+
+  if (isOpenAIAuthFailure(cause)) {
+    return new OpenAIProviderAuthError("OpenAI request failed authentication", options);
+  }
+
+  return new OpenAIProviderError(openAIRequestErrorMessage(cause), options);
+}
+
+function openAIRequestErrorOptions(cause: unknown): OpenAIProviderErrorOptions {
+  if (!(cause instanceof APIError)) {
+    return { cause };
+  }
+
+  return {
+    cause,
+    ...(cause.status !== undefined ? { status: cause.status } : {}),
+    ...(cause.requestID !== undefined ? { requestId: cause.requestID } : {}),
+    ...(cause.code !== undefined ? { code: cause.code } : {}),
+  };
+}
+
+function openAIRequestErrorMessage(cause: unknown): string {
+  if (cause instanceof APIError && cause.status !== undefined) {
+    return `OpenAI request failed with status ${String(cause.status)}`;
+  }
+
+  return "OpenAI request failed";
+}
+
+function isOpenAIAuthFailure(cause: unknown): boolean {
+  return cause instanceof AuthenticationError || cause instanceof PermissionDeniedError;
 }

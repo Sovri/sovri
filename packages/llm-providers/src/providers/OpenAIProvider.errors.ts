@@ -7,6 +7,9 @@ import type { TokenUsage } from "../types/LLMProvider.js";
 
 export interface OpenAIProviderErrorOptions {
   readonly cause?: unknown;
+  readonly status?: number;
+  readonly requestId?: string | null;
+  readonly code?: string | null;
   readonly issues?: ReadonlyArray<z.core.$ZodIssue>;
   readonly tokenUsage?: TokenUsage;
   readonly retryableWithCorrectivePrompt?: true;
@@ -17,6 +20,9 @@ type OpenAIProviderErrorName = "OpenAIProviderAuthError" | "OpenAIProviderError"
 export class OpenAIProviderError<
   Name extends OpenAIProviderErrorName = "OpenAIProviderError",
 > extends Error {
+  readonly status?: number;
+  readonly requestId?: string | null;
+  readonly code?: string | null;
   readonly issues?: ReadonlyArray<z.core.$ZodIssue>;
   readonly tokenUsage?: TokenUsage;
   readonly retryableWithCorrectivePrompt?: true;
@@ -32,6 +38,15 @@ export class OpenAIProviderError<
   constructor(message: string, options: OpenAIProviderErrorOptions = {}) {
     super(message, errorOptions(options.cause));
 
+    if (options.status !== undefined) {
+      this.status = options.status;
+    }
+    if (options.requestId !== undefined) {
+      this.requestId = options.requestId;
+    }
+    if (options.code !== undefined) {
+      this.code = options.code;
+    }
     if (options.issues !== undefined) {
       this.issues = options.issues;
     }

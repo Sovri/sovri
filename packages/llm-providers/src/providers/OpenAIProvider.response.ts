@@ -85,12 +85,54 @@ function createJsonSchemaDefinition(schema: z.ZodType): Record<string, unknown> 
       throw new OpenAIProviderError("OpenAI JSON schema root must be an object schema");
     }
 
-    return jsonSchema;
+    return normalizeOpenAIStrictJsonSchema(jsonSchema);
   } catch (cause) {
     if (cause instanceof OpenAIProviderError) throw cause;
 
     throw new OpenAIProviderError("Failed to build OpenAI response schema", { cause });
   }
+}
+
+function normalizeOpenAIStrictJsonSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const normalized = normalizeJsonSchemaValue(schema);
+  if (!isJsonObject(normalized)) {
+    throw new OpenAIProviderError("OpenAI JSON schema root must be an object schema");
+  }
+
+  return normalized;
+}
+
+function normalizeJsonSchemaValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeJsonSchemaValue);
+  }
+  if (!isJsonObject(value)) {
+    return value;
+  }
+
+  const normalized = normalizeJsonSchemaObject(value);
+  normalizeOpenAIObjectShape(normalized);
+
+  return normalized;
+}
+
+function normalizeJsonSchemaObject(value: Record<string, unknown>): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    normalized[key] = normalizeJsonSchemaValue(child);
+  }
+
+  return normalized;
+}
+
+function normalizeOpenAIObjectShape(schema: Record<string, unknown>): void {
+  const properties = schema["properties"];
+  if (schema["type"] !== "object" && !isJsonObject(properties)) {
+    return;
+  }
+
+  schema["additionalProperties"] = false;
+  schema["required"] = isJsonObject(properties) ? Object.keys(properties) : [];
 }
 
 function extractOpenAITextContent(response: unknown): string {
