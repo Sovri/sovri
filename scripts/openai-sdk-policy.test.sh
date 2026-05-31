@@ -6,7 +6,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PACKAGE_JSON="$ROOT/packages/llm-providers/package.json"
 LOCKFILE="$ROOT/pnpm-lock.yaml"
 CHANGELOG="$ROOT/CHANGELOG.md"
-BASE_BRANCH="${ATDD_BASE_BRANCH:-origin/atdd/task-104-add-openai-sdk/integration}"
+DEFAULT_BASE_BRANCH="origin/atdd/task-104-add-openai-sdk/integration"
+FALLBACK_BASE_BRANCH="origin/main"
+BASE_BRANCH="${ATDD_BASE_BRANCH:-$DEFAULT_BASE_BRANCH}"
 OPENAI_VERSION="6.39.1"
 PASS=0
 FAIL=0
@@ -79,6 +81,21 @@ const hasLifecycle =
 process.exit(hasLifecycle ? 0 : 1);
 ' "$1"
 }
+
+diff_base_branch() {
+  if (cd "$ROOT" && git rev-parse --verify --quiet "$BASE_BRANCH" >/dev/null); then
+    printf "%s" "$BASE_BRANCH"
+    return 0
+  fi
+
+  if [ -z "${ATDD_BASE_BRANCH:-}" ] && (cd "$ROOT" && git rev-parse --verify --quiet "$FALLBACK_BASE_BRANCH" >/dev/null); then
+    printf "%s" "$FALLBACK_BASE_BRANCH"
+    return 0
+  fi
+
+  return 1
+}
+
 
 run_exact_runtime_dependency() {
   local label="llm-providers declares openai as an exact runtime dependency"
@@ -228,10 +245,15 @@ run_changelog_entry() {
 
 run_no_adapter_wiring_changes() {
   local label="no OpenAI adapter or wiring code changes"
-  local forbidden_path changed_files
+  local forbidden_path changed_files diff_base
 
-  if ! changed_files="$(cd "$ROOT" && git diff --name-only "$BASE_BRANCH" -- 2>&1)"; then
-    record_failure "$label" "could not diff against $BASE_BRANCH: $changed_files"
+  diff_base="$(diff_base_branch)" || {
+    record_failure "$label" "could not find diff base $BASE_BRANCH or fallback $FALLBACK_BASE_BRANCH"
+    return
+  }
+
+  if ! changed_files="$(cd "$ROOT" && git diff --name-only "$diff_base" -- 2>&1)"; then
+    record_failure "$label" "could not diff against $diff_base: $changed_files"
     return
   fi
 
