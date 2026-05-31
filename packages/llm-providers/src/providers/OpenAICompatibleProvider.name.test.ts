@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+import { z } from "@sovri/core";
+import { describe, expect, it } from "vitest";
+
+import * as LlmProviders from "../index.js";
+import type { LLMProvider } from "../types/LLMProvider.js";
+
+const TestApiKey = "test-openai-compatible-key";
+const TestBaseUrl = "https://gateway.eu.example/v1";
+const TestModel = "qwen2.5-coder-32b";
+
+const ReviewParams = {
+  systemPrompt: "Review code safely.",
+  userPrompt: "Diff contents",
+  schema: z.strictObject({ summary: z.string() }),
+};
+
+interface FakeOpenAIChatClient {
+  readonly chat: {
+    readonly completions: {
+      readonly create: (request: unknown, options?: unknown) => Promise<unknown>;
+    };
+  };
+}
+
+interface OpenAICompatibleProviderOptions {
+  readonly apiKey: string;
+  readonly model?: string;
+  readonly baseUrl: string;
+  readonly client: FakeOpenAIChatClient;
+}
+
+interface OpenAICompatibleProviderExports {
+  readonly createOpenAICompatibleProvider: (
+    options: OpenAICompatibleProviderOptions,
+  ) => LLMProvider;
+}
+
+describe("OpenAI-compatible provider metadata", () => {
+  it("sets a distinguishable provider name during construction", async () => {
+    const { createOpenAICompatibleProvider } = await openAICompatibleProviderExports();
+
+    // Given apiKey is "test-openai-compatible-key"
+    // And baseUrl is "https://gateway.eu.example/v1"
+    // And model is "qwen2.5-coder-32b"
+    // When the compatible provider is constructed with an injected fake client
+    const provider = createOpenAICompatibleProvider({
+      apiKey: TestApiKey,
+      model: TestModel,
+      baseUrl: TestBaseUrl,
+      client: fakeOpenAIClient(),
+    });
+
+    // Then provider.name equals "openai-compatible"
+    // And provider.name does not equal "openai"
+    // And provider.model equals "qwen2.5-coder-32b"
+    expect(provider.name).toBe("openai-compatible");
+    expect(provider.name).not.toBe("openai");
+    expect(provider.model).toBe(TestModel);
+  });
+
+  it("rejects OpenAI metadata for the compatible construction path", async () => {
+    const { createOpenAICompatibleProvider } = await openAICompatibleProviderExports();
+
+    // Given the compatible construction path returns provider.name "openai"
+    const provider = createOpenAICompatibleProvider({
+      apiKey: TestApiKey,
+      model: TestModel,
+      baseUrl: TestBaseUrl,
+      client: fakeOpenAIClient(),
+    });
+
+    // When the compatible provider contract test runs
+    // Then the test fails
+    // And the failure explains that logs and audit events must distinguish "openai-compatible" from "openai"
+    expect(
+      provider.name,
+      "logs and audit events must distinguish openai-compatible from openai",
+    ).toBe("openai-compatible");
+  });
+
+  it("keeps the compatible provider name stable after structured generation", async () => {
+    const { createOpenAICompatibleProvider } = await openAICompatibleProviderExports();
+
+    // Given the fake compatible client returns content "{\"summary\":\"Reviewed\"}"
+    // And the fake compatible client reports 123 prompt tokens and 45 completion tokens
+    const provider = createOpenAICompatibleProvider({
+      apiKey: TestApiKey,
+      model: TestModel,
+      baseUrl: TestBaseUrl,
+      client: fakeOpenAIClient(),
+    });
+
+    // When generateStructuredWithUsage is called
+    const result = await requireGenerateStructuredWithUsage(provider);
+
+    // Then provider.name still equals "openai-compatible"
+    // And tokenUsage equals {"prompt":123,"completion":45}
+    expect(provider.name).toBe("openai-compatible");
+    expect(result.tokenUsage).toEqual({ prompt: 123, completion: 45 });
+  });
+});
+
+async function openAICompatibleProviderExports(): Promise<OpenAICompatibleProviderExports> {
+  const createOpenAICompatibleProvider = Reflect.get(
+    LlmProviders,
+    "createOpenAICompatibleProvider",
+  );
+
+  if (typeof createOpenAICompatibleProvider !== "function") {
+    throw new Error("createOpenAICompatibleProvider export is missing");
+  }
+
+  return { createOpenAICompatibleProvider };
+}
+
+function fakeOpenAIClient(): FakeOpenAIChatClient {
+  return {
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{ message: { content: '{"summary":"Reviewed"}' } }],
+          usage: {
+            prompt_tokens: 123,
+            completion_tokens: 45,
+          },
+        }),
+      },
+    },
+  };
+}
+
+async function requireGenerateStructuredWithUsage(provider: LLMProvider) {
+  if (provider.generateStructuredWithUsage === undefined) {
+    throw new Error("generateStructuredWithUsage is missing");
+  }
+
+  return provider.generateStructuredWithUsage(ReviewParams);
+}
