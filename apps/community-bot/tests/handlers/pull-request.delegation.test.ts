@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 import type { SovriConfig } from "@sovri/config";
 import { MissingApiKeyError } from "@sovri/llm-providers";
-import type { Diff, Review } from "@sovri/review-engine";
+import { computeFindingFingerprint, type Diff, type Review } from "@sovri/review-engine";
 import { registerWebhookHandlers } from "../../src/handlers/index.js";
 import {
   handlePullRequestOpened,
@@ -973,6 +973,89 @@ function buildOctokit(): PullRequestWebhookContext["octokit"] {
     },
   };
 }
+
+describe("handlePullRequest reconciliation seam (R-07, R-01, R-04)", () => {
+  function buildReconcilingDependencies(values: {
+    readonly config: SovriConfig;
+    readonly diff: Diff;
+    readonly review: Review;
+  }): ReturnType<typeof buildDependencies> & {
+    readonly fetchPostedFindings: ReturnType<typeof vi.fn>;
+    readonly minimizeComments: ReturnType<typeof vi.fn>;
+  } {
+    const base = buildDependencies(values);
+    return Object.assign(base, {
+      fetchPostedFindings: vi.fn(),
+      minimizeComments: vi.fn().mockResolvedValue(undefined),
+    });
+  }
+
+  it("posts every finding and never minimizes when fetching prior findings fails (fail-open)", async () => {
+    const diff = buildDiff();
+    const review = buildReview({ commitSha: OPENED_HEAD_SHA });
+    const dependencies = buildReconcilingDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff,
+      review,
+    });
+    dependencies.fetchPostedFindings.mockRejectedValue(new Error("rate limited"));
+
+    // When the bot re-reviews and the prior-findings fetch fails
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    // Then the review is still posted with all findings
+    expect(dependencies.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ number: 41 }),
+      expect.objectContaining({ findings: review.findings }),
+      diff,
+    );
+    // And no comment is minimized, and no error comment is posted
+    expect(dependencies.minimizeComments).not.toHaveBeenCalled();
+    expect(dependencies.postErrorComment).not.toHaveBeenCalled();
+  });
+
+  it("drops already-posted findings and minimizes comments the run no longer produces", async () => {
+    const diff = buildDiff();
+    const review = buildReview({ commitSha: OPENED_HEAD_SHA });
+    const [firstFinding] = review.findings;
+    if (firstFinding === undefined) {
+      throw new Error("fixture review must contain a finding");
+    }
+    const postedFingerprint = computeFindingFingerprint(firstFinding, diff);
+    const dependencies = buildReconcilingDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff,
+      review,
+    });
+    dependencies.fetchPostedFindings.mockResolvedValue({
+      fingerprints: new Set([postedFingerprint]),
+      comments: [
+        { nodeId: "RC_same", fingerprint: postedFingerprint },
+        { nodeId: "RC_gone", fingerprint: "deadbeefdeadbeef" },
+      ],
+    });
+
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    // The already-posted finding is reconciled out before posting
+    expect(dependencies.postReview).toHaveBeenCalledWith(
+      expect.objectContaining({ number: 41 }),
+      expect.objectContaining({ findings: [] }),
+      diff,
+    );
+    // The comment whose fingerprint the run no longer produces is minimized
+    expect(dependencies.minimizeComments).toHaveBeenCalledWith(
+      expect.objectContaining({ number: 41 }),
+      ["RC_gone"],
+    );
+  });
+});
 
 function buildDiff(
   values: {

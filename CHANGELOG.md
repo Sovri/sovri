@@ -338,6 +338,26 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(review-engine)`: reconcile findings across review runs so a re-review
+  no longer re-posts a still-valid finding nor re-posts one whose code was fixed
+  (#1965). Each inline comment carries a stable, content-derived finding
+  fingerprint (`<!-- sovri-finding-id: -->`, independent of line shifts and LLM
+  title drift, yet case-sensitive on the targeted code so two same-CWE sinks in
+  one file keep separate identities); on re-review the bot reads its own prior
+  comments via GitHub GraphQL review threads (each thread's root bot comment,
+  non-minimized only; the marker is anchored to the end of the body so a
+  marker-like token elsewhere cannot be mis-read) and reconciles the new
+  findings against them — skipping already-posted ones,
+  collapsing intra-run duplicates, and marking comments whose finding the
+  current run no longer produces as outdated (minimized). Embedding the marker
+  also activates dismissal of inline findings by id. Reconciliation logic stays
+  pure in `@sovri/review-engine` (exposed as `computeFindingFingerprint`,
+  `reconcileFindings`, `classifyResolvedComments`, `extractFindingFingerprint`);
+  the bot remains a thin GitHub adapter. The reconciliation seam is wired into
+  the pull-request handler and degrades fail-open — if the prior-comment fetch
+  errors, every finding is posted rather than suppressed, and minimization is
+  best-effort.
+
 - `test`: alias `@sovri/compliance` to its source entrypoint in the root Vitest
   config so review-engine source tests do not resolve the package through
   built `dist` output.
@@ -405,6 +425,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `chore(deps)`: add `zod@4.4.3` (exact-pinned; already resolved in the
+  workspace, so the dependency graph and `pnpm dedupe` are unchanged) as a
+  direct dependency of `@sovri/community-bot`, used to validate the GitHub
+  GraphQL review-threads payload before reconciliation (#1965).
 - `chore(deps)`: bump `@anthropic-ai/sdk` 0.96.0 → 0.99.0 (features: cache
   diagnostics beta, thinking-token-count beta, sandbox helpers — no breaking
   change for `messages.create` / `jsonSchemaOutputFormat` / `ContentBlock`

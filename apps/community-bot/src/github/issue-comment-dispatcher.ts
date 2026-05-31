@@ -175,7 +175,7 @@ export function createIssueCommentHandlerDependencies(
   };
 }
 
-function readBotLogin(env: NodeJS.ProcessEnv): string {
+export function readBotLogin(env: NodeJS.ProcessEnv): string {
   const value = env.SOVRI_BOT_LOGIN?.trim();
   if (value === undefined || value.length === 0) {
     return DEFAULT_BOT_LOGIN;

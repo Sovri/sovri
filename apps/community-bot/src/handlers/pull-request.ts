@@ -3,11 +3,15 @@
 
 import type { SovriConfig } from "@sovri/config";
 import { MissingApiKeyError } from "@sovri/llm-providers";
-import type {
-  Diff,
-  Review,
-  ReviewPullRequestInput,
-  ReviewPullRequestOptions,
+import {
+  classifyResolvedComments,
+  computeFindingFingerprint,
+  reconcileFindings,
+  type Diff,
+  type PostedComment,
+  type Review,
+  type ReviewPullRequestInput,
+  type ReviewPullRequestOptions,
 } from "@sovri/review-engine";
 import type { CommentPosterOctokit } from "../github/comment-poster.js";
 import type { DiffFetcherOctokit } from "../github/diff-fetcher.js";
@@ -28,6 +32,10 @@ export type PullRequestWebhookContext = {
 
 export type PullRequestOctokit = CommentPosterOctokit &
   DiffFetcherOctokit & {
+    readonly graphql: (
+      query: string,
+      variables: Readonly<Record<string, unknown>>,
+    ) => Promise<unknown>;
     readonly rest: {
       readonly repos: {
         readonly getContent: (
@@ -64,6 +72,11 @@ export type PullRequestHandlerLogger = {
   info(bindings: Readonly<Record<string, unknown>>, message: string): void;
 };
 
+export type PostedFindingsState = {
+  readonly fingerprints: ReadonlySet<string>;
+  readonly comments: readonly PostedComment[];
+};
+
 export type PullRequestHandlerDependencies = {
   readonly fetchDiff: (target: ReviewPostTarget) => Promise<Diff>;
   readonly loadConfig: (target: ReviewPostTarget) => Promise<SovriConfig>;
@@ -76,6 +89,13 @@ export type PullRequestHandlerDependencies = {
   ) => Promise<Review>;
   readonly buildReviewOptions?: (config: SovriConfig) => ReviewPullRequestOptions;
   readonly reviewOptions?: ReviewPullRequestOptions;
+  // Reconciliation (issue #1965). Optional so the handler degrades to the
+  // pre-reconciliation behaviour when an adapter does not supply them.
+  readonly fetchPostedFindings?: (target: ReviewPostTarget) => Promise<PostedFindingsState>;
+  readonly minimizeComments?: (
+    target: ReviewPostTarget,
+    nodeIds: readonly string[],
+  ) => Promise<void>;
 };
 
 export type PullRequestFailureReporterDependencies = Pick<
@@ -175,7 +195,7 @@ async function handlePullRequest(
       reviewOptions,
     );
     requireSuccessfulReview(review);
-    await dependencies.postReview(target, review, diff);
+    await postReconciledReview(dependencies, target, review, diff);
     dependencies.logger.info(
       {
         ...logContext,
@@ -190,6 +210,70 @@ async function handlePullRequest(
       error,
       logContext: target === undefined ? initialLogContext : buildLogContext(context, target),
     });
+  }
+}
+
+async function postReconciledReview(
+  dependencies: PullRequestHandlerDependencies,
+  target: ReviewPostTarget,
+  review: Review,
+  diff: Diff,
+): Promise<void> {
+  const fetchPostedFindings = dependencies.fetchPostedFindings;
+  if (fetchPostedFindings === undefined) {
+    await dependencies.postReview(target, review, diff);
+    return;
+  }
+
+  let posted: PostedFindingsState;
+  try {
+    posted = await fetchPostedFindings(target);
+  } catch (error) {
+    // Fail-open: a transient API error must never hide a real finding (#1965),
+    // so post everything rather than suppressing or failing the review.
+    dependencies.logger.info(
+      { error_message: errorMessageFrom(error) },
+      "Posted findings fetch failed; posting all findings",
+    );
+    posted = { comments: [], fingerprints: new Set() };
+  }
+
+  const reconciled: Review = {
+    ...review,
+    findings: reconcileFindings(review.findings, diff, posted.fingerprints),
+  };
+  await dependencies.postReview(target, reconciled, diff);
+  await minimizeResolvedComments(dependencies, target, review, diff, posted.comments);
+}
+
+async function minimizeResolvedComments(
+  dependencies: PullRequestHandlerDependencies,
+  target: ReviewPostTarget,
+  review: Review,
+  diff: Diff,
+  postedComments: readonly PostedComment[],
+): Promise<void> {
+  const minimizeComments = dependencies.minimizeComments;
+  if (minimizeComments === undefined || postedComments.length === 0) {
+    return;
+  }
+
+  const currentFingerprints = new Set(
+    review.findings.map((finding) => computeFindingFingerprint(finding, diff)),
+  );
+  const resolved = classifyResolvedComments(postedComments, currentFingerprints);
+  if (resolved.length === 0) {
+    return;
+  }
+
+  try {
+    // Best-effort: a failed minimize must not fail the review.
+    await minimizeComments(target, resolved);
+  } catch (error) {
+    dependencies.logger.info(
+      { error_message: errorMessageFrom(error) },
+      "Minimizing resolved finding comments failed",
+    );
   }
 }
 

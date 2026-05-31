@@ -1226,6 +1226,17 @@ function installReviewFlowHandlers(
     http.get(`${GitHubBaseUrl}/repos/:owner/:repo/issues/:issue_number/comments`, () =>
       HttpResponse.json([]),
     ),
+    http.post(`${GitHubBaseUrl}/graphql`, () =>
+      HttpResponse.json({
+        data: {
+          repository: {
+            pullRequest: {
+              reviewThreads: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+            },
+          },
+        },
+      }),
+    ),
     http.post(
       `${GitHubBaseUrl}/repos/:owner/:repo/pulls/:pull_number/reviews`,
       async ({ params, request }) => {
