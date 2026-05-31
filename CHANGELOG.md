@@ -74,9 +74,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   complete SDK mock exports, clarify provider validation and default-option comments, and document
   the typed OpenAI provider error hierarchy.
 
-- `feat(llm-providers)`: add the OpenAI-compatible provider construction helper and grouped
-  acceptance coverage for the required custom `baseUrl`, distinguishable provider metadata, and
-  no fallback to the public OpenAI endpoint.
+- `feat(llm-providers)`: add the OpenAI-compatible provider construction helper for BYOK
+  deployments that route reviews through self-hosted or EU-hosted OpenAI-compatible gateways,
+  covering `provider: openai-compatible`, required `baseUrl`, optional `model`, distinguishable
+  provider metadata, and no fallback to the public OpenAI endpoint.
 
 - `test(llm-providers)`: add OpenAI-compatible protocol parity coverage proving structured-output
   request shaping, retryable schema errors, and transient retry behavior stay shared with the
@@ -110,8 +111,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `fix(llm-providers)`: address OpenAI-compatible review feedback by making the missing-baseUrl
   no-network guard exercise SDK-construction prevention without an injected client, sharing
-  compatible provider test helpers across base URL suites, clarifying metadata comments, and
-  preserving the missing-usage sentinel type in token-usage fixtures.
+  compatible provider test helpers across base URL, metadata, and no-network suites, clarifying
+  metadata comments, preserving the missing-usage sentinel type in token-usage fixtures, and
+  documenting compatible-endpoint adoption details in the changelog.
 
 ## [0.3.0] - 2026-05-31
 

@@ -4,8 +4,11 @@
 import { z } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
-import * as LlmProviders from "../index.js";
 import type { LLMProvider } from "../types/LLMProvider.js";
+import {
+  type FakeOpenAIChatClient,
+  openAICompatibleProviderExports,
+} from "./OpenAICompatibleProvider.test-helpers.js";
 
 const TestApiKey = "test-openai-compatible-key";
 const TestBaseUrl = "https://gateway.eu.example/v1";
@@ -16,27 +19,6 @@ const ReviewParams = {
   userPrompt: "Diff contents",
   schema: z.strictObject({ summary: z.string() }),
 };
-
-interface FakeOpenAIChatClient {
-  readonly chat: {
-    readonly completions: {
-      readonly create: (request: unknown, options?: unknown) => Promise<unknown>;
-    };
-  };
-}
-
-interface OpenAICompatibleProviderOptions {
-  readonly apiKey: string;
-  readonly model?: string;
-  readonly baseUrl: string;
-  readonly client: FakeOpenAIChatClient;
-}
-
-interface OpenAICompatibleProviderExports {
-  readonly createOpenAICompatibleProvider: (
-    options: OpenAICompatibleProviderOptions,
-  ) => LLMProvider;
-}
 
 describe("OpenAI-compatible provider metadata", () => {
   it("sets a distinguishable provider name during construction", async () => {
@@ -101,19 +83,6 @@ describe("OpenAI-compatible provider metadata", () => {
     expect(result.tokenUsage).toEqual({ prompt: 123, completion: 45 });
   });
 });
-
-async function openAICompatibleProviderExports(): Promise<OpenAICompatibleProviderExports> {
-  const createOpenAICompatibleProvider = Reflect.get(
-    LlmProviders,
-    "createOpenAICompatibleProvider",
-  );
-
-  if (typeof createOpenAICompatibleProvider !== "function") {
-    throw new Error("createOpenAICompatibleProvider export is missing");
-  }
-
-  return { createOpenAICompatibleProvider };
-}
 
 function fakeOpenAIClient(): FakeOpenAIChatClient {
   return {
