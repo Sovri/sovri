@@ -36,6 +36,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(llm-providers)`: add grouped acceptance coverage for OpenAI API key validation,
   including blank-key typed errors before requests and trimmed SDK constructor options.
 
+- `feat(llm-providers)`: add bounded OpenAI numeric options for timeout and max-attempt
+  configuration alongside the existing max-token validation.
+
 - `fix(llm-providers)`: normalize OpenAI strict JSON schemas before requests, reject
   unsupported dynamic record schemas, and wrap SDK transport/authentication failures in
   typed provider errors with request metadata.

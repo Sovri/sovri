@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import OpenAI, {
-  APIError,
-  AuthenticationError,
-  PermissionDeniedError,
-  type ClientOptions,
-} from "openai";
+import OpenAI, { APIError, AuthenticationError, PermissionDeniedError } from "openai";
 import type {
   ChatCompletionCreateParamsNonStreaming,
   Completions,
@@ -23,6 +18,12 @@ import {
   type OpenAIProviderErrorOptions,
 } from "./OpenAIProvider.errors.js";
 import {
+  createOpenAIClientOptions,
+  resolveMaxTokens,
+  resolveOpenAIProviderOptions,
+  type OpenAIProviderConfigOptions,
+} from "./OpenAIProvider.options.js";
+import {
   createOpenAIJsonSchemaResponseFormat,
   extractOpenAITokenUsage,
   parseStructuredOpenAIResponse,
@@ -33,10 +34,14 @@ export {
   OpenAIProviderError,
   type OpenAIProviderErrorOptions,
 } from "./OpenAIProvider.errors.js";
-
-export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
-export const DEFAULT_OPENAI_MAX_TOKENS = 4096;
-export const MAX_OPENAI_MAX_TOKENS = 64_000;
+export {
+  DEFAULT_OPENAI_MAX_ATTEMPTS,
+  DEFAULT_OPENAI_MAX_TOKENS,
+  DEFAULT_OPENAI_MODEL,
+  DEFAULT_OPENAI_TIMEOUT_MS,
+  MAX_OPENAI_MAX_TOKENS,
+  MAX_OPENAI_TIMEOUT_MS,
+} from "./OpenAIProvider.options.js";
 
 export type OpenAIChatComplete = Completions["create"];
 export type OpenAIChatRequest = ChatCompletionCreateParamsNonStreaming;
@@ -49,10 +54,7 @@ export interface OpenAIChatClient {
   };
 }
 
-export interface OpenAIProviderOptions {
-  readonly apiKey: string;
-  readonly model?: string;
-  readonly maxTokens?: number;
+export interface OpenAIProviderOptions extends OpenAIProviderConfigOptions {
   readonly client?: OpenAIChatClient;
 }
 
@@ -60,15 +62,21 @@ export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
   readonly model: string;
   readonly maxTokens: number;
+  readonly timeoutMs: number;
+  readonly maxAttempts: number;
 
   private readonly client: OpenAIChatClient;
 
   constructor(options: OpenAIProviderOptions) {
-    const apiKey = resolveApiKey(options.apiKey);
+    const resolvedOptions = resolveOpenAIProviderOptions(options);
 
-    this.model = resolveModel(options.model);
-    this.maxTokens = resolveMaxTokens(options.maxTokens);
-    this.client = options.client ?? new OpenAI(createOpenAIClientOptions(apiKey));
+    this.model = resolvedOptions.model;
+    this.maxTokens = resolvedOptions.maxTokens;
+    this.timeoutMs = resolvedOptions.timeoutMs;
+    this.maxAttempts = resolvedOptions.maxAttempts;
+    this.client =
+      options.client ??
+      new OpenAI(createOpenAIClientOptions(resolvedOptions.apiKey, resolvedOptions.timeoutMs));
   }
 
   async generateStructured<T>(params: GenerateStructuredParams<T>): Promise<T> {
@@ -117,47 +125,6 @@ export class OpenAIProvider implements LLMProvider {
 
     return request;
   }
-}
-
-function createOpenAIClientOptions(apiKey: string): ClientOptions {
-  return {
-    apiKey,
-    maxRetries: 0,
-  };
-}
-
-function resolveApiKey(apiKey: string): string {
-  const trimmed = apiKey.trim();
-  if (trimmed.length === 0) {
-    throw new OpenAIProviderAuthError("OpenAI apiKey must be a non-empty value");
-  }
-
-  return trimmed;
-}
-
-function resolveModel(model: string | undefined): string {
-  const trimmed = (model ?? DEFAULT_OPENAI_MODEL).trim();
-  if (trimmed.length === 0) {
-    throw new OpenAIProviderError("OpenAI model must be a non-empty value");
-  }
-
-  return trimmed;
-}
-
-function resolveMaxTokens(maxTokens: number | undefined): number {
-  const resolvedMaxTokens = maxTokens ?? DEFAULT_OPENAI_MAX_TOKENS;
-
-  if (
-    !Number.isSafeInteger(resolvedMaxTokens) ||
-    resolvedMaxTokens <= 0 ||
-    resolvedMaxTokens > MAX_OPENAI_MAX_TOKENS
-  ) {
-    throw new OpenAIProviderError(
-      `OpenAI maxTokens must be a positive integer no greater than ${String(MAX_OPENAI_MAX_TOKENS)}`,
-    );
-  }
-
-  return resolvedMaxTokens;
 }
 
 function createOpenAIRequestError(
