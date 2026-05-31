@@ -16,7 +16,11 @@ export function createOpenAIStrictJsonSchema(schema: z.ZodType): Record<string, 
 
     return normalizeOpenAIStrictJsonSchema(jsonSchema);
   } catch (cause) {
-    if (cause instanceof OpenAIProviderError) throw cause;
+    if (cause instanceof OpenAIProviderError) {
+      throw new OpenAIProviderError(`Failed to build OpenAI response schema: ${cause.message}`, {
+        cause,
+      });
+    }
 
     throw new OpenAIProviderError("Failed to build OpenAI response schema", { cause });
   }
@@ -128,7 +132,11 @@ function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
   const normalized: Record<string, unknown> = {};
   for (const [propertyName, propertyValue] of Object.entries(value)) {
     const propertySchema = properties[propertyName];
-    if (propertyValue === null && !requiredProperties.has(propertyName)) {
+    if (
+      propertyValue === null &&
+      !requiredProperties.has(propertyName) &&
+      !allowsNullJsonSchemaValue(propertySchema)
+    ) {
       continue;
     }
 
@@ -200,4 +208,21 @@ function stringArray(value: unknown): readonly string[] {
 
 function isNullSchema(value: unknown): boolean {
   return isJsonObject(value) && value["type"] === "null";
+}
+
+function allowsNullJsonSchemaValue(value: unknown): boolean {
+  if (!isJsonObject(value)) {
+    return false;
+  }
+
+  const type = value["type"];
+  if (type === "null") {
+    return true;
+  }
+  if (isStringArray(type) && type.includes("null")) {
+    return true;
+  }
+
+  const anyOf = value["anyOf"];
+  return Array.isArray(anyOf) && anyOf.some(allowsNullJsonSchemaValue);
 }

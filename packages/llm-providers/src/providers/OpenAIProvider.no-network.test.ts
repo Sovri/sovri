@@ -14,7 +14,8 @@ import {
 
 const ProvidersDir = new URL(".", import.meta.url);
 const ThisTestFileName = "OpenAIProvider.no-network.test.ts";
-const OpenAIChatCompletionsUrl = "https://api.openai.com/v1/chat/completions";
+const OpenAIHost = ["api", "openai", "com"].join(".");
+const OpenAIChatCompletionsUrl = `https://${OpenAIHost}/v1/chat/completions`;
 
 interface ForbiddenOpenAINetworkPattern {
   readonly label: string;
@@ -24,9 +25,9 @@ interface ForbiddenOpenAINetworkPattern {
 
 const ForbiddenOpenAINetworkPatterns = [
   {
-    label: "https://api.openai.com",
-    matches: (source) => source.toLowerCase().includes("https://api.openai.com"),
-    sample: "https://api.openai.com",
+    label: OpenAIHost,
+    matches: (source) => source.toLowerCase().includes(OpenAIHost),
+    sample: `https://${OpenAIHost}`,
   },
   {
     label: "OPENAI_API_KEY",
@@ -70,7 +71,7 @@ describe("OpenAIProvider no-network test guard", () => {
     expect(contractSource).toContain("chat: {");
     expect(contractSource).toContain("completions: {");
     expect(contractSource).toContain("create: async");
-    expect(allSourcesText(sources)).not.toContain("api.openai.com");
+    expect(allSourcesText(sources)).not.toContain(OpenAIHost);
   });
 
   it.each(ForbiddenOpenAINetworkPatterns)(

@@ -81,6 +81,23 @@ describe("OpenAIProvider schema edge cases", () => {
     expect(calls).toHaveLength(1);
     expect(result).toEqual({ item: { kind: "first" } });
   });
+
+  it("preserves null values that are valid in optional nullable fields", async () => {
+    const schema = z.strictObject({
+      summary: z.string(),
+      cwe: z.string().nullable().optional(),
+    });
+    const calls: unknown[] = [];
+    const provider = newProvider(openAIResponse('{"summary":"Reviewed","cwe":null}'), calls);
+
+    const result = await provider.generateStructured({
+      ...ReviewParams,
+      schema,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(result).toEqual({ summary: "Reviewed", cwe: null });
+  });
 });
 
 function newProvider(response: unknown, calls: unknown[]): LLMProvider {

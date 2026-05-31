@@ -64,7 +64,7 @@ export function createOpenAIClientOptions(
   return clientOptions;
 }
 
-export function resolveMaxTokens(maxTokens: number | undefined): number {
+export function resolveMaxTokens(maxTokens: number | undefined) {
   const resolvedMaxTokens = maxTokens ?? DEFAULT_OPENAI_MAX_TOKENS;
 
   if (
