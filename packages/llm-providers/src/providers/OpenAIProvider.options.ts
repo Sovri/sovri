@@ -5,13 +5,16 @@ import type { ClientOptions } from "openai";
 
 import { OpenAIProviderAuthError, OpenAIProviderError } from "./OpenAIProvider.errors.js";
 
+// Default model targets the OpenAI provider baseline used when repository config omits a model.
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 // Default review budget keeps normal PR walkthroughs roomy without spending the full provider cap.
 export const DEFAULT_OPENAI_MAX_TOKENS = 4096;
 // Provider-level ceiling prevents accidental unbounded completions from repository configuration.
 export const MAX_OPENAI_MAX_TOKENS = 64_000;
+// Default request timeout gives larger PR reviews enough time while still surfacing stuck calls.
 export const DEFAULT_OPENAI_TIMEOUT_MS = 60_000;
 export const MAX_OPENAI_TIMEOUT_MS = 2_147_483_647;
+// Default retry budget covers common transient API failures without creating long review stalls.
 export const DEFAULT_OPENAI_MAX_ATTEMPTS = 3;
 export const MAX_OPENAI_MAX_ATTEMPTS = 10;
 

@@ -71,8 +71,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(llm-providers)`: handle OpenAI optional null sentinels inside union schema branches and
   optional enum schemas, rewrite literal/one-of schema keywords for OpenAI strict structured
   outputs, reject unsupported all-of schemas before requests, preserve caller-allowed null values,
-  complete SDK mock exports, clarify provider validation comments, and document the typed OpenAI
-  provider error hierarchy.
+  complete SDK mock exports, clarify provider validation and default-option comments, and document
+  the typed OpenAI provider error hierarchy.
 
 ## [0.3.0] - 2026-05-31
 
