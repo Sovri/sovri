@@ -82,6 +82,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   request shaping, retryable schema errors, and transient retry behavior stay shared with the
   OpenAI provider path.
 
+- `test(llm-providers)`: add OpenAI-compatible provider metadata coverage so logs and audit events
+  can distinguish compatible endpoints from the public OpenAI provider before and after generation.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed
