@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: assert OpenAI provider config keeps the existing review mode
+  contract, including the reserved `strict` mode rejection.
+
 - `test(config)`: pin the `ProviderSchema` enum contract to Anthropic, Mistral,
   OpenAI, and OpenAI-compatible provider values.
 
