@@ -86,6 +86,7 @@ const ForbiddenEnvironmentLookupSamples = [
 const UnmockedCompatibleSdkConstructionLabel =
   "createOpenAICompatibleProvider without client or mocked OpenAI SDK";
 const OpenAIMockPattern = /vi\.doMock\(\s*["']openai["']/;
+const TestBlockPattern = /\bit(?:\.each)?\s*\(/g;
 const DirectCompatibleProviderConstructionPattern =
   /\bcreateOpenAICompatibleProvider\s*\(\s*\{([\s\S]*?)\}\s*\)/g;
 const ClientOptionPattern = /\bclient\s*:/;
@@ -165,6 +166,21 @@ describe("OpenAI-compatible no-network test guard", () => {
     expect(findForbiddenCompatibleNetworkPatterns(withMockedSdk)).not.toContain(
       UnmockedCompatibleSdkConstructionLabel,
     );
+  });
+
+  it("rejects unmocked compatible SDK construction in a later test block", () => {
+    const source = `it("mocked", () => {
+  vi.doMock("openai", () => mockOpenAIModule([]));
+  createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });
+});
+
+it("unmocked", () => {
+  createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });
+});`;
+
+    const violations = findForbiddenCompatibleNetworkPatterns(source);
+
+    expect(violations).toContain(UnmockedCompatibleSdkConstructionLabel);
   });
 
   it("keeps committed compatible provider tests free of real network dependencies", async () => {
@@ -329,16 +345,32 @@ function isErrorConstructor(value: unknown): value is ErrorConstructor {
 }
 
 function hasUnmockedCompatibleProviderConstruction(source: string): boolean {
-  if (OpenAIMockPattern.test(source)) {
-    return false;
-  }
-
   for (const match of source.matchAll(DirectCompatibleProviderConstructionPattern)) {
     const options = match[1];
-    if (options !== undefined && !ClientOptionPattern.test(options)) {
+    if (
+      options !== undefined &&
+      !ClientOptionPattern.test(options) &&
+      !hasOpenAIMockInCurrentTestBlock(source, match.index)
+    ) {
       return true;
     }
   }
 
   return false;
+}
+
+function hasOpenAIMockInCurrentTestBlock(source: string, constructionIndex: number): boolean {
+  const testBlockStart = currentTestBlockStart(source, constructionIndex);
+  return OpenAIMockPattern.test(source.slice(testBlockStart, constructionIndex));
+}
+
+function currentTestBlockStart(source: string, constructionIndex: number): number {
+  let testBlockStart = 0;
+  const sourceBeforeConstruction = source.slice(0, constructionIndex);
+
+  for (const match of sourceBeforeConstruction.matchAll(TestBlockPattern)) {
+    testBlockStart = match.index;
+  }
+
+  return testBlockStart;
 }
