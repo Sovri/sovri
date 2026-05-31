@@ -108,6 +108,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   entrypoint helper constructs an `LLMProvider` with an injected fake client while remaining under
   the compatible no-network guard.
 
+- `fix(llm-providers)`: address OpenAI-compatible review feedback by making the missing-baseUrl
+  no-network guard exercise SDK-construction prevention without an injected client, sharing
+  compatible provider test helpers across base URL suites, clarifying metadata comments, and
+  preserving the missing-usage sentinel type in token-usage fixtures.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed

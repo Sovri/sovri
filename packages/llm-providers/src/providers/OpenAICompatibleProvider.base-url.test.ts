@@ -3,7 +3,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LLMProvider } from "../types/LLMProvider.js";
+import {
+  captureError,
+  type FakeOpenAIChatClient,
+  mockOpenAIModule,
+  openAICompatibleProviderExports,
+  type OpenAICompatibleProviderOptions,
+} from "./OpenAICompatibleProvider.test-helpers.js";
 
 const TestApiKey = "test-openai-compatible-key";
 const TestModel = "llama-3.3-70b-instruct";
@@ -11,28 +17,6 @@ const TestBaseUrl = "https://vllm.eu.example/v1";
 const MissingBaseUrl = Symbol("missing baseUrl");
 
 type BaseUrlInput = typeof MissingBaseUrl | string;
-
-interface FakeOpenAIChatClient {
-  readonly chat: {
-    readonly completions: {
-      readonly create: (request: unknown, options?: unknown) => Promise<unknown>;
-    };
-  };
-}
-
-interface OpenAICompatibleProviderOptions {
-  readonly apiKey: string;
-  readonly model?: string;
-  readonly baseUrl?: string;
-  readonly client?: FakeOpenAIChatClient;
-}
-
-interface OpenAICompatibleProviderExports {
-  readonly createOpenAICompatibleProvider: (
-    options: OpenAICompatibleProviderOptions,
-  ) => LLMProvider;
-  readonly OpenAIProviderError: ErrorConstructor;
-}
 
 const InvalidBaseUrls = [
   ["missing", MissingBaseUrl],
@@ -118,21 +102,6 @@ describe("OpenAI-compatible base URL acceptance", () => {
   });
 });
 
-async function openAICompatibleProviderExports(): Promise<OpenAICompatibleProviderExports> {
-  const module = await import("../index.js");
-  const createOpenAICompatibleProvider = Reflect.get(module, "createOpenAICompatibleProvider");
-  const OpenAIProviderError = Reflect.get(module, "OpenAIProviderError");
-
-  if (typeof createOpenAICompatibleProvider !== "function") {
-    throw new Error("createOpenAICompatibleProvider export is missing");
-  }
-  if (!isErrorConstructor(OpenAIProviderError)) {
-    throw new Error("OpenAIProviderError export is missing");
-  }
-
-  return { createOpenAICompatibleProvider, OpenAIProviderError };
-}
-
 function providerOptions(
   baseUrl: BaseUrlInput,
   requests: unknown[],
@@ -161,49 +130,4 @@ function fakeOpenAIClient(requests: unknown[]): FakeOpenAIChatClient {
       },
     },
   };
-}
-
-function mockOpenAIModule(sdkConstructorOptions: unknown[]): Record<string, unknown> {
-  class MockOpenAI {
-    readonly chat = {
-      completions: {
-        create: async () => {
-          throw new Error("Mock OpenAI client should not receive requests during construction");
-        },
-      },
-    };
-
-    constructor(options: unknown) {
-      sdkConstructorOptions.push(options);
-    }
-  }
-
-  class MockAPIError extends Error {}
-  class MockAPIConnectionError extends MockAPIError {}
-  class MockAPIConnectionTimeoutError extends MockAPIError {}
-  class MockAuthenticationError extends MockAPIError {}
-  class MockPermissionDeniedError extends MockAPIError {}
-
-  return {
-    default: MockOpenAI,
-    APIConnectionError: MockAPIConnectionError,
-    APIConnectionTimeoutError: MockAPIConnectionTimeoutError,
-    APIError: MockAPIError,
-    AuthenticationError: MockAuthenticationError,
-    PermissionDeniedError: MockPermissionDeniedError,
-  };
-}
-
-function captureError(action: () => unknown): unknown {
-  try {
-    action();
-  } catch (error) {
-    return error;
-  }
-
-  throw new Error("Expected constructor to throw");
-}
-
-function isErrorConstructor(value: unknown): value is ErrorConstructor {
-  return typeof value === "function" && value.prototype instanceof Error;
 }

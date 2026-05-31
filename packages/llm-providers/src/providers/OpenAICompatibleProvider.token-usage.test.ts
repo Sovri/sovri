@@ -19,7 +19,7 @@ const ReviewParams = {
 };
 
 type ReviewData = z.infer<typeof ReviewParams.schema>;
-type UsageShape = typeof MissingUsage | unknown;
+type UsageShape = typeof MissingUsage | Record<string, unknown>;
 
 interface FakeOpenAIChatClient {
   readonly chat: {

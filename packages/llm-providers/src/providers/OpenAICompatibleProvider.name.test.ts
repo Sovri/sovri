@@ -64,7 +64,7 @@ describe("OpenAI-compatible provider metadata", () => {
   it("rejects OpenAI metadata for the compatible construction path", async () => {
     const { createOpenAICompatibleProvider } = await openAICompatibleProviderExports();
 
-    // Given the compatible construction path returns provider.name "openai"
+    // Given the compatible construction path returns provider.name "openai-compatible"
     const provider = createOpenAICompatibleProvider({
       apiKey: TestApiKey,
       model: TestModel,
@@ -72,9 +72,8 @@ describe("OpenAI-compatible provider metadata", () => {
       client: fakeOpenAIClient(),
     });
 
-    // When the compatible provider contract test runs
-    // Then the test fails
-    // And the failure explains that logs and audit events must distinguish "openai-compatible" from "openai"
+    // Then provider.name equals "openai-compatible"
+    // And logs and audit events can distinguish "openai-compatible" from "openai"
     expect(
       provider.name,
       "logs and audit events must distinguish openai-compatible from openai",

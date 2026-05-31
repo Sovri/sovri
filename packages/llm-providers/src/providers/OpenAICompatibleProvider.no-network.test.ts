@@ -265,8 +265,7 @@ function providerOptions(baseUrl: string): OpenAICompatibleProviderOptions {
     );
   });
 
-  it("rejects missing baseUrl before fake client or SDK construction", async () => {
-    const calls: unknown[] = [];
+  it("rejects missing baseUrl before SDK construction", async () => {
     const sdkConstructorOptions: unknown[] = [];
     vi.doMock("openai", () => mockOpenAIModule(sdkConstructorOptions));
     const { createOpenAICompatibleProvider, OpenAIProviderError } =
@@ -277,15 +276,12 @@ function providerOptions(baseUrl: string): OpenAICompatibleProviderOptions {
     const error = captureError(() =>
       createOpenAICompatibleProvider({
         apiKey: CompatibleProviderFixture.apiKey,
-        client: fakeOpenAIClient(calls),
       }),
     );
 
     // Then OpenAIProviderError is thrown
-    // And the fake compatible client receives 0 calls
     // And the OpenAI SDK constructor receives 0 calls
     expect(error).toBeInstanceOf(OpenAIProviderError);
-    expect(calls).toEqual([]);
     expect(sdkConstructorOptions).toEqual([]);
   });
 });
