@@ -44,6 +44,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(llm-providers)`: support optional OpenAI constructor base URL overrides for EU-hosted or
   OpenAI-compatible endpoints while preserving the SDK default when omitted.
 
+- `test(llm-providers)`: add grouped acceptance coverage for OpenAI token-usage mapping,
+  invalid usage diagnostics, and data-only generation.
+
 - `fix(llm-providers)`: normalize OpenAI strict JSON schemas before requests, reject
   unsupported dynamic record schemas, and wrap SDK transport/authentication failures in
   typed provider errors with request metadata.
