@@ -62,6 +62,25 @@ describe("OpenAIProvider schema edge cases", () => {
       groups: [{ title: "Auth", checks: [{ id: "A1" }] }],
     });
   });
+
+  it("strips optional null sentinels inside union branches before Zod validation", async () => {
+    const schema = z.strictObject({
+      item: z.union([
+        z.strictObject({ kind: z.literal("first"), note: z.string().optional() }),
+        z.strictObject({ kind: z.literal("second"), code: z.string() }),
+      ]),
+    });
+    const calls: unknown[] = [];
+    const provider = newProvider(openAIResponse('{"item":{"kind":"first","note":null}}'), calls);
+
+    const result = await provider.generateStructured({
+      ...ReviewParams,
+      schema,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(result).toEqual({ item: { kind: "first" } });
+  });
 });
 
 function newProvider(response: unknown, calls: unknown[]): LLMProvider {

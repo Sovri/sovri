@@ -114,6 +114,11 @@ function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
     return value;
   }
 
+  const anyOf = schema["anyOf"];
+  if (Array.isArray(anyOf)) {
+    return stripOptionalNullsFromAnyOf(value, anyOf);
+  }
+
   const properties = schema["properties"];
   if (!isJsonObject(properties)) {
     return value;
@@ -131,6 +136,46 @@ function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
   }
 
   return normalized;
+}
+
+function stripOptionalNullsFromAnyOf(value: unknown, schemas: ReadonlyArray<unknown>): unknown {
+  let bestValue = value;
+  let bestRemovedNulls = -1;
+  const sourceNulls = countNullValues(value);
+
+  for (const schema of schemas) {
+    const candidate = stripOptionalNullsFromValue(value, schema);
+    const removedNulls = sourceNulls - countNullValues(candidate);
+    if (removedNulls > bestRemovedNulls) {
+      bestValue = candidate;
+      bestRemovedNulls = removedNulls;
+    }
+  }
+
+  return bestValue;
+}
+
+function countNullValues(value: unknown): number {
+  if (value === null) {
+    return 1;
+  }
+  let count = 0;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      count += countNullValues(item);
+    }
+
+    return count;
+  }
+  if (!isJsonObject(value)) {
+    return 0;
+  }
+
+  for (const item of Object.values(value)) {
+    count += countNullValues(item);
+  }
+
+  return count;
 }
 
 function hasDynamicObjectProperties(schema: Record<string, unknown>): boolean {

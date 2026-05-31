@@ -21,6 +21,7 @@ type OpenAIProviderErrorName =
   | "OpenAIProviderRetryError"
   | "OpenAIProviderTimeoutError";
 
+/** Base OpenAI provider failure with SDK metadata, Zod issues, and token usage when available. */
 export class OpenAIProviderError<
   Name extends OpenAIProviderErrorName = "OpenAIProviderError",
 > extends Error {
@@ -63,18 +64,21 @@ export class OpenAIProviderError<
   }
 }
 
+/** OpenAI authentication or authorization failure, including invalid or unauthorized API keys. */
 export class OpenAIProviderAuthError extends OpenAIProviderError<"OpenAIProviderAuthError"> {
   protected override get errorName(): "OpenAIProviderAuthError" {
     return "OpenAIProviderAuthError";
   }
 }
 
+/** Retry budget exhaustion after all retryable OpenAI request attempts fail. */
 export class OpenAIProviderRetryError extends OpenAIProviderError<"OpenAIProviderRetryError"> {
   protected override get errorName(): "OpenAIProviderRetryError" {
     return "OpenAIProviderRetryError";
   }
 }
 
+/** Overall OpenAI request timeout before a successful retry attempt completes. */
 export class OpenAIProviderTimeoutError extends OpenAIProviderError<"OpenAIProviderTimeoutError"> {
   protected override get errorName(): "OpenAIProviderTimeoutError" {
     return "OpenAIProviderTimeoutError";

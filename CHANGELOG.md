@@ -70,6 +70,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(llm-providers)`: make the OpenAI no-network guard use a CodeQL-safe host matcher while
   preserving case-insensitive detection of forbidden real OpenAI API dependencies.
 
+- `fix(llm-providers)`: handle OpenAI optional null sentinels inside union schema branches and
+  document the typed OpenAI provider error hierarchy.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed
