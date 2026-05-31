@@ -7,10 +7,8 @@ import { z } from "@sovri/core";
 
 import type { TokenUsage } from "../types/LLMProvider.js";
 import { OpenAIProviderError } from "./OpenAIProvider.errors.js";
-import {
-  createOpenAIStrictJsonSchema,
-  stripOpenAIOptionalNulls,
-} from "./OpenAIProvider.schema-normalization.js";
+import { createOpenAIStrictJsonSchema } from "./OpenAIProvider.schema-normalization.js";
+import { stripOpenAIOptionalNulls } from "./OpenAIProvider.schema-stripping.js";
 
 type OpenAIChatRequest = ChatCompletionCreateParamsNonStreaming;
 

@@ -26,10 +26,6 @@ export function createOpenAIStrictJsonSchema(schema: z.ZodType): Record<string, 
   }
 }
 
-export function stripOpenAIOptionalNulls(value: unknown, schema: z.ZodType): unknown {
-  return stripOptionalNullsFromValue(value, zodToProviderJsonSchema(schema));
-}
-
 function normalizeOpenAIStrictJsonSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const normalized = normalizeJsonSchemaValue(schema);
   if (!isJsonObject(normalized)) {
@@ -102,88 +98,14 @@ function allowNullJsonSchemaValue(value: unknown): unknown {
   }
 
   const anyOf = value["anyOf"];
-  if (Array.isArray(anyOf) && !anyOf.some(isNullSchema)) {
-    value["anyOf"] = [...anyOf, { type: "null" }];
-  }
-
-  return value;
-}
-
-function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
-  if (Array.isArray(value)) {
-    const itemSchema = isJsonObject(schema) ? schema["items"] : undefined;
-    return value.map((item) => stripOptionalNullsFromValue(item, itemSchema));
-  }
-  if (!isJsonObject(value) || !isJsonObject(schema)) {
-    return value;
-  }
-
-  const anyOf = schema["anyOf"];
   if (Array.isArray(anyOf)) {
-    return stripOptionalNullsFromAnyOf(value, anyOf);
-  }
-
-  const properties = schema["properties"];
-  if (!isJsonObject(properties)) {
+    if (!anyOf.some(isNullSchema)) {
+      value["anyOf"] = [...anyOf, { type: "null" }];
+    }
     return value;
   }
 
-  const requiredProperties = new Set(stringArray(schema["required"]));
-  const normalized: Record<string, unknown> = {};
-  for (const [propertyName, propertyValue] of Object.entries(value)) {
-    const propertySchema = properties[propertyName];
-    if (
-      propertyValue === null &&
-      !requiredProperties.has(propertyName) &&
-      !allowsNullJsonSchemaValue(propertySchema)
-    ) {
-      continue;
-    }
-
-    normalized[propertyName] = stripOptionalNullsFromValue(propertyValue, propertySchema);
-  }
-
-  return normalized;
-}
-
-function stripOptionalNullsFromAnyOf(value: unknown, schemas: ReadonlyArray<unknown>): unknown {
-  let bestValue = value;
-  let bestRemovedNulls = -1;
-  const sourceNulls = countNullValues(value);
-
-  for (const schema of schemas) {
-    const candidate = stripOptionalNullsFromValue(value, schema);
-    const removedNulls = sourceNulls - countNullValues(candidate);
-    if (removedNulls > bestRemovedNulls) {
-      bestValue = candidate;
-      bestRemovedNulls = removedNulls;
-    }
-  }
-
-  return bestValue;
-}
-
-function countNullValues(value: unknown): number {
-  if (value === null) {
-    return 1;
-  }
-  let count = 0;
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      count += countNullValues(item);
-    }
-
-    return count;
-  }
-  if (!isJsonObject(value)) {
-    return 0;
-  }
-
-  for (const item of Object.values(value)) {
-    count += countNullValues(item);
-  }
-
-  return count;
+  return { anyOf: [value, { type: "null" }] };
 }
 
 function hasDynamicObjectProperties(schema: Record<string, unknown>): boolean {
@@ -208,21 +130,4 @@ function stringArray(value: unknown): readonly string[] {
 
 function isNullSchema(value: unknown): boolean {
   return isJsonObject(value) && value["type"] === "null";
-}
-
-function allowsNullJsonSchemaValue(value: unknown): boolean {
-  if (!isJsonObject(value)) {
-    return false;
-  }
-
-  const type = value["type"];
-  if (type === "null") {
-    return true;
-  }
-  if (isStringArray(type) && type.includes("null")) {
-    return true;
-  }
-
-  const anyOf = value["anyOf"];
-  return Array.isArray(anyOf) && anyOf.some(allowsNullJsonSchemaValue);
 }
