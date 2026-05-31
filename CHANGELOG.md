@@ -19,6 +19,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+
+## [0.3.0] - 2026-05-31
+
+### Changed
+
+- `chore(release)`: prepare the v0.3.0 release metadata — the Compliance Trail
+  foundation ships in the Community edition (`@sovri/compliance` mapping plus the
+  Ed25519 audit trail), with the audit-trail sink inert by default. Cosign
+  signing remains deferred to v0.5.
+
 ### Added
 
 - `feat(bot)`: make `.sovri.yml` optional via deployment-level LLM defaults — `SOVRI_DEFAULT_LLM_PROVIDER`,
