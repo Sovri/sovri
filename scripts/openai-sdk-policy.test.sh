@@ -96,6 +96,45 @@ diff_base_branch() {
   return 1
 }
 
+lockfile_llm_providers_importer_block() {
+  awk '
+    /^  packages\/llm-providers:$/ {
+      in_importer = 1
+      print
+      next
+    }
+    in_importer && /^  [^ ]/ {
+      exit
+    }
+    in_importer {
+      print
+    }
+  ' "$LOCKFILE"
+}
+
+changelog_unreleased_added_block() {
+  awk '
+    /^## \[Unreleased\]/ {
+      in_unreleased = 1
+      in_added = 0
+      next
+    }
+    in_unreleased && /^## / {
+      exit
+    }
+    in_unreleased && /^### Added/ {
+      in_added = 1
+      print
+      next
+    }
+    in_unreleased && /^### / {
+      in_added = 0
+    }
+    in_unreleased && in_added {
+      print
+    }
+  ' "$CHANGELOG"
+}
 
 run_exact_runtime_dependency() {
   local label="llm-providers declares openai as an exact runtime dependency"
@@ -150,14 +189,26 @@ run_no_other_manifest_declares_openai() {
 
 run_lockfile_records_openai() {
   local label="pnpm lockfile records openai for llm-providers"
+  local importer_block
 
   # And "pnpm-lock.yaml" records the "packages/llm-providers" importer for "openai" with specifier "6.39.1"
-  for expected in "openai:" "specifier: $OPENAI_VERSION" "openai@$OPENAI_VERSION"; do
-    if ! grep -Fq "$expected" "$LOCKFILE"; then
-      record_failure "$label" "pnpm-lock.yaml missing $expected"
+  importer_block="$(lockfile_llm_providers_importer_block)"
+  if [ -z "$importer_block" ]; then
+    record_failure "$label" "pnpm-lock.yaml missing packages/llm-providers importer block"
+    return
+  fi
+
+  for expected in "openai:" "specifier: $OPENAI_VERSION" "version: $OPENAI_VERSION"; do
+    if ! printf "%s\n" "$importer_block" | grep -Fq "$expected"; then
+      record_failure "$label" "packages/llm-providers importer missing $expected"
       return
     fi
   done
+
+  if ! grep -Fq "openai@$OPENAI_VERSION:" "$LOCKFILE"; then
+    record_failure "$label" "pnpm-lock.yaml missing resolved package openai@$OPENAI_VERSION"
+    return
+  fi
 
   pass
 }
@@ -231,11 +282,18 @@ run_license_evidence() {
 
 run_changelog_entry() {
   local label="changelog records the pinned dependency addition"
+  local added_block
 
   # And "CHANGELOG.md" records the pinned dependency addition under "[Unreleased]" "Added"
-  for expected in "## [Unreleased]" "### Added" "openai@$OPENAI_VERSION" "exactly pinned"; do
-    if ! grep -Fq "$expected" "$CHANGELOG"; then
-      record_failure "$label" "CHANGELOG.md missing $expected"
+  added_block="$(changelog_unreleased_added_block)"
+  if [ -z "$added_block" ]; then
+    record_failure "$label" "CHANGELOG.md missing [Unreleased] Added section"
+    return
+  fi
+
+  for expected in "openai@$OPENAI_VERSION" "exactly pinned"; do
+    if ! printf "%s\n" "$added_block" | grep -Fq "$expected"; then
+      record_failure "$label" "CHANGELOG.md [Unreleased] Added section missing $expected"
       return
     fi
   done
