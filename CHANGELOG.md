@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(config)`: cover OpenAI `apiKeySecret` values as environment-variable
+  names and reject non-env-var secret strings.
+
 - `test(config)`: pin `llm.baseUrl` HTTPS validation and the 2048-character
   boundary for OpenAI-compatible configuration.
 
