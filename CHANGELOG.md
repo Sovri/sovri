@@ -74,6 +74,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   complete SDK mock exports, clarify provider validation and default-option comments, and document
   the typed OpenAI provider error hierarchy.
 
+- `feat(llm-providers)`: add the OpenAI-compatible provider construction helper and grouped
+  acceptance coverage for the required custom `baseUrl`, distinguishable provider metadata, and
+  no fallback to the public OpenAI endpoint.
+
 ## [0.3.0] - 2026-05-31
 
 ### Changed
