@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+/**
+ * Guard rail tests that keep the OpenAI-compatible provider suite on injected clients and fixture
+ * credentials.
+ */
 import { readdir, readFile } from "node:fs/promises";
 
 import { z } from "@sovri/core";
@@ -8,11 +12,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LLMProvider, StructuredGeneration } from "../types/LLMProvider.js";
 
-const ProvidersDir = new URL(".", import.meta.url);
-const ThisTestFileName = "OpenAICompatibleProvider.no-network.test.ts";
-const TestApiKey = "test-openai-compatible-key";
-const TestBaseUrl = "https://compatible.test/v1";
-const PublicOpenAIHost = ["api", "openai", "com"].join(".");
+const ProviderTestDiscovery = {
+  directory: new URL(".", import.meta.url),
+  selfFileName: "OpenAICompatibleProvider.no-network.test.ts",
+};
+
+const CompatibleProviderFixture = {
+  apiKey: "test-openai-compatible-key",
+  baseUrl: "https://compatible.test/v1",
+  publicOpenAIHost: ["api", "openai", "com"].join("."),
+};
 
 const ReviewParams = {
   systemPrompt: "Review code safely.",
@@ -51,9 +60,9 @@ interface ForbiddenCompatibleNetworkPattern {
 
 const ForbiddenCompatibleNetworkPatterns = [
   {
-    label: `https://${PublicOpenAIHost}`,
-    matches: (source) => source.toLowerCase().includes(PublicOpenAIHost),
-    sample: `https://${PublicOpenAIHost}`,
+    label: `https://${CompatibleProviderFixture.publicOpenAIHost}`,
+    matches: (source) => source.toLowerCase().includes(CompatibleProviderFixture.publicOpenAIHost),
+    sample: `https://${CompatibleProviderFixture.publicOpenAIHost}`,
   },
   {
     label: "process.env.OPENAI_API_KEY",
@@ -90,8 +99,8 @@ describe("OpenAI-compatible no-network test guard", () => {
     // Given the fake compatible client returns content "{\"summary\":\"Reviewed\"}"
     // And the fake compatible client reports 123 prompt tokens and 45 completion tokens
     const provider = createOpenAICompatibleProvider({
-      apiKey: TestApiKey,
-      baseUrl: TestBaseUrl,
+      apiKey: CompatibleProviderFixture.apiKey,
+      baseUrl: CompatibleProviderFixture.baseUrl,
       client: fakeOpenAIClient(calls),
     });
 
@@ -111,7 +120,7 @@ describe("OpenAI-compatible no-network test guard", () => {
     "rejects forbidden OpenAI-compatible provider network pattern $label",
     ({ label, sample }) => {
       // Given a compatible provider test file contains "<forbidden_pattern>"
-      const source = `createOpenAICompatibleProvider({ apiKey: "${TestApiKey}", baseUrl: "${TestBaseUrl}" });\n${sample}`;
+      const source = `createOpenAICompatibleProvider({ apiKey: "${CompatibleProviderFixture.apiKey}", baseUrl: "${CompatibleProviderFixture.baseUrl}" });\n${sample}`;
 
       // When the no-network test guard runs
       const violations = findForbiddenCompatibleNetworkPatterns(source);
@@ -147,7 +156,10 @@ describe("OpenAI-compatible no-network test guard", () => {
     // Given baseUrl is missing
     // When the compatible provider is constructed without an injected client
     const error = captureError(() =>
-      createOpenAICompatibleProvider({ apiKey: TestApiKey, client: fakeOpenAIClient(calls) }),
+      createOpenAICompatibleProvider({
+        apiKey: CompatibleProviderFixture.apiKey,
+        client: fakeOpenAIClient(calls),
+      }),
     );
 
     // Then OpenAIProviderError is thrown
@@ -225,19 +237,19 @@ function mockOpenAIModule(sdkConstructorOptions: unknown[]): Record<string, unkn
 }
 
 async function readOpenAICompatibleProviderTestSources(): Promise<ProviderTestSource[]> {
-  const fileNames = (await readdir(ProvidersDir))
+  const fileNames = (await readdir(ProviderTestDiscovery.directory))
     .filter(
       (fileName) =>
         fileName.startsWith("OpenAICompatibleProvider.") &&
         fileName.endsWith(".test.ts") &&
-        fileName !== ThisTestFileName,
+        fileName !== ProviderTestDiscovery.selfFileName,
     )
     .toSorted();
 
   return Promise.all(
     fileNames.map(async (fileName) => ({
       fileName,
-      source: await readFile(new URL(fileName, ProvidersDir), "utf8"),
+      source: await readFile(new URL(fileName, ProviderTestDiscovery.directory), "utf8"),
     })),
   );
 }
