@@ -29,6 +29,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   failures, and malformed response handling with injected fake clients so the adapter stays
   above the package coverage gate without real network calls.
 
+- `test(llm-providers)`: add grouped acceptance coverage for OpenAI schema validation,
+  including response-format derivation, retryable Zod validation failures, and unsupported
+  schema preflight rejection.
+
 - `fix(llm-providers)`: normalize OpenAI strict JSON schemas before requests, reject
   unsupported dynamic record schemas, and wrap SDK transport/authentication failures in
   typed provider errors with request metadata.
