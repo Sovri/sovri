@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add acceptance coverage for the deferred full-AST
+  validation scope, parser-dependency boundaries, maintenance notes, and
+  production-source language-boundary checks for committable suggestion syntax
+  checks.
+
 - `test(review-engine)`: add acceptance coverage proving syntactic sanity
   validation stays pure and language-agnostic without runtime evaluation hooks in
   production parsing sources.
@@ -29,8 +34,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   sanity validation of balanced, postfix-update, and uncertain single-line
   suggestions.
 
-- `feat(review-engine)`: add a pure syntax sanity helper and parser gate for
-  conservative single-line suggestion validation with fail-closed token rules.
+- `feat(review-engine)`: add a pure syntax sanity helper and parser gate so
+  committable suggestions use lightweight syntactic validation with fail-closed
+  token rules; full AST validation is not included.
 
 - `feat(config)`: accept `review.mode: strict` in `.sovri.yml` so repository
   configuration reaches the strict review-engine prompt path for regulated
