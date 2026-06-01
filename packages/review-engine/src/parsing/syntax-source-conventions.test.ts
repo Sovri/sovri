@@ -41,6 +41,7 @@ const ForbiddenSyntheticSources: ReadonlyArray<{ readonly sourceText: string }> 
   { sourceText: "import fs from 'node:fs';" },
   { sourceText: "import {\n  readFileSync\n} from 'node:fs';" },
   { sourceText: "const fs = await import('node:fs');" },
+  { sourceText: "const fs = await import('node:fs', { with: { type: 'json' } });" },
   { sourceText: 'import "./setup";' },
   { sourceText: "const value: any = code;" },
   { sourceText: "// @ts-ignore" },

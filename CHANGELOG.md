@@ -26,8 +26,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `test(review-engine)`: add acceptance coverage for parsing source purity,
   TypeScript conventions, forbidden implementation pattern checks, multiline
-  import, dynamic import, directive edge cases, and stable committable suggestion
-  contracts.
+  import, dynamic import and import-attribute edge cases, directive edge cases,
+  and stable committable suggestion contracts.
 
 - `test(review-engine)`: add acceptance coverage for the deferred full-AST
   validation scope, parser-dependency boundaries, maintenance notes, and

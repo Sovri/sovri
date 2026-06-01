@@ -120,7 +120,7 @@ function hasForbiddenSpecifierImport(source: string, specifier: string): boolean
     "mu",
   );
   const dynamicImportPattern = new RegExp(
-    `\\bimport\\s*\\(\\s*["']${specifierPattern}["']\\s*\\)`,
+    `\\bimport\\s*\\(\\s*["']${specifierPattern}["'](?:\\s*,[\\s\\S]*?)?\\s*\\)`,
     "u",
   );
   return staticImportPattern.test(source) || dynamicImportPattern.test(source);
