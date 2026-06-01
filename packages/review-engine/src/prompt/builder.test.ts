@@ -481,16 +481,18 @@ describe("buildSystemPrompt", () => {
       full: buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "full" }).systemPrompt,
       "bugs-only": buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "bugs-only" })
         .systemPrompt,
+      strict: buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "strict" }).systemPrompt,
       minimal: buildReviewPrompt({ unifiedDiff: diff, pullRequest, mode: "minimal" }).systemPrompt,
     };
 
-    // Then the three system prompts are distinct golden outputs.
-    expect(new Set(Object.values(prompts)).size).toBe(3);
+    // Then the four system prompts are distinct golden outputs.
+    expect(new Set(Object.values(prompts)).size).toBe(4);
     expect(prompts).toMatchInlineSnapshot(`
       {
         "bugs-only": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Focus on correctness bugs that can change runtime behavior. Ignore style-only findings and formatting nits. Ignore performance-only findings unless they cause incorrect behavior. Return structured JSON findings that match the requested schema.",
         "full": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Return structured JSON findings that match the requested schema.",
         "minimal": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Return at most 3 findings. Include only blocker or major severity findings. Suppress nits, style-only comments, and minor findings. Return structured JSON findings that match the requested schema.",
+        "strict": "You are Sovri's review engine. Review only the supplied pull request metadata and unified diff. Hold the diff to a high bar. Report all valid issues, including blocker, major, minor, maintainability, style, readability, and test-quality concerns. Do not suppress nits when they materially improve code quality. Return structured JSON findings that match the requested schema.",
       }
     `);
   });
@@ -527,6 +529,32 @@ describe("buildSystemPrompt", () => {
     // And the system prompt does not contain runtime pull request data.
     expect(systemPrompt).not.toContain("src/payment.ts");
     expect(systemPrompt).not.toContain("Protect high-value transfers");
+  });
+
+  it("emits comprehensive guidance for strict mode", () => {
+    // Given the raw prompt config is {"mode":"strict"}.
+
+    // When buildSystemPrompt builds the system prompt.
+    const systemPrompt = buildSystemPrompt({ mode: "strict" });
+
+    // Then the prompt contains "Review only the supplied pull request metadata and unified diff."
+    expect(systemPrompt).toContain(
+      "Review only the supplied pull request metadata and unified diff",
+    );
+    // And the prompt contains "Return structured JSON findings that match the requested schema."
+    expect(systemPrompt).toContain(
+      "Return structured JSON findings that match the requested schema",
+    );
+    // And the prompt contains "minor".
+    expect(systemPrompt).toContain("minor");
+    // And the prompt contains "style".
+    expect(systemPrompt).toContain("style");
+    // And the prompt is not equal to the full-mode prompt.
+    expect(systemPrompt).not.toBe(buildSystemPrompt({ mode: "full" }));
+    // And the prompt is not equal to the bugs-only-mode prompt.
+    expect(systemPrompt).not.toBe(buildSystemPrompt({ mode: "bugs-only" }));
+    // And the prompt is not equal to the minimal-mode prompt.
+    expect(systemPrompt).not.toBe(buildSystemPrompt({ mode: "minimal" }));
   });
 
   it("names the maximum finding count boundary for minimal mode", () => {
