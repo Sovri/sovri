@@ -57,6 +57,10 @@ export function isSyntacticallySane(code: string): boolean {
       continue;
     }
 
+    if (startsPlaceholderEllipsis(characters, index)) {
+      return false;
+    }
+
     const expectedClosing = expectedClosingDelimiter(character);
     if (expectedClosing !== undefined) {
       expectedClosings.push(expectedClosing);
@@ -95,6 +99,34 @@ function startsBlockComment(character: string, nextCharacter: string | undefined
 
 function closesBlockComment(character: string, nextCharacter: string | undefined): boolean {
   return character === "*" && nextCharacter === "/";
+}
+
+function startsPlaceholderEllipsis(characters: ReadonlyArray<string>, index: number): boolean {
+  const character = characters[index];
+  if (character === "…") {
+    return true;
+  }
+
+  if (character !== "." || characters[index + 1] !== "." || characters[index + 2] !== ".") {
+    return false;
+  }
+
+  const nextToken = nextNonWhitespaceCharacter(characters, index + 3);
+  return nextToken === undefined || nextToken === ")" || nextToken === "]" || nextToken === "}";
+}
+
+function nextNonWhitespaceCharacter(
+  characters: ReadonlyArray<string>,
+  startIndex: number,
+): string | undefined {
+  for (let index = startIndex; index < characters.length; index += 1) {
+    const character = characters[index];
+    if (character !== undefined && character.trim().length > 0) {
+      return character;
+    }
+  }
+
+  return undefined;
 }
 
 function readQuotedCharacter(

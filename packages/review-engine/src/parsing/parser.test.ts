@@ -1166,6 +1166,18 @@ describe("parseLLMResponse", () => {
       {
         line_start: 14,
         line_end: 14,
+        suggested_code: "if (...) return total;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const value = someCall(\u2026);",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
         suggested_code: "const message = `Hello ${name`;",
         requiresSuggestion: true,
       },
