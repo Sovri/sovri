@@ -98,6 +98,7 @@ export type DelimiterStackEntry = {
   readonly resumesTemplate: boolean;
   readonly openedAfterOperand: boolean;
   readonly containsTernary: boolean;
+  readonly resumesJsxContent: boolean;
 };
 
 export type SyntaxFragmentScanResult = {
@@ -232,6 +233,7 @@ function scanDelimiterOrToken(
       resumesTemplate: false,
       openedAfterOperand: isOperandToken(previousSignificant),
       containsTernary: false,
+      resumesJsxContent: char === "{" && previousSignificant === JsxContentToken,
     });
     return { sane: true, previousSignificant: char };
   }
@@ -246,7 +248,11 @@ function scanDelimiterOrToken(
     if (entry === undefined || entry.closing !== char) {
       return { sane: false, previousSignificant: char };
     }
-    return { sane: true, resumeTemplate: entry.resumesTemplate, previousSignificant: char };
+    return {
+      sane: true,
+      resumeTemplate: entry.resumesTemplate,
+      previousSignificant: entry.resumesJsxContent ? JsxContentToken : char,
+    };
   }
   if (char === "." && code.slice(index, index + 3) === "...") {
     return { sane: true, skip: 2, previousSignificant: "..." };
@@ -296,6 +302,7 @@ function scanJsxOpeningTag(code: string, index: number): NormalScanResult | unde
 
   let quote: string | undefined;
   let escaping = false;
+  let previousAttributeToken: "name" | "=" | "value" | undefined;
   for (; cursor < code.length; cursor += 1) {
     const char = code.charAt(cursor);
     if (quote !== undefined) {
@@ -303,11 +310,12 @@ function scanJsxOpeningTag(code: string, index: number): NormalScanResult | unde
       escaping = quoted.escaping;
       if (quoted.closed) {
         quote = undefined;
+        previousAttributeToken = "value";
       }
       continue;
     }
     if (QuoteCharacters.has(char)) {
-      if (char === "`") {
+      if (char === "`" || previousAttributeToken !== "=") {
         return { sane: false };
       }
       quote = char;
@@ -320,12 +328,31 @@ function scanJsxOpeningTag(code: string, index: number): NormalScanResult | unde
         return { sane: false };
       }
       cursor += expression.skip;
+      previousAttributeToken = "value";
+      continue;
+    }
+    if (char === "=") {
+      if (previousAttributeToken !== "name") {
+        return { sane: false };
+      }
+      previousAttributeToken = "=";
+      continue;
+    }
+    if (isIdentifierStart(char)) {
+      if (previousAttributeToken === "=") {
+        return { sane: false };
+      }
+      cursor += scanJsxNameLength(code, cursor) - 1;
+      previousAttributeToken = "name";
       continue;
     }
     if (char === "}") {
       return { sane: false };
     }
     if (char === ">") {
+      if (previousAttributeToken === "=") {
+        return { sane: false };
+      }
       return { sane: true, skip: cursor - index, previousSignificant: JsxContentToken };
     }
   }
@@ -355,7 +382,7 @@ function scanJsxTextContent(code: string, index: number): NormalScanResult | und
 }
 
 function isJsxTextContext(previousSignificant: string | undefined): boolean {
-  return previousSignificant === JsxContentToken || previousSignificant === "}";
+  return previousSignificant === JsxContentToken;
 }
 
 function canStartJsxText(char: string): boolean {
@@ -366,6 +393,14 @@ function isJsxTagNamePart(char: string): boolean {
   return (
     isIdentifierStart(char) || isDecimalDigit(char) || char === "-" || char === "." || char === ":"
   );
+}
+
+function scanJsxNameLength(code: string, start: number): number {
+  let cursor = start + 1;
+  while (cursor < code.length && isJsxTagNamePart(code.charAt(cursor))) {
+    cursor += 1;
+  }
+  return cursor - start;
 }
 
 function isSliceClosingDelimiter(
@@ -433,6 +468,7 @@ export function scanSyntaxFragment(
           resumesTemplate: true,
           openedAfterOperand: false,
           containsTernary: false,
+          resumesJsxContent: false,
         });
         previousSignificant = "=";
         index += 1;
