@@ -63,6 +63,16 @@ const NumberLiteralPattern =
 export function isCannotEndToken(token: string | undefined): boolean {
   return (
     token !== undefined &&
+    (TerminalOperatorTokens.has(token) ||
+      token === "," ||
+      RegexPrefixKeywords.has(token) ||
+      NonOperandKeywords.has(token))
+  );
+}
+
+export function isCannotPrecedeColonToken(token: string | undefined): boolean {
+  return (
+    token !== undefined &&
     (TerminalOperatorTokens.has(token) || token === "," || RegexPrefixKeywords.has(token))
   );
 }

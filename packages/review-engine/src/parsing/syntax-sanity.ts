@@ -38,6 +38,7 @@ export function isSyntacticallySane(code: string): boolean {
       if (result.opensTemplateExpression) {
         quote = undefined;
         delimiterStack.push({ closing: "}", resumesTemplate: true });
+        previousSignificant = "=";
         index += 1;
         continue;
       }

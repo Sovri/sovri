@@ -12,6 +12,7 @@ import {
 import {
   canStartRegexLiteral,
   isCannotEndToken,
+  isCannotPrecedeColonToken,
   isOperandToken,
   isPostfixUpdateOperator,
   isSupportedNumberLiteral,
@@ -116,7 +117,7 @@ export function scanNormalCharacter(
     return { sane: false };
   }
   if (QuoteCharacters.has(char)) {
-    if (isOperandToken(previousSignificant)) {
+    if (char !== "`" && isOperandToken(previousSignificant)) {
       return { sane: false };
     }
     return { sane: true, quote: char };
@@ -161,7 +162,7 @@ function scanDelimiterOrToken(
     return { sane: true, previousSignificant: char, opensTernary: next !== "." };
   }
   if (char === ":") {
-    if (isCannotEndToken(previousSignificant)) {
+    if (isCannotPrecedeColonToken(previousSignificant)) {
       return { sane: false, previousSignificant: char };
     }
     return { sane: true, previousSignificant: char, closesTernary: true };
