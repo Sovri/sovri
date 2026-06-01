@@ -41,6 +41,10 @@ export const InlineCommentDraftSchema = z
 
 export type InlineCommentDraft = z.infer<typeof InlineCommentDraftSchema>;
 
+export class InlineSuggestionAnchorError extends Error {
+  public override readonly name = "InlineSuggestionAnchorError";
+}
+
 export function buildInlineComments(
   findings: readonly Finding[],
   diff: Diff,
@@ -55,6 +59,8 @@ export function buildInlineComments(
 }
 
 function buildInlineCommentDraft(finding: Finding, diff: Diff): InlineCommentDraft {
+  assertCommittableSuggestionAnchor(finding);
+
   const base = {
     path: finding.file,
     body: formatInlineBody(finding, computeFindingFingerprint(finding, diff)),
@@ -82,7 +88,24 @@ function formatInlineBody(finding: Finding, fingerprint: string): string {
   const auditLine = finding.audit_reference
     ? `\n\n🔍 Audit Reference: ${finding.audit_reference}`
     : "";
-  return `${body}${auditLine}\n\n${renderFindingMarker(fingerprint)}`;
+  const suggestionBlock = renderCommittableSuggestionBlock(finding);
+  return `${body}${auditLine}${suggestionBlock}\n\n${renderFindingMarker(fingerprint)}`;
+}
+
+function assertCommittableSuggestionAnchor(finding: Finding): void {
+  if (finding.suggestion?.committable === true && finding.line_start !== finding.line_end) {
+    throw new InlineSuggestionAnchorError(
+      "committable suggestion requires a single-line inline anchor",
+    );
+  }
+}
+
+function renderCommittableSuggestionBlock(finding: Finding): string {
+  if (finding.suggestion?.committable !== true) {
+    return "";
+  }
+
+  return `\n\n\`\`\`suggestion\n${finding.suggestion.code}\n\`\`\``;
 }
 
 function collectRightSideLines(diff: Diff): ReadonlyMap<string, ReadonlySet<number>> {
