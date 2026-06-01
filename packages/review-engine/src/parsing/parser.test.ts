@@ -1148,6 +1148,24 @@ describe("parseLLMResponse", () => {
       {
         line_start: 14,
         line_end: 14,
+        suggested_code: "const total = amount ?? 0;\rreturn total;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = format(amount;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = amount ?? ...",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
         suggested_code: "",
         requiresSuggestion: true,
       },

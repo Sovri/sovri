@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: gate one-click committable suggestions with lightweight,
+  language-agnostic syntactic validation for balanced delimiters, quotes, and
+  truncation markers; full per-language AST validation remains deferred beyond
+  v0.5.
+
 - `feat(config)`: accept `review.mode: strict` in `.sovri.yml` so repository
   configuration reaches the strict review-engine prompt path for regulated
   codebase reviews that need maintainability, style, readability, and
