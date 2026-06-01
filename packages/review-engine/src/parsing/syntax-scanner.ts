@@ -109,7 +109,10 @@ export function scanNormalCharacter(
     return { sane: true, skip: 1, inBlockComment: true };
   }
   if (char === "<" && code.charAt(index + 1) === "/") {
-    return scanJsxClosingTag(code, index);
+    const jsxClosingTag = scanJsxClosingTag(code, index);
+    if (jsxClosingTag !== undefined) {
+      return jsxClosingTag;
+    }
   }
   if (char === "/" && canStartRegexLiteral(previousSignificant)) {
     return { sane: true, inRegex: true };
@@ -173,6 +176,9 @@ function scanDelimiterOrToken(
     return { sane: true, previousSignificant: char, opensTernary: next !== "." };
   }
   if (char === ":") {
+    if (code.charAt(index + 1) === ":" && isOperandToken(previousSignificant)) {
+      return { sane: true, skip: 1, previousSignificant: "." };
+    }
     if (isCannotPrecedeColonToken(previousSignificant)) {
       return { sane: false, previousSignificant: char };
     }
@@ -197,7 +203,10 @@ function scanDelimiterOrToken(
     return { sane: true, previousSignificant: char };
   }
   if (ClosingDelimiters.has(char)) {
-    if (isTerminalOperatorToken(previousSignificant)) {
+    if (
+      isTerminalOperatorToken(previousSignificant) &&
+      !isSliceClosingDelimiter(char, previousSignificant)
+    ) {
       return { sane: false, previousSignificant: char };
     }
     const entry = delimiterStack.pop();
@@ -218,10 +227,13 @@ function lineCommentSkipLength(code: string, index: number): number {
   return commentEnd - index - 1;
 }
 
-function scanJsxClosingTag(code: string, index: number): NormalScanResult {
+function scanJsxClosingTag(code: string, index: number): NormalScanResult | undefined {
   let cursor = index + 2;
+  if (code.charAt(cursor) === ">") {
+    return { sane: true, skip: cursor - index, previousSignificant: "literal" };
+  }
   if (!isIdentifierStart(code.charAt(cursor))) {
-    return { sane: false };
+    return undefined;
   }
   cursor += 1;
   while (cursor < code.length && isJsxTagNamePart(code.charAt(cursor))) {
@@ -231,7 +243,7 @@ function scanJsxClosingTag(code: string, index: number): NormalScanResult {
     cursor += 1;
   }
   if (code.charAt(cursor) !== ">") {
-    return { sane: false };
+    return undefined;
   }
   return { sane: true, skip: cursor - index, previousSignificant: "literal" };
 }
@@ -240,4 +252,8 @@ function isJsxTagNamePart(char: string): boolean {
   return (
     isIdentifierStart(char) || isDecimalDigit(char) || char === "-" || char === "." || char === ":"
   );
+}
+
+function isSliceClosingDelimiter(char: string, previousSignificant: string | undefined): boolean {
+  return char === "]" && previousSignificant === ":";
 }

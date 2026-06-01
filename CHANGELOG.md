@@ -208,8 +208,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   truncated ternaries, non-null assertions before delimiters, Unicode regex flag
   suffixes, adjacent quoted literals, tagged template literals, empty ternary
   arms, JSX closing tags, member-access keyword properties, `as const` assertions,
-  dangling greater-than operators, dangling non-operand keywords, statement terminators
-  after incomplete expressions, and scope-test false positives.
+  Rust path separators, Python slices with omitted bounds, dangling greater-than
+  operators, dangling non-operand keywords, statement terminators after incomplete
+  expressions, and scope-test false positives.
 
 - `fix(review-engine)`: align strict prompt guidance with the configured severity
   filter by requesting blocker, major, and minor findings instead of nitpick

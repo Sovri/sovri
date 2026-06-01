@@ -48,6 +48,9 @@ describe("isSyntacticallySane", () => {
       "const next = value as const;",
       "const less = count < /ready/.test(input);",
       "return <div>{name}</div>;",
+      "return <>{name}</>;",
+      "std::mem::drop(value);",
+      "return items[1:]",
       'const loaded = import("./module.js", { assert: { type: "json" } });',
       "const fallback = enabled ? value : backup;",
     ];
