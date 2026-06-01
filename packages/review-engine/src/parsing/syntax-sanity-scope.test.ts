@@ -9,12 +9,20 @@ import { describe, expect, it } from "vitest";
 
 import { isSyntacticallySane } from "./syntax-sanity.js";
 
+// Locks the task scope: syntax sanity stays lightweight and does not imply full AST validation.
 const CurrentDirectory = dirname(fileURLToPath(import.meta.url));
 const WorkspaceRoot = join(CurrentDirectory, "../../../..");
 const PackageJsonSchema = z.object({
   dependencies: z.record(z.string(), z.string()).optional(),
   devDependencies: z.record(z.string(), z.string()).optional(),
 });
+const ChangelogFeatureFragments: readonly string[] = [
+  "`feat(review-engine)`",
+  "committable suggestions",
+];
+const LightweightValidationPhrase = "committable suggestions use lightweight syntactic validation";
+const FullAstDeferredPhrase = "full AST validation is not included";
+// Update this sentinel list when review-engine intentionally adopts a parser dependency.
 const AstParserPackages: readonly string[] = [
   "@babel/parser",
   "@typescript-eslint/parser",
@@ -35,10 +43,7 @@ describe("syntax sanity validation scope", () => {
 
     // When the task-111 changelog entry is inspected
     const addedSection = extractMarkdownSection(unreleasedSection, "### Added", "###");
-    const taskEntry = findChangelogEntry(addedSection, [
-      "`feat(review-engine)`",
-      "committable suggestions",
-    ]);
+    const taskEntry = findChangelogEntry(addedSection, ChangelogFeatureFragments);
 
     // Then it is under "Added"
     expect(addedSection).toContain(taskEntry);
@@ -47,10 +52,10 @@ describe("syntax sanity validation scope", () => {
     expect(taskEntry).toContain("`feat(review-engine)`");
 
     // And it says committable suggestions use lightweight syntactic validation
-    expect(taskEntry).toContain("committable suggestions use lightweight syntactic validation");
+    expect(taskEntry).toContain(LightweightValidationPhrase);
 
     // And it says full AST validation is not included
-    expect(taskEntry).toContain("full AST validation is not included");
+    expect(taskEntry).toContain(FullAstDeferredPhrase);
   });
 
   it("keeps parser dependencies absent from the review-engine task scope", () => {

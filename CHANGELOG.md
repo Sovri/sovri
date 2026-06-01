@@ -22,8 +22,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `test(review-engine)`: add acceptance coverage for the deferred full-AST
-  validation scope and parser-dependency boundaries of committable suggestion
-  syntax checks.
+  validation scope, parser-dependency boundaries, and maintenance notes for
+  committable suggestion syntax checks.
 
 - `test(review-engine)`: add acceptance coverage proving syntactic sanity
   validation stays pure and language-agnostic without runtime evaluation hooks in
