@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add acceptance coverage for parsing source purity,
+  TypeScript conventions, forbidden implementation pattern checks, and stable
+  committable suggestion contracts.
+
 - `test(review-engine)`: add acceptance coverage for the deferred full-AST
   validation scope, parser-dependency boundaries, maintenance notes, and
   production-source language-boundary checks for committable suggestion syntax
