@@ -21,6 +21,23 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add acceptance coverage for the deferred full-AST
+  validation scope, parser-dependency boundaries, maintenance notes, and
+  production-source language-boundary checks for committable suggestion syntax
+  checks.
+
+- `test(review-engine)`: add acceptance coverage proving syntactic sanity
+  validation stays pure and language-agnostic without runtime evaluation hooks in
+  production parsing sources.
+
+- `test(review-engine)`: add expanded acceptance coverage for direct syntactic
+  sanity validation of balanced, postfix-update, and uncertain single-line
+  suggestions.
+
+- `feat(review-engine)`: add a pure syntax sanity helper and parser gate so
+  committable suggestions use lightweight syntactic validation with fail-closed
+  token rules; full AST validation is not included.
+
 - `feat(config)`: accept `review.mode: strict` in `.sovri.yml` so repository
   configuration reaches the strict review-engine prompt path for regulated
   codebase reviews that need maintainability, style, readability, and
@@ -186,6 +203,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   repeated compatible-provider token and default-limit test fixtures.
 
 ### Fixed
+
+- `fix(review-engine)`: address syntax-sanity review feedback for line comments,
+  truncated ternaries, non-null assertions before delimiters, Unicode regex flag
+  suffixes, adjacent quoted literals, tagged template literals, empty ternary
+  arms, JSX closing and attributed opening tags, member-access keyword properties,
+  `as const` assertions, Rust path separators, Python slices with omitted bounds
+  while rejecting array-literal and ternary false-arm lookalikes, dangling
+  greater-than operators, dangling non-operand and control keywords, statement
+  terminators after incomplete expressions, JSX text content and quoted-attribute
+  boundaries, incomplete JSX attributes, `do` / `while` continuations, scoped JSX
+  expression text handling, leading and repeated delimiter commas while
+  preserving valid array elisions, and scope-test false positives.
 
 - `fix(review-engine)`: align strict prompt guidance with the configured severity
   filter by requesting blocker, major, and minor findings instead of nitpick
