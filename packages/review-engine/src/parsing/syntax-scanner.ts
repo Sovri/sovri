@@ -216,6 +216,12 @@ function scanDelimiterOrToken(
   if (char === "!" && isOperandToken(previousSignificant)) {
     return { sane: true, previousSignificant: "literal" };
   }
+  if (char === ",") {
+    if (previousSignificant === "," || isOpeningDelimiterToken(previousSignificant)) {
+      return { sane: false, previousSignificant: char };
+    }
+    return { sane: true, previousSignificant: char };
+  }
   if (char === ";") {
     if (
       isCannotEndToken(previousSignificant) &&
@@ -393,6 +399,10 @@ function isJsxTagNamePart(char: string): boolean {
   return (
     isIdentifierStart(char) || isDecimalDigit(char) || char === "-" || char === "." || char === ":"
   );
+}
+
+function isOpeningDelimiterToken(token: string | undefined): boolean {
+  return token !== undefined && OpeningDelimiters.has(token);
 }
 
 function scanJsxNameLength(code: string, start: number): number {

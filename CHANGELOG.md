@@ -213,7 +213,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   greater-than operators, dangling non-operand and control keywords, statement
   terminators after incomplete expressions, JSX text content and quoted-attribute
   boundaries, incomplete JSX attributes, `do` / `while` continuations, scoped JSX
-  expression text handling, and scope-test false positives.
+  expression text handling, leading and repeated delimiter commas, and scope-test
+  false positives.
 
 - `fix(review-engine)`: align strict prompt guidance with the configured severity
   filter by requesting blocker, major, and minor findings instead of nitpick
