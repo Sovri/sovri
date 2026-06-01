@@ -22,8 +22,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `feat(review-engine)`: render parser-approved inline fixes as GitHub
-  `suggestion` blocks while keeping non-committable alternatives off the one-click
-  surface and preserving audit-reference and marker ordering.
+  `suggestion` fenced blocks on single-line inline anchors while keeping
+  non-committable alternatives off the one-click surface and preserving
+  audit-reference and marker ordering.
 
 - `test(review-engine)`: add acceptance coverage for rendering committable
   suggestions as inline GitHub suggestion blocks while preserving non-committable,
