@@ -4,19 +4,14 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { z } from "zod";
 import { describe, expect, it } from "vitest";
 
 import { parseLLMResponse } from "./parser.js";
+import { inspectParsingSourceConventions } from "./syntax-source-conventions.js";
 
 const CurrentDirectory = dirname(fileURLToPath(import.meta.url));
 const WorkspaceRoot = join(CurrentDirectory, "../../../..");
-const ConventionModulePath = ["./syntax-source-conventions", ".js"].join("");
 const SourceHeader = "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS\n\n";
-const SourceConventionInspectionSchema = z.object({
-  ok: z.boolean(),
-  violations: z.array(z.string()),
-});
 const ChangedParsingSourceFiles: readonly string[] = [
   "packages/review-engine/src/parsing/parser.ts",
   "packages/review-engine/src/parsing/syntax-characters.ts",
@@ -40,7 +35,7 @@ const ConventionViolations: readonly string[] = [
   "forbidden-any",
   "forbidden-ts-ignore",
   "forbidden-ts-expect-error",
-  "forbidden-oxlint-disable",
+  "forbidden-oxlint-directive",
 ];
 const ForbiddenSyntheticSources: ReadonlyArray<{ readonly sourceText: string }> = [
   { sourceText: "import fs from 'node:fs';" },
@@ -50,10 +45,9 @@ const ForbiddenSyntheticSources: ReadonlyArray<{ readonly sourceText: string }> 
 ];
 
 describe("review-engine parsing source conventions", () => {
-  it("keeps the changed parsing helper sources pure and local", async () => {
+  it("keeps the changed parsing helper sources pure and local", () => {
     // Given the implementation changes are in packages/review-engine/src/parsing
-    const inspector = await loadConventionInspector();
-    const inspectedSources = inspectChangedParsingSources(inspector);
+    const inspectedSources = inspectChangedParsingSources();
 
     // When the changed parsing source files are inspected
     for (const inspectedSource of inspectedSources) {
@@ -73,10 +67,9 @@ describe("review-engine parsing source conventions", () => {
     }
   });
 
-  it("preserves TypeScript and ESM conventions in changed parsing sources", async () => {
+  it("preserves TypeScript and ESM conventions in changed parsing sources", () => {
     // Given the implementation changes are in packages/review-engine/src/parsing
-    const inspector = await loadConventionInspector();
-    const inspectedSources = inspectChangedParsingSources(inspector);
+    const inspectedSources = inspectChangedParsingSources();
 
     // When the changed parsing source files are inspected
     for (const inspectedSource of inspectedSources) {
@@ -98,13 +91,12 @@ describe("review-engine parsing source conventions", () => {
 
   it.each(ForbiddenSyntheticSources)(
     "fails the convention check for forbidden source text $sourceText",
-    async ({ sourceText }) => {
+    ({ sourceText }) => {
       // Given a synthetic changed parsing source contains <source_text>
       const source = withSourceHeader(sourceText);
 
       // When the static convention check inspects the source text
-      const inspector = await loadConventionInspector();
-      const result = inspector(source);
+      const result = inspectParsingSourceConventions(source);
 
       // Then the convention check fails
       expect(result.ok).toBe(false);
@@ -149,25 +141,13 @@ describe("review-engine parsing source conventions", () => {
   });
 });
 
-type SourceConventionInspection = z.infer<typeof SourceConventionInspectionSchema>;
-type SourceConventionInspector = (source: string) => SourceConventionInspection;
-type InspectedSource = SourceConventionInspection & {
+type InspectedSource = ReturnType<typeof inspectParsingSourceConventions> & {
   readonly path: string;
 };
 
-async function loadConventionInspector(): Promise<SourceConventionInspector> {
-  const conventionModule = await import(ConventionModulePath);
-  const inspector = Reflect.get(conventionModule, "inspectParsingSourceConventions");
-  if (typeof inspector !== "function") {
-    throw new TypeError("Missing inspectParsingSourceConventions export");
-  }
-
-  return (source: string) => SourceConventionInspectionSchema.parse(inspector(source));
-}
-
-function inspectChangedParsingSources(inspector: SourceConventionInspector): InspectedSource[] {
+function inspectChangedParsingSources(): InspectedSource[] {
   return ChangedParsingSourceFiles.map((path) => {
-    const inspection = inspector(readWorkspaceFile(path));
+    const inspection = inspectParsingSourceConventions(readWorkspaceFile(path));
     return {
       path,
       ok: inspection.ok,

@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+export type ParsingSourceConventionViolation =
+  | "missing-spdx"
+  | "relative-import-without-js"
+  | "forbidden-node:fs"
+  | "forbidden-node:net"
+  | "forbidden-node:http"
+  | "forbidden-node:https"
+  | "forbidden-process-env"
+  | "forbidden-eval"
+  | "forbidden-any"
+  | "forbidden-ts-ignore"
+  | "forbidden-ts-expect-error"
+  | "forbidden-oxlint-directive";
+
+export interface ParsingSourceConventionInspection {
+  readonly ok: boolean;
+  readonly violations: readonly ParsingSourceConventionViolation[];
+}
+
+interface SpecifierRule {
+  readonly specifier: string;
+  readonly violation: ParsingSourceConventionViolation;
+}
+
+interface PatternRule {
+  readonly pattern: RegExp;
+  readonly violation: ParsingSourceConventionViolation;
+}
+
+const SpdxHeader = "// SPDX-License-Identifier: Apache-2.0\n";
+const RelativeImportPattern =
+  /\bfrom\s+["'](\.{1,2}\/[^"']+)["']|\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/gu;
+const ForbiddenSpecifierRules: readonly SpecifierRule[] = [
+  { specifier: "node:fs", violation: "forbidden-node:fs" },
+  { specifier: "node:net", violation: "forbidden-node:net" },
+  { specifier: "node:http", violation: "forbidden-node:http" },
+  { specifier: "node:https", violation: "forbidden-node:https" },
+];
+const ForbiddenPatternRules: readonly PatternRule[] = [
+  { pattern: /\bprocess\.env\b/u, violation: "forbidden-process-env" },
+  { pattern: /\beval\s*\(/u, violation: "forbidden-eval" },
+  { pattern: /(?::\s*any\b|\bas\s+any\b|<\s*any\s*>)/u, violation: "forbidden-any" },
+  { pattern: directivePattern("ts-ignore"), violation: "forbidden-ts-ignore" },
+  { pattern: directivePattern("ts-expect-error"), violation: "forbidden-ts-expect-error" },
+  { pattern: directivePattern(oxlintDisableDirective()), violation: "forbidden-oxlint-directive" },
+];
+
+export function inspectParsingSourceConventions(source: string): ParsingSourceConventionInspection {
+  const violations: ParsingSourceConventionViolation[] = [];
+  collectHeaderViolation(source, violations);
+  collectForbiddenSpecifierViolations(source, violations);
+  collectForbiddenPatternViolations(source, violations);
+  collectRelativeImportViolations(source, violations);
+
+  return {
+    ok: violations.length === 0,
+    violations,
+  };
+}
+
+function collectHeaderViolation(
+  source: string,
+  violations: ParsingSourceConventionViolation[],
+): void {
+  if (!source.startsWith(SpdxHeader)) {
+    addViolation(violations, "missing-spdx");
+  }
+}
+
+function collectForbiddenSpecifierViolations(
+  source: string,
+  violations: ParsingSourceConventionViolation[],
+): void {
+  for (const rule of ForbiddenSpecifierRules) {
+    if (hasForbiddenSpecifierImport(source, rule.specifier)) {
+      addViolation(violations, rule.violation);
+    }
+  }
+}
+
+function collectForbiddenPatternViolations(
+  source: string,
+  violations: ParsingSourceConventionViolation[],
+): void {
+  for (const rule of ForbiddenPatternRules) {
+    if (rule.pattern.test(source)) {
+      addViolation(violations, rule.violation);
+    }
+  }
+}
+
+function collectRelativeImportViolations(
+  source: string,
+  violations: ParsingSourceConventionViolation[],
+): void {
+  for (const match of source.matchAll(RelativeImportPattern)) {
+    const specifier = match[1] ?? match[2];
+    if (specifier !== undefined && !specifier.endsWith(".js")) {
+      addViolation(violations, "relative-import-without-js");
+    }
+  }
+}
+
+function hasForbiddenSpecifierImport(source: string, specifier: string): boolean {
+  const escapedSpecifier = escapeRegExp(specifier);
+  const importPattern = new RegExp(
+    `\\b(?:import|export)\\b[^;\\n]*["']${escapedSpecifier}["']`,
+    "u",
+  );
+  return importPattern.test(source);
+}
+
+function directivePattern(name: string): RegExp {
+  const escapedName = escapeRegExp(name);
+  return new RegExp(`(?:\\/\\/|\\/\\*)\\s*@${escapedName}\\b`, "u");
+}
+
+function oxlintDisableDirective(): string {
+  return ["oxlint", "disable"].join("-");
+}
+
+function addViolation(
+  violations: ParsingSourceConventionViolation[],
+  violation: ParsingSourceConventionViolation,
+): void {
+  if (!violations.includes(violation)) {
+    violations.push(violation);
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}

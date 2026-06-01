@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: add a pure parsing source convention inspector for
+  review-engine purity, TypeScript, and ESM boundary checks.
+
 - `test(review-engine)`: add acceptance coverage for parsing source purity,
   TypeScript conventions, forbidden implementation pattern checks, and stable
   committable suggestion contracts.
