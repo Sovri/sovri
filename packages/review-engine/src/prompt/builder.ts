@@ -30,7 +30,7 @@ const MINIMAL_REVIEW_SYSTEM_TEMPLATE = [
   "Return structured JSON findings that match the requested schema.",
 ].join(" ");
 
-export const ReviewPromptModeSchema = z.enum(["full", "bugs-only", "minimal"]);
+export const ReviewPromptModeSchema = z.enum(["full", "bugs-only", "strict", "minimal"]);
 export type ReviewPromptMode = z.infer<typeof ReviewPromptModeSchema>;
 
 export const SystemPromptConfigSchema = z.strictObject({

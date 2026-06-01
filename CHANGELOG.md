@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: accept `strict` as a review prompt mode in the prompt
+  builder schema, preparing prompt routing for the v0.5 strict review mode.
+
 - `test(review-engine)`: add acceptance coverage proving `strict` is a first-class
   prompt mode in the review prompt schema while unsupported prompt modes still fail
   at the `mode` field.
