@@ -212,6 +212,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(review-engine)`: wire provider `suggested_code` through review findings
+  before inline comments are posted, and size GitHub suggestion fences around
+  replacement code that already contains backticks.
+
 - `fix(review-engine)`: address syntax-sanity review feedback for line comments,
   truncated ternaries, non-null assertions before delimiters, Unicode regex flag
   suffixes, adjacent quoted literals, tagged template literals, empty ternary

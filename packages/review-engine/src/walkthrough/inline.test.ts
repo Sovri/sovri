@@ -447,6 +447,30 @@ describe("buildInlineComments — committable suggestion blocks", () => {
     );
   });
 
+  it("uses a longer suggestion fence when the replacement code contains backticks", () => {
+    // Given the finding suggestion.code contains a triple-backtick run
+    // And suggestion.committable is true
+    const findings: Finding[] = [
+      makeFinding({
+        file: "src/markdown.ts",
+        lineStart: 8,
+        title: "Escape markdown fence",
+        body: "The replacement code embeds a markdown fence literal.",
+        suggestion: { code: 'const fence = "```";', committable: true },
+      }),
+    ];
+    const diff = makeDiff("src/markdown.ts", [8]);
+
+    // When Sovri formats the inline comment body
+    const comments = buildInlineComments(findings, diff);
+
+    // Then the inline body uses a four-backtick suggestion fence
+    // And the replacement code stays inside the suggestion block
+    expect(comments[0]?.body).toContain(
+      ["````suggestion", 'const fence = "```";', "````"].join("\n"),
+    );
+  });
+
   it("does not render a suggestion fence for absent or non-committable suggestions", () => {
     // Given one finding has no suggestion
     // And another finding has suggestion.committable false

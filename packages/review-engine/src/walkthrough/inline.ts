@@ -7,6 +7,9 @@ import { iterateRightSideLines } from "../diff/right-side-lines.js";
 import { computeFindingFingerprint } from "../reconcile/fingerprint.js";
 import { renderFindingMarker } from "../reconcile/marker.js";
 
+const MinimumMarkdownFenceLength = 3;
+const BacktickRunPattern = /`+/gu;
+
 const InlineFindingSchema = FindingSchema.superRefine((finding, context) => {
   if (finding.line_start > finding.line_end) {
     context.addIssue({
@@ -105,7 +108,17 @@ function renderCommittableSuggestionBlock(finding: Finding): string {
     return "";
   }
 
-  return `\n\n\`\`\`suggestion\n${finding.suggestion.code}\n\`\`\``;
+  const fence = markdownFenceFor(finding.suggestion.code);
+  return `\n\n${fence}suggestion\n${finding.suggestion.code}\n${fence}`;
+}
+
+function markdownFenceFor(code: string): string {
+  const longestBacktickRun = Array.from(
+    code.matchAll(BacktickRunPattern),
+    (match) => match[0].length,
+  ).reduce((longest, length) => Math.max(longest, length), 0);
+
+  return "`".repeat(Math.max(MinimumMarkdownFenceLength, longestBacktickRun + 1));
 }
 
 function collectRightSideLines(diff: Diff): ReadonlyMap<string, ReadonlySet<number>> {
