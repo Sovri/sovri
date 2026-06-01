@@ -21,6 +21,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(config)`: allow slash-delimited OpenAI-compatible model identifiers, such as
+  Hugging Face-style endpoint model IDs, while preserving the config model character
+  boundary against control characters.
+
+- `test(llm-providers)`: cover the provider factory error path when
+  `openai-compatible` config omits the required `llm.baseUrl`.
+
 - `test(config)`: assert OpenAI provider config keeps the existing review mode
   contract, including the reserved `strict` mode rejection.
 

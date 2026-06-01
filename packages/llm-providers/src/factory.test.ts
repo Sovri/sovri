@@ -7,7 +7,12 @@ import { AnthropicProvider } from "./providers/AnthropicProvider.js";
 import { MistralProvider } from "./providers/MistralProvider.js";
 import { OpenAIProvider } from "./providers/OpenAIProvider.js";
 
-import { createProviderFromConfig, MissingApiKeyError, type LLMProvider } from "./index.js";
+import {
+  createProviderFromConfig,
+  MissingApiKeyError,
+  UnsupportedProviderError,
+  type LLMProvider,
+} from "./index.js";
 
 vi.mock("./providers/AnthropicProvider.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./providers/AnthropicProvider.js")>();
@@ -184,6 +189,18 @@ describe("createProviderFromConfig", () => {
     });
 
     expect(() => createProviderFromConfig(config, {})).toThrow(MissingApiKeyError);
+  });
+
+  it("throws a typed unsupported-provider error when openai-compatible omits baseUrl", () => {
+    const config = createConfig({
+      provider: "openai-compatible",
+      model: "qwen2.5-coder-32b",
+      apiKeySecret: "OPENAI_COMPATIBLE_API_KEY",
+    });
+
+    const env = { OPENAI_COMPATIBLE_API_KEY: "test-key" };
+
+    expect(() => createProviderFromConfig(config, env)).toThrow(UnsupportedProviderError);
   });
 });
 

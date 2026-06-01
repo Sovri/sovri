@@ -27,6 +27,11 @@ const EnvVarNamePattern = /^[A-Z_][A-Z0-9_]*$/;
 // Restricting the character set blocks log/prompt injection via newlines,
 // NUL bytes, control characters, and Unicode bidi overrides.
 const ModelNamePattern = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+const OpenAICompatibleModelNamePattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
+const ModelNameMessage =
+  "model must contain only letters, digits, dot, hyphen, underscore, or colon";
+const OpenAICompatibleModelNameMessage =
+  "model must contain only letters, digits, dot, hyphen, underscore, slash, or colon";
 
 /**
  * Full list of providers Sovri accepts in repository configuration. The enum
@@ -49,14 +54,7 @@ export type SeverityThreshold = z.infer<typeof SeverityThresholdSchema>;
 const LlmSchema = z
   .strictObject({
     provider: ProviderSchema,
-    model: z
-      .string()
-      .min(1)
-      .max(MAX_MODEL_LEN)
-      .regex(
-        ModelNamePattern,
-        "model must contain only letters, digits, dot, hyphen, underscore, or colon",
-      ),
+    model: z.string().min(1).max(MAX_MODEL_LEN),
     baseUrl: z
       .url({ protocol: /^https$/ })
       .max(MAX_BASE_URL_LEN)
@@ -71,6 +69,20 @@ const LlmSchema = z
       ),
   })
   .superRefine((llm, context) => {
+    const modelNamePattern =
+      llm.provider === "openai-compatible" ? OpenAICompatibleModelNamePattern : ModelNamePattern;
+
+    if (!modelNamePattern.test(llm.model)) {
+      context.addIssue({
+        code: "custom",
+        path: ["model"],
+        message:
+          llm.provider === "openai-compatible"
+            ? OpenAICompatibleModelNameMessage
+            : ModelNameMessage,
+      });
+    }
+
     if (llm.provider === "openai-compatible" && llm.baseUrl === undefined) {
       context.addIssue({
         code: "custom",
