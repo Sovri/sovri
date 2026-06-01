@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add strict prompt acceptance coverage for the UTF-8
+  byte budget, structured JSON contract, prompt-injection containment,
+  prompt-module purity, and source-level Apache 2.0 / ESM conventions.
+
 - `feat(review-engine)`: route `review.mode: strict` through the review
   orchestrator to the strict prompt template instead of silently falling back to
   full mode.
