@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add acceptance coverage for direct syntactic sanity
+  validation of balanced and uncertain single-line suggestions.
+
 - `feat(config)`: accept `review.mode: strict` in `.sovri.yml` so repository
   configuration reaches the strict review-engine prompt path for regulated
   codebase reviews that need maintainability, style, readability, and
