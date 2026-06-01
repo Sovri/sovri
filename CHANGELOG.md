@@ -38,10 +38,6 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `buildSystemPrompt({ mode: "strict" })` to strict-mode guidance without changing
   the existing `full`, `bugs-only`, or `minimal` prompt templates.
 
-- `fix(review-engine)`: align strict prompt guidance with the configured severity
-  filter by requesting blocker, major, and minor findings instead of nitpick
-  findings that the default `minor` threshold removes.
-
 - `feat(review-engine)`: accept `strict` as a review prompt mode in the prompt
   builder schema, preparing prompt routing for the v0.5 strict review mode.
 
@@ -188,6 +184,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(llm-providers)`: move OpenAI-compatible export, SDK mock, and no-network guard helpers into
   package test utilities, document the direct provider helper HTTPS `baseUrl` constraint, and name
   repeated compatible-provider token and default-limit test fixtures.
+
+### Fixed
+
+- `fix(review-engine)`: align strict prompt guidance with the configured severity
+  filter by requesting blocker, major, and minor findings instead of nitpick
+  findings that the default `minor` threshold removes.
 
 ## [0.3.0] - 2026-05-31
 
