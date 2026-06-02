@@ -29,6 +29,31 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   import, dynamic import and import-attribute edge cases, directive edge cases,
   and stable committable suggestion contracts.
 
+- `test(review-engine)`: add acceptance coverage proving syntactically suspect
+  suggestions keep their display text while the one-click committable gate rejects
+  them.
+
+- `feat(review-engine)`: committable suggestions use lightweight syntactic validation
+  for balanced delimiters, quotes, and truncation markers without adding parser
+  dependencies; template-literal interpolations, standalone ellipses, and
+  unterminated block comments fail closed, and full AST validation is not included.
+
+- `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
+  kind using the existing finding-id validation rules.
+
+- `test(bot)`: add command parser acceptance coverage for `@sovri-bot resolve
+  <findingId>`, malformed resolve inputs, mention anchoring, and resolve/dismiss
+  command distinctness.
+
+- `feat(review-engine)`: render parser-approved inline fixes as GitHub
+  `suggestion` fenced blocks on single-line inline anchors while keeping
+  non-committable alternatives off the one-click surface and preserving
+  audit-reference and marker ordering.
+
+- `test(review-engine)`: add acceptance coverage for rendering committable
+  suggestions as inline GitHub suggestion blocks while preserving non-committable,
+  audit-reference, marker-last, and anchor-invariant behavior.
+
 - `test(review-engine)`: add acceptance coverage for the deferred full-AST
   validation scope, parser-dependency boundaries, maintenance notes, and
   production-source language-boundary checks for committable suggestion syntax
@@ -211,6 +236,30 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   repeated compatible-provider token and default-limit test fixtures.
 
 ### Fixed
+
+- `fix(review-engine)`: reject syntactically suspect single-line suggestions from
+  the one-click committable path while preserving their suggestion text for review
+  rendering, balanced template interpolation, valid spread operands, and terminal
+  operator rejection.
+
+- `fix(bot)`: react `confused` to parsed `@sovri-bot resolve <findingId>`
+  issue comments until resolve handling exists, avoiding silent dispatcher no-ops.
+
+- `fix(review-engine)`: wire provider `suggested_code` through review findings
+  before inline comments are posted, and size GitHub suggestion fences around
+  replacement code that already contains backticks.
+
+- `fix(review-engine)`: address syntax-sanity review feedback for line comments,
+  truncated ternaries, non-null assertions before delimiters, Unicode regex flag
+  suffixes, adjacent quoted literals, tagged template literals, empty ternary
+  arms, JSX closing and attributed opening tags, member-access keyword properties,
+  `as const` assertions, Rust path separators, Python slices with omitted bounds
+  while rejecting array-literal and ternary false-arm lookalikes, dangling
+  greater-than operators, dangling non-operand and control keywords, statement
+  terminators after incomplete expressions, JSX text content and quoted-attribute
+  boundaries, incomplete JSX attributes, `do` / `while` continuations, scoped JSX
+  expression text handling, leading and repeated delimiter commas while
+  preserving valid array elisions, and scope-test false positives.
 
 - `fix(review-engine)`: align strict prompt guidance with the configured severity
   filter by requesting blocker, major, and minor findings instead of nitpick

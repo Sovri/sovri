@@ -13,6 +13,8 @@ import {
   isWhitespace,
 } from "./syntax-characters.js";
 
+const AssertionAsToken = "assertion-as";
+
 const NonOperandKeywords = new Set<string>([
   "as",
   "await",
@@ -20,10 +22,12 @@ const NonOperandKeywords = new Set<string>([
   "catch",
   "class",
   "const",
+  "default",
   "delete",
   "do",
   "else",
   "extends",
+  "finally",
   "for",
   "from",
   "function",
@@ -40,6 +44,7 @@ const NonOperandKeywords = new Set<string>([
   "satisfies",
   "switch",
   "throw",
+  "try",
   "type",
   "typeof",
   "var",
@@ -57,10 +62,23 @@ const IdentifierOperatorKeywords = new Set<string>([
   "satisfies",
 ]);
 
+const BlockContinuationKeywords = new Set<string>(["catch", "else", "finally", "while"]);
+
 const NumberLiteralPattern =
   /^(?:0[xX][0-9A-Fa-f](?:_?[0-9A-Fa-f])*|0[bB][01](?:_?[01])*|0[oO][0-7](?:_?[0-7])*|(?:[0-9](?:_?[0-9])*)(?:\.(?:[0-9](?:_?[0-9])*)?)?(?:[eE][+-]?[0-9](?:_?[0-9])*)?)(?:n)?$/u;
 
 export function isCannotEndToken(token: string | undefined): boolean {
+  return (
+    token !== undefined &&
+    (TerminalOperatorTokens.has(token) ||
+      token === "," ||
+      token === AssertionAsToken ||
+      RegexPrefixKeywords.has(token) ||
+      NonOperandKeywords.has(token))
+  );
+}
+
+export function isCannotPrecedeColonToken(token: string | undefined): boolean {
   return (
     token !== undefined &&
     (TerminalOperatorTokens.has(token) || token === "," || RegexPrefixKeywords.has(token))
@@ -94,6 +112,9 @@ export function isUnexpectedAdjacentOperand(
   previousSignificant: string | undefined,
   current: string,
 ): boolean {
+  if (previousSignificant === "}" && BlockContinuationKeywords.has(current)) {
+    return false;
+  }
   return isOperandToken(previousSignificant) && !IdentifierOperatorKeywords.has(current);
 }
 
@@ -133,6 +154,22 @@ export function readIdentifier(code: string, start: number): string {
   return code.slice(start, end);
 }
 
+export function significantIdentifierToken(
+  identifier: string,
+  previousSignificant: string | undefined,
+): string {
+  if (previousSignificant === ".") {
+    return "literal";
+  }
+  if (identifier === "as" && isOperandToken(previousSignificant)) {
+    return AssertionAsToken;
+  }
+  if (identifier === "const" && previousSignificant === AssertionAsToken) {
+    return "literal";
+  }
+  return identifier;
+}
+
 export function readNumberLiteral(code: string, start: number): string {
   let end = start + 1;
   while (end < code.length && canContinueNumberLiteral(code, end)) {
@@ -166,7 +203,7 @@ function isExponentSign(code: string, index: number): boolean {
   return (char === "+" || char === "-") && (previous === "e" || previous === "E");
 }
 
-function isOperandToken(token: string | undefined): boolean {
+export function isOperandToken(token: string | undefined): boolean {
   if (token === undefined || NonOperandKeywords.has(token)) {
     return false;
   }

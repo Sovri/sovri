@@ -58,6 +58,7 @@ export const TerminalOperatorTokens = new Set<string>([
   "~",
   ".",
   "<",
+  ">",
   ComparisonLessToken,
 ]);
 

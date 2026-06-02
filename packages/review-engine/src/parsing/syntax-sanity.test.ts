@@ -9,7 +9,11 @@ import { describe, expect, it } from "vitest";
 import { isSyntacticallySane } from "./syntax-sanity.js";
 
 const ParsingLayerDirectory = dirname(fileURLToPath(import.meta.url));
-const ForbiddenRuntimeEvaluationCalls = ["eval(", "Function(", "import("] as const;
+const ForbiddenRuntimeEvaluationCallPatterns: readonly RegExp[] = [
+  /(?<![$0-9A-Z_a-z])eval\(/u,
+  /(?<![$0-9A-Z_a-z])Function\(/u,
+  /(?<![$0-9A-Z_a-z])import\(/u,
+];
 
 describe("isSyntacticallySane", () => {
   it("validates balanced snippets and rejects uncertain syntax conservatively", () => {
@@ -22,19 +26,45 @@ describe("isSyntacticallySane", () => {
       "const label = 'ready';",
       String.raw`const label = "ready \"now\"";`,
       "const label = `total ${format(count)}`;",
+      "const view = html`<div>${name}</div>`;",
       String.raw`const pattern = /a\/[bc]+/g;`,
       "return /ready/.test(input);",
       "/^ready$/.test(input);",
       "const next = [...items, ...[fallback], ...(enabled ? items : [])];",
+      "const next = [first,];",
+      "const sparse = [, first, , third,];",
+      "const emptySlots = [,,];",
       "const object = { ...source };",
+      "const object = { value: 1, };",
+      "call(first,);",
       "const total = 0x2A + 1_000.5;",
       "const ratio = 1e-3;",
       "const value = input /* explain */ + fallback;",
       "call(first, second); // trailing )",
+      "const first = 1; // trailing )\nconst second = call();",
       "return values[index++];",
       "return fn(i--);",
+      "return normalize(value!);",
+      "return object.class;",
+      "return object?.class;",
+      "return;",
+      "yield;",
       "const result = value as Result;",
+      "const next = value as const;",
       "const less = count < /ready/.test(input);",
+      "return <div>{name}</div>;",
+      "return <Button disabled={loading}>Save</Button>;",
+      "return <Button label={`ready`}>Save</Button>;",
+      "return <span>Hello world</span>;",
+      "return <span>Hello {name}</span>;",
+      "return <>{name}</>;",
+      "std::mem::drop(value);",
+      "return items[1:]",
+      "return items[:]",
+      "try { cleanup(); } finally { report(); }",
+      "do { cleanup(); } while (active);",
+      'const loaded = import("./module.js", { assert: { type: "json" } });',
+      "const fallback = enabled ? value : backup;",
     ];
 
     for (const code of saneCodes) {
@@ -52,7 +82,9 @@ describe("isSyntacticallySane", () => {
       "const tuple = [first, second);",
       'const object = { name: "Ada";',
       'const label = "ready;',
+      'const label = prefix"suffix";',
       "const label = `ready;",
+      "return value'tail';",
       "return normalize(value...",
       "const value = \u2026;",
       "const value = input /* explain",
@@ -61,15 +93,42 @@ describe("isSyntacticallySane", () => {
       "const copy = ...items;",
       "const copy = [...];",
       "call(first +);",
+      "call(,);",
+      "call(first,,second);",
+      "return items[,]",
+      "const object = {,};",
       "call(first];",
       "return total +",
+      "return total +;",
       "return total <",
+      "return total >;",
+      "const fn = () =>;",
+      "const next = enabled ? fallback",
+      "const next = enabled ? { value: fallback }",
+      "const next = enabled ? : fallback;",
+      "return <Button disabled={loading +}>Save</Button>;",
+      "return <Button disabled={}>Save</Button>;",
+      "return <Button label=>Save</Button>;",
+      "return <Button label=`ready`>Save</Button>;",
+      "return items[condition ? value :]",
+      "const values = [first:];",
+      "const invalid = { value: 1 } trailing<end>;",
       "const pair = first,",
+      "if (enabled) else",
+      "const",
+      "value as;",
+      "as const;",
       "throw",
+      "throw;",
+      "try",
+      "try { cleanup(); } finally",
+      "default",
       "await",
       "typeof",
       "foo bar",
       "const count = 1abc;",
+      "const invalid = /ready/é;",
+      "const first = 1; // trailing )\nconst second = call(",
     ];
 
     for (const code of uncertainCodes) {
@@ -151,8 +210,8 @@ describe("isSyntacticallySane", () => {
     // And the parsing layer source contains no "eval("
     // And the parsing layer source contains no "Function("
     // And the parsing layer source contains no "import("
-    for (const forbiddenCall of ForbiddenRuntimeEvaluationCalls) {
-      expect(parsingLayerSource).not.toContain(forbiddenCall);
+    for (const forbiddenCallPattern of ForbiddenRuntimeEvaluationCallPatterns) {
+      expect(parsingLayerSource).not.toMatch(forbiddenCallPattern);
     }
   });
 });
