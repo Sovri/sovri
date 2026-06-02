@@ -245,7 +245,7 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "unknown", raw: "explain" });
   });
 
-  it.each(["Re-Review", "DISMISS abc-123-def", "RESOLVE abc-123-def"])(
+  it.each(["RE-REVIEW", "DISMISS abc-123-def", "RESOLVE abc-123-def"])(
     "returns unknown for non-exact command verb %s",
     async (commandLine) => {
       const { parseCommand } = await import("./parser.js");
@@ -447,7 +447,7 @@ describe("parseCommand", () => {
     expect(command).toEqual({ kind: "resolve", findingId: "standalone-789" });
   });
 
-  it("uses a later valid resolve mention after a hostile malformed resolve command", async () => {
+  it("uses a later valid resolve mention after a malformed resolve command with a slash id", async () => {
     const { parseCommand } = await import("./parser.js");
 
     // Given a GitHub issue comment body:

@@ -220,6 +220,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: react `confused` to parsed `@sovri-bot resolve <findingId>`
+  issue comments until resolve handling exists, avoiding silent dispatcher no-ops.
+
 - `fix(review-engine)`: wire provider `suggested_code` through review findings
   before inline comments are posted, and size GitHub suggestion fences around
   replacement code that already contains backticks.
