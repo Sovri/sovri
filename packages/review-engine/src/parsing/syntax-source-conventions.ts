@@ -84,7 +84,7 @@ function collectForbiddenSpecifierViolations(
   violations: ParsingSourceConventionViolation[],
 ): void {
   for (const rule of ForbiddenSpecifierRules) {
-    if (hasForbiddenSpecifierImport(source, rule.specifier)) {
+    if (hasForbiddenSpecifierUse(source, rule.specifier)) {
       addViolation(violations, rule.violation);
     }
   }
@@ -113,7 +113,7 @@ function collectRelativeImportViolations(
   }
 }
 
-function hasForbiddenSpecifierImport(source: string, specifier: string): boolean {
+function hasForbiddenSpecifierUse(source: string, specifier: string): boolean {
   const escapedSpecifier = escapeRegExp(specifier);
   const specifierPattern = `${escapedSpecifier}(?:\\/[^"']*)?`;
   const staticImportPattern = new RegExp(
@@ -124,7 +124,15 @@ function hasForbiddenSpecifierImport(source: string, specifier: string): boolean
     `\\bimport\\s*\\(\\s*["']${specifierPattern}["'](?:\\s*,[\\s\\S]*?)?\\s*\\)`,
     "u",
   );
-  return staticImportPattern.test(source) || dynamicImportPattern.test(source);
+  const commonJsLoadPattern = new RegExp(
+    `\\brequire\\s*\\(\\s*["']${specifierPattern}["']\\s*\\)`,
+    "u",
+  );
+  return (
+    staticImportPattern.test(source) ||
+    dynamicImportPattern.test(source) ||
+    commonJsLoadPattern.test(source)
+  );
 }
 
 function directivePattern(name: string, prefix: DirectivePrefix): RegExp {

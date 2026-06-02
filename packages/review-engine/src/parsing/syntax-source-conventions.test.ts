@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import type { ParsingSourceConventionViolation } from "./syntax-source-conventions.js";
 import { parseLLMResponse } from "./parser.js";
 import { inspectParsingSourceConventions } from "./syntax-source-conventions.js";
 
@@ -37,18 +38,39 @@ const ConventionViolations: readonly string[] = [
   "forbidden-ts-expect-error",
   "forbidden-oxlint-directive",
 ];
-const ForbiddenSyntheticSources: ReadonlyArray<{ readonly sourceText: string }> = [
-  { sourceText: "import fs from 'node:fs';" },
-  { sourceText: "import {\n  readFileSync\n} from 'node:fs';" },
-  { sourceText: "const fs = await import('node:fs');" },
-  { sourceText: "const fs = await import('node:fs', { with: { type: 'json' } });" },
-  { sourceText: 'import "./setup";' },
-  { sourceText: "const setup = await import('./setup', { with: { type: 'json' } });" },
-  { sourceText: "const value: any = code;" },
-  { sourceText: "const value: Record<string, any> = {};" },
-  { sourceText: "// @ts-ignore" },
-  { sourceText: "// oxlint-disable no-console" },
-  { sourceText: "eval(code)" },
+const ForbiddenSyntheticSources: ReadonlyArray<{
+  readonly sourceText: string;
+  readonly expectedViolation: ParsingSourceConventionViolation;
+}> = [
+  { sourceText: "import fs from 'node:fs';", expectedViolation: "forbidden-node:fs" },
+  {
+    sourceText: "import {\n  readFileSync\n} from 'node:fs';",
+    expectedViolation: "forbidden-node:fs",
+  },
+  { sourceText: "const fs = await import('node:fs');", expectedViolation: "forbidden-node:fs" },
+  {
+    sourceText: "const fs = await import('node:fs', { with: { type: 'json' } });",
+    expectedViolation: "forbidden-node:fs",
+  },
+  { sourceText: "const fs = require('node:fs');", expectedViolation: "forbidden-node:fs" },
+  { sourceText: 'import "./setup";', expectedViolation: "relative-import-without-js" },
+  {
+    sourceText: "const setup = await import('./setup', {});",
+    expectedViolation: "relative-import-without-js",
+  },
+  {
+    sourceText: "const setup = await import('./setup', { with: { type: 'json' } });",
+    expectedViolation: "relative-import-without-js",
+  },
+  { sourceText: "const value: any = code;", expectedViolation: "forbidden-any" },
+  { sourceText: "const value: Record<string, any> = {};", expectedViolation: "forbidden-any" },
+  {
+    sourceText: "const value: Map<string, any> = new Map();",
+    expectedViolation: "forbidden-any",
+  },
+  { sourceText: "// @ts-ignore", expectedViolation: "forbidden-ts-ignore" },
+  { sourceText: "// oxlint-disable no-console", expectedViolation: "forbidden-oxlint-directive" },
+  { sourceText: "eval(code)", expectedViolation: "forbidden-eval" },
 ];
 
 describe("review-engine parsing source conventions", () => {
@@ -98,7 +120,7 @@ describe("review-engine parsing source conventions", () => {
 
   it.each(ForbiddenSyntheticSources)(
     "fails the convention check for forbidden source text $sourceText",
-    ({ sourceText }) => {
+    ({ sourceText, expectedViolation }) => {
       // Given a synthetic changed parsing source contains <source_text>
       const source = withSourceHeader(sourceText);
 
@@ -107,7 +129,7 @@ describe("review-engine parsing source conventions", () => {
 
       // Then the convention check fails
       expect(result.ok).toBe(false);
-      expect(result.violations).not.toEqual([]);
+      expect(result.violations).toContain(expectedViolation);
     },
   );
 
