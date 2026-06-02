@@ -38,9 +38,13 @@ const RelativeImportPattern =
   /\bfrom\s+["'](\.{1,2}\/[^"']+)["']|\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["'](?:\s*,[\s\S]*?)?\s*\)|\bimport\s+["'](\.{1,2}\/[^"']+)["']/gu;
 const ForbiddenSpecifierRules: readonly SpecifierRule[] = [
   { specifier: "node:fs", violation: "forbidden-node:fs" },
+  { specifier: "fs", violation: "forbidden-node:fs" },
   { specifier: "node:net", violation: "forbidden-node:net" },
+  { specifier: "net", violation: "forbidden-node:net" },
   { specifier: "node:http", violation: "forbidden-node:http" },
+  { specifier: "http", violation: "forbidden-node:http" },
   { specifier: "node:https", violation: "forbidden-node:https" },
+  { specifier: "https", violation: "forbidden-node:https" },
 ];
 const ForbiddenPatternRules: readonly PatternRule[] = [
   { pattern: /\bprocess\.env\b/u, violation: "forbidden-process-env" },
@@ -144,6 +148,7 @@ function directivePattern(name: string, prefix: DirectivePrefix): RegExp {
 function forbiddenAnyPattern(): RegExp {
   const variants = [
     `:\\s*${AnyKeyword}\\b`,
+    `\\btype\\s+\\w+\\s*=\\s*${AnyKeyword}\\b`,
     `\\bas\\s+${AnyKeyword}\\b`,
     `<[^>]*\\b${AnyKeyword}\\b[^>]*>`,
   ];

@@ -43,16 +43,19 @@ const ForbiddenSyntheticSources: ReadonlyArray<{
   readonly expectedViolation: ParsingSourceConventionViolation;
 }> = [
   { sourceText: "import fs from 'node:fs';", expectedViolation: "forbidden-node:fs" },
+  { sourceText: "import fs from 'fs';", expectedViolation: "forbidden-node:fs" },
   {
     sourceText: "import {\n  readFileSync\n} from 'node:fs';",
     expectedViolation: "forbidden-node:fs",
   },
   { sourceText: "const fs = await import('node:fs');", expectedViolation: "forbidden-node:fs" },
+  { sourceText: "const fs = await import('fs/promises');", expectedViolation: "forbidden-node:fs" },
   {
     sourceText: "const fs = await import('node:fs', { with: { type: 'json' } });",
     expectedViolation: "forbidden-node:fs",
   },
   { sourceText: "const fs = require('node:fs');", expectedViolation: "forbidden-node:fs" },
+  { sourceText: "const http = require('http');", expectedViolation: "forbidden-node:http" },
   { sourceText: 'import "./setup";', expectedViolation: "relative-import-without-js" },
   {
     sourceText: "const setup = await import('./setup', {});",
@@ -63,6 +66,7 @@ const ForbiddenSyntheticSources: ReadonlyArray<{
     expectedViolation: "relative-import-without-js",
   },
   { sourceText: "const value: any = code;", expectedViolation: "forbidden-any" },
+  { sourceText: "type RawFinding = any;", expectedViolation: "forbidden-any" },
   { sourceText: "const value: Record<string, any> = {};", expectedViolation: "forbidden-any" },
   {
     sourceText: "const value: Map<string, any> = new Map();",

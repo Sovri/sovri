@@ -237,9 +237,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
-- `fix(review-engine)`: detect CommonJS loads of forbidden modules, dynamic
-  relative imports with options, and generic `any` type arguments in parsing
-  source convention checks.
+- `fix(review-engine)`: detect CommonJS loads and bare specifiers for forbidden
+  Node.js modules, dynamic relative imports with options, generic `any` type
+  arguments, and direct `any` type aliases in parsing source convention checks.
 
 - `fix(review-engine)`: reject syntactically suspect single-line suggestions from
   the one-click committable path while preserving their suggestion text for review
