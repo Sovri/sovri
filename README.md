@@ -48,7 +48,7 @@ Additional tags follow the [Image tags](#image-tags) section of `Run the Communi
 
 ## Status
 
-**Pre-alpha.** The `v0.4.0` sprint has shipped the resolve-command workflow, review failure diagnostics, release pipeline artifacts, and the BYOK productization (all providers, `.sovri.yml`, `dismiss`/`re-review` commands, committable suggestions). The next sprint is `v0.5.0`, focused on the public design system and applying the validated visual direction to the bot's review output.
+**Pre-alpha.** The `v0.4.0` sprint has shipped the resolve-command workflow, review failure diagnostics, release pipeline artifacts, and the BYOK productization (`.sovri.yml`, `dismiss`/`re-review` commands, committable suggestions). The next sprint is `v0.5.0`, focused on the public design system and applying the validated visual direction to the bot's review output.
 
 Track progress through the [issues](https://github.com/mpiton/sovri/issues) and the `[Unreleased]` section of [`CHANGELOG.md`](CHANGELOG.md).
 
