@@ -33,8 +33,9 @@ interface PatternRule {
 type DirectivePrefix = "at-sign" | "none";
 
 const SpdxHeader = "// SPDX-License-Identifier: Apache-2.0\n";
+const AnyKeyword = ["an", "y"].join("");
 const RelativeImportPattern =
-  /\bfrom\s+["'](\.{1,2}\/[^"']+)["']|\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)|\bimport\s+["'](\.{1,2}\/[^"']+)["']/gu;
+  /\bfrom\s+["'](\.{1,2}\/[^"']+)["']|\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["'](?:\s*,[\s\S]*?)?\s*\)|\bimport\s+["'](\.{1,2}\/[^"']+)["']/gu;
 const ForbiddenSpecifierRules: readonly SpecifierRule[] = [
   { specifier: "node:fs", violation: "forbidden-node:fs" },
   { specifier: "node:net", violation: "forbidden-node:net" },
@@ -44,7 +45,7 @@ const ForbiddenSpecifierRules: readonly SpecifierRule[] = [
 const ForbiddenPatternRules: readonly PatternRule[] = [
   { pattern: /\bprocess\.env\b/u, violation: "forbidden-process-env" },
   { pattern: /\beval\s*\(/u, violation: "forbidden-eval" },
-  { pattern: /(?::\s*any\b|\bas\s+any\b|<\s*any\s*>)/u, violation: "forbidden-any" },
+  { pattern: forbiddenAnyPattern(), violation: "forbidden-any" },
   { pattern: directivePattern("ts-ignore", "at-sign"), violation: "forbidden-ts-ignore" },
   {
     pattern: directivePattern("ts-expect-error", "at-sign"),
@@ -130,6 +131,15 @@ function directivePattern(name: string, prefix: DirectivePrefix): RegExp {
   const escapedName = escapeRegExp(name);
   const marker = prefix === "at-sign" ? "@" : "";
   return new RegExp(`(?:\\/\\/|\\/\\*)\\s*${marker}${escapedName}\\b`, "u");
+}
+
+function forbiddenAnyPattern(): RegExp {
+  const variants = [
+    `:\\s*${AnyKeyword}\\b`,
+    `\\bas\\s+${AnyKeyword}\\b`,
+    `<[^>]*\\b${AnyKeyword}\\b[^>]*>`,
+  ];
+  return new RegExp(variants.join("|"), "u");
 }
 
 function oxlintDisableDirective(): string {
