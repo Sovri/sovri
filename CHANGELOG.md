@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: committable suggestions use lightweight syntactic validation
+  for balanced delimiters, quotes, and truncation markers without adding parser
+  dependencies; template-literal interpolations, standalone ellipses, and
+  unterminated block comments fail closed, and full AST validation is not included.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 
