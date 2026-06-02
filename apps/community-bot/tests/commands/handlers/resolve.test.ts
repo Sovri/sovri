@@ -22,6 +22,8 @@ const KnownInlineCommentBody = [
   `<!-- sovri-finding-id: ${KnownFindingId} -->`,
 ].join("\n");
 
+// Exercises the resolve command as a GitHub adapter workflow: author gating,
+// finding lookup, thread resolution/fallback, idempotency, and surfaced failures.
 describe("resolve command handler", () => {
   it("resolves the matching bot review thread and acknowledges the command", async () => {
     const runtime = buildRuntime();

@@ -36,6 +36,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unauthorized users, unknown findings, fallback minimization, idempotency, and
   hard GitHub failures.
 
+- `test(bot)`: document the resolve-command handler test strategy for author
+  gating, thread resolution, fallback, idempotency, and GitHub failure coverage.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 
