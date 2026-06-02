@@ -275,7 +275,7 @@ describe("resolve command handler", () => {
       /addLabels|updateComment|updateReview|listComments|DISMISSED_FINDING_LABEL/u,
     );
     expect(resolveCommandSource).not.toMatch(
-      /database|postgres|sqlite|prisma|redis|cache|queue|persistent|suppression/iu,
+      /database|postgres|sqlite|prisma|redis|cache|queue|persistent|scheduler|setInterval|setTimeout|suppression|timer/iu,
     );
   });
 
@@ -383,6 +383,41 @@ describe("resolve command handler", () => {
       }),
       "Resolve command failed",
     );
+    expect(runtime.octokit.rest.issues.createComment).toHaveBeenCalledWith({
+      body: "Resolve command could not be completed. Please retry later.",
+      issue_number: PullRequestNumber,
+      owner: "octo-org",
+      repo: "sovri-target",
+    });
+    expect(runtime.octokit.rest.reactions.createForIssueComment).not.toHaveBeenCalled();
+  });
+
+  it("keeps thread-resolution failures stateless inside the webhook request", async () => {
+    const runtime = buildRuntime({
+      resolveError: hardGitHubError(503),
+    });
+    const logger = buildLogger();
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    const intervalSpy = vi.spyOn(globalThis, "setInterval");
+    const context = buildIssueCommentContext(runtime.octokit, {
+      deliveryId: FailureDeliveryId,
+    });
+    const dependencies = createIssueCommentHandlerDependencies(
+      context,
+      { SOVRI_BOT_LOGIN: "sovri-bot" },
+      logger,
+    );
+
+    try {
+      await handleIssueCommentCreated(context, dependencies);
+
+      expect(timeoutSpy).not.toHaveBeenCalled();
+      expect(intervalSpy).not.toHaveBeenCalled();
+    } finally {
+      timeoutSpy.mockRestore();
+      intervalSpy.mockRestore();
+    }
+
     expect(runtime.octokit.rest.issues.createComment).toHaveBeenCalledWith({
       body: "Resolve command could not be completed. Please retry later.",
       issue_number: PullRequestNumber,
