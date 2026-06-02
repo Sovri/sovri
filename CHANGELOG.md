@@ -297,6 +297,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: add safe structured pull-request review failure diagnostics with
+  failure-stage, error-type, provider, token, and review metadata while keeping
+  public failure comments generic and avoiding raw failed-review content in logs.
+
 - `fix(bot)`: resolve `@sovri-bot resolve <findingId>` against the matching
   review comment node so stale resolved threads cannot receive the acknowledgement
   while the active finding remains open.
