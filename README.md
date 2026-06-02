@@ -36,19 +36,19 @@ Sovri does **not** claim to be a certified product. There is no ISO 27001, no SO
 
 ## Install
 
-The Community bot ships as a multi-arch container image on the GitHub Container Registry. Once the `v0.3.0` release tag is published, the canonical install command is:
+The Community bot ships as a multi-arch container image on the GitHub Container Registry. The current published pre-alpha release is `v0.4.0`:
 
 ```bash
-docker pull ghcr.io/mpiton/sovri/community-bot:v0.3.0
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.4.0
 ```
 
-Additional tags follow the [Image tags](#image-tags) section of `Run the Community bot` below (`v0.3`, `v0`, `latest`). Until the release tag lands, the image will return `manifest unknown` — the snippet is recorded here so consumers can pin to the exact version as soon as it is published.
+Additional tags follow the [Image tags](#image-tags) section of `Run the Community bot` below (`v0.4`, `v0`, `latest`).
 
 ---
 
 ## Status
 
-**Pre-alpha.** The repository is at the walking-skeleton stage: monorepo bootstrap, toolchain, ADRs and public-facing docs. The community bot itself is being built sprint by sprint and is not yet runnable.
+**Pre-alpha.** The `v0.4.0` sprint has shipped the resolve-command workflow, review failure diagnostics, and release pipeline artifacts. The next sprint is `v0.5.0`, focused on making the Community bot self-hostable by early adopters with complete BYOK configuration.
 
 Track progress through the [issues](https://github.com/mpiton/sovri/issues) and the `[Unreleased]` section of [`CHANGELOG.md`](CHANGELOG.md).
 

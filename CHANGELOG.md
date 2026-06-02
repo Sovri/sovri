@@ -19,6 +19,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Changed
+
+- `docs(roadmap)`: align the public roadmap around the completed v0.4 resolve
+  workflow sprint and mark v0.5 as the next Community BYOK sprint.
+
 
 ## [0.4.0] - 2026-06-02
 ### Added
