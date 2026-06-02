@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add acceptance coverage proving syntactically suspect
+  suggestions keep their display text while the one-click committable gate rejects
+  them.
+
 - `feat(review-engine)`: committable suggestions use lightweight syntactic validation
   for balanced delimiters, quotes, and truncation markers without adding parser
   dependencies; template-literal interpolations, standalone ellipses, and
@@ -224,6 +228,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   repeated compatible-provider token and default-limit test fixtures.
 
 ### Fixed
+
+- `fix(review-engine)`: reject syntactically suspect single-line suggestions from
+  the one-click committable path while preserving their suggestion text for review
+  rendering, balanced template interpolation, valid spread operands, and terminal
+  operator rejection.
 
 - `fix(bot)`: react `confused` to parsed `@sovri-bot resolve <findingId>`
   issue comments until resolve handling exists, avoiding silent dispatcher no-ops.
