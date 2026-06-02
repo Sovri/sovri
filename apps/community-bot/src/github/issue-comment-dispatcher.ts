@@ -9,6 +9,7 @@ import {
   handleReReviewCommand,
   type ReReviewOctokit,
 } from "../commands/handlers/re-review.js";
+import { handleResolveCommand } from "../commands/handlers/resolve.js";
 import { parseCommand } from "../commands/parser.js";
 import type {
   IssueCommentDismissCommandContext,
@@ -21,6 +22,10 @@ const DEFAULT_BOT_LOGIN = "sovri-bot[bot]";
 const logger = createLogger("community-bot.issue-comment");
 
 export type IssueCommentDispatchOctokit = ReReviewOctokit & {
+  readonly graphql: (
+    query: string,
+    variables: Readonly<Record<string, unknown>>,
+  ) => Promise<unknown>;
   readonly rest: ReReviewOctokit["rest"] & {
     readonly issues: {
       readonly addLabels: (
@@ -42,6 +47,9 @@ export type IssueCommentDispatchOctokit = ReReviewOctokit & {
       readonly createForPullRequestReviewComment: (
         parameters: PullRequestReviewCommentReactionParameters,
       ) => Promise<{ readonly data: unknown }>;
+      readonly listForIssueComment: (
+        parameters: IssueCommentReactionListParameters,
+      ) => Promise<{ readonly data: readonly IssueCommentReaction[] }>;
       readonly listForPullRequestReviewComment: (
         parameters: PullRequestReviewCommentReactionListParameters,
       ) => Promise<{ readonly data: readonly PullRequestReviewCommentReaction[] }>;
@@ -54,6 +62,21 @@ type IssueCommentReactionParameters = {
   readonly content: "+1" | "confused";
   readonly owner: string;
   readonly repo: string;
+};
+
+type IssueCommentReactionListParameters = {
+  readonly comment_id: number;
+  readonly owner: string;
+  readonly page?: number;
+  readonly per_page?: number;
+  readonly repo: string;
+};
+
+type IssueCommentReaction = {
+  readonly content?: string;
+  readonly user?: {
+    readonly login?: string;
+  } | null;
 };
 
 type PullRequestReviewCommentReactionParameters = {
@@ -103,6 +126,7 @@ type PullRequestReviewCommentListParameters = {
 type PullRequestReviewComment = {
   readonly body?: string | null;
   readonly id: number;
+  readonly node_id?: string;
   readonly user?: {
     readonly login?: string;
   } | null;
@@ -170,6 +194,7 @@ export function createIssueCommentHandlerDependencies(
     handleDismiss: (command) => handleDismissCommand(context, command, botLogin, dispatchLogger),
     handleReReview: (command) =>
       handleReReviewCommand(command, createReReviewCommandDependencies(context.octokit, env)),
+    handleResolve: (command) => handleResolveCommand(context, command, botLogin, dispatchLogger),
     parseCommand,
     reactToUnknown: (reaction) => reactConfused(context, reaction),
   };

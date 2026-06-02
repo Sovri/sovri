@@ -21,6 +21,55 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: route parsed `@sovri-bot resolve <findingId>` commands toward a
+  dedicated resolve handler so PR authors can acknowledge handled findings
+  without invoking dismiss suppression.
+
+- `test(bot)`: add issue-comment dispatcher coverage for forwarding parsed
+  `resolve <findingId>` commands with delivery, comment, author, and PR context.
+
+- `feat(bot)`: implement resolve-command handling against GitHub review threads,
+  including PR-author authorization, resolved-comment fallback, idempotent
+  acknowledgement, and retry-safe failure reporting.
+
+- `test(bot)`: add resolve-command handler coverage for thread resolution,
+  unauthorized users, unknown findings, fallback minimization, idempotency, and
+  hard GitHub failures.
+
+- `test(bot)`: document the resolve-command handler test strategy for author
+  gating, thread resolution, fallback, idempotency, and GitHub failure coverage.
+
+- `test(bot)`: cover resolve-command retry handling when GitHub fails during pull
+  request author lookup.
+
+- `test(bot)`: assert successful resolve of an existing finding does not post a
+  not-found or retry comment.
+
+- `test(bot)`: cover resolve-command behavior when a human-authored comment
+  contains Sovri finding marker text.
+
+- `test(bot)`: cover resolve-command statelessness across the reachable handler
+  helper graph, including arrow-function helpers, so manual resolution cannot
+  introduce database, cache, queue, or dismissed-finding suppression stores.
+
+- `test(bot)`: cover resolve acknowledgement idempotency when the bot already
+  reacted to the issue-comment command.
+
+- `test(bot)`: cover successful resolve logging so completion emits no failure
+  log, posts no retry comment, and creates exactly one acknowledgement reaction.
+
+- `test(bot)`: cover hard resolve-command GitHub failures during review-comment
+  listing and acknowledgement reaction creation.
+
+- `test(bot)`: cover resolve-command failure log safety so raw payloads and
+  token-like secrets stay out of error bindings.
+
+- `test(bot)`: cover resolve-command thread-resolution failure statelessness so
+  failures post the retry message without scheduling retry timers.
+
+- `refactor(bot)`: extract resolve-command handling into a dedicated Community
+  source file with the required Apache 2.0 license header.
+
 - `feat(review-engine)`: add a pure parsing source convention inspector for
   review-engine purity, TypeScript, and ESM boundary checks.
 
@@ -236,6 +285,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   repeated compatible-provider token and default-limit test fixtures.
 
 ### Fixed
+
+- `fix(bot)`: resolve `@sovri-bot resolve <findingId>` against the matching
+  review comment node so stale resolved threads cannot receive the acknowledgement
+  while the active finding remains open.
+
+- `fix(bot)`: avoid duplicate resolve acknowledgement reactions by checking
+  existing issue-comment `+1` reactions before creating one.
+
+- `fix(bot)`: exclude resolved GitHub review threads from active posted-finding
+  reconciliation, with adapter rationale documented, so manually resolved
+  findings can reappear on later re-review.
 
 - `fix(review-engine)`: detect CommonJS loads and bare specifiers for forbidden
   Node.js modules, dynamic relative imports with options, generic `any` type
