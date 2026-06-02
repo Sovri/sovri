@@ -1212,6 +1212,23 @@ describe("parseLLMResponse", () => {
     }
   });
 
+  it("does not mark syntactically uncertain single-line replacements as committable", () => {
+    const findings = parseLLMResponse({
+      summary: "One finding found",
+      findings: [
+        buildRawFinding({
+          line_start: 14,
+          line_end: 14,
+          suggested_code: "return normalize(value...",
+        }),
+      ],
+    });
+
+    const [finding] = findings;
+
+    expect(finding?.suggestion?.committable).toBe(false);
+  });
+
   it("marks non-committable suggestions as false", () => {
     const examples = [
       {
@@ -1224,6 +1241,48 @@ describe("parseLLMResponse", () => {
         line_start: 14,
         line_end: 14,
         suggested_code: "const total = amount ?? 0;\nreturn total;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = amount ?? 0;\rreturn total;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = format(amount;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = amount ?? ...",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "if (...) return total;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const value = someCall(\u2026);",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const message = `Hello ${name`;",
+        requiresSuggestion: true,
+      },
+      {
+        line_start: 14,
+        line_end: 14,
+        suggested_code: "const total = amount; /* truncated comment",
         requiresSuggestion: true,
       },
       {

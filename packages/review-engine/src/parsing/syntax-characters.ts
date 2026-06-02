@@ -7,6 +7,8 @@ export const OpeningDelimiters = new Map<string, string>([
   ["{", "}"],
 ]);
 
+export const ComparisonLessToken = "comparison<";
+
 export const ClosingDelimiters = new Set<string>([")", "]", "}"]);
 export const QuoteCharacters = new Set<string>(["'", '"', "`"]);
 export const RegexPrefixTokens = new Set<string>([
@@ -26,8 +28,8 @@ export const RegexPrefixTokens = new Set<string>([
   "*",
   "~",
   "^",
-  "<",
   ">",
+  ComparisonLessToken,
 ]);
 export const RegexPrefixKeywords = new Set<string>([
   "return",
@@ -53,10 +55,11 @@ export const TerminalOperatorTokens = new Set<string>([
   "&",
   "|",
   "^",
-  "<",
-  ">",
   "~",
   ".",
+  "<",
+  ">",
+  ComparisonLessToken,
 ]);
 
 export function isIdentifierStart(char: string): boolean {
@@ -72,7 +75,7 @@ export function isDecimalDigit(char: string): boolean {
 }
 
 export function isNumberLiteralPart(char: string): boolean {
-  return /[.0-9A-FX_a-fx]/u.test(char);
+  return /[.0-9A-Z_a-z]/u.test(char);
 }
 
 export function isWhitespace(char: string): boolean {
