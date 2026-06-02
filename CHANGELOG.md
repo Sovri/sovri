@@ -21,6 +21,24 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: route parsed `@sovri-bot resolve <findingId>` commands toward a
+  dedicated resolve handler so PR authors can acknowledge handled findings
+  without invoking dismiss suppression.
+
+- `test(bot)`: add issue-comment dispatcher coverage for forwarding parsed
+  `resolve <findingId>` commands with delivery, comment, author, and PR context.
+
+- `feat(bot)`: implement resolve-command handling against GitHub review threads,
+  including PR-author authorization, resolved-comment fallback, idempotent
+  acknowledgement, and retry-safe failure reporting.
+
+- `test(bot)`: add resolve-command handler coverage for thread resolution,
+  unauthorized users, unknown findings, fallback minimization, idempotency, and
+  hard GitHub failures.
+
+- `test(bot)`: document the resolve-command handler test strategy for author
+  gating, thread resolution, fallback, idempotency, and GitHub failure coverage.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 
