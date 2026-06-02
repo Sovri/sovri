@@ -72,6 +72,39 @@ describe("resolve command handler", () => {
     expect(runtime.octokit.rest.issues.updateComment).not.toHaveBeenCalled();
   });
 
+  it("logs successful resolve without emitting a failure", async () => {
+    const runtime = buildRuntime();
+    const logger = buildLogger();
+    const context = buildIssueCommentContext(runtime.octokit, {
+      deliveryId: FailureDeliveryId,
+    });
+    const dependencies = createIssueCommentHandlerDependencies(
+      context,
+      { SOVRI_BOT_LOGIN: "sovri-bot" },
+      logger,
+    );
+
+    await handleIssueCommentCreated(context, dependencies);
+
+    expect(runtime.octokit.rest.reactions.createForIssueComment).toHaveBeenCalledTimes(1);
+    expect(runtime.octokit.rest.reactions.createForIssueComment).toHaveBeenCalledWith({
+      comment_id: CommentId,
+      content: "+1",
+      owner: "octo-org",
+      repo: "sovri-target",
+    });
+    expect(runtime.octokit.rest.issues.createComment).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ delivery_id: FailureDeliveryId }),
+      "Resolve command started",
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({ delivery_id: FailureDeliveryId, result: "success" }),
+      "Resolve command completed",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it("does not resolve a finding when the commenter is not the pull request author", async () => {
     const runtime = buildRuntime();
     const context = buildIssueCommentContext(runtime.octokit, {
