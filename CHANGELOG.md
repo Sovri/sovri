@@ -58,6 +58,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(bot)`: cover successful resolve logging so completion emits no failure
   log, posts no retry comment, and creates exactly one acknowledgement reaction.
 
+- `test(bot)`: cover hard resolve-command GitHub failures during review-comment
+  listing and acknowledgement reaction creation.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 
