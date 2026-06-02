@@ -1,6 +1,6 @@
 # ADR-006 — Pino from v0.1, OpenTelemetry from v0.5
 
-**Status:** Accepted
+**Status:** Accepted — OTel milestone revised by ADR-019 (v0.5 → v0.6)
 **Date:** 2026-05-12
 
 ## Context
