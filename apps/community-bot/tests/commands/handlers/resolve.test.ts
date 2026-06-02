@@ -128,7 +128,7 @@ describe("resolve command handler", () => {
 
   it("logs and surfaces pull request author lookup failures without crashing", async () => {
     const runtime = buildRuntime({
-      authorLookupError: Object.assign(new Error("GitHub 500"), { status: 500 }),
+      authorLookupError: hardGitHubError(500),
     });
     const logger = buildLogger();
     const context = buildIssueCommentContext(runtime.octokit, {
@@ -162,6 +162,55 @@ describe("resolve command handler", () => {
     expect(runtime.octokit.graphql).not.toHaveBeenCalled();
     expect(runtime.octokit.rest.reactions.createForIssueComment).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      operation: "review comment listing",
+      options: { reviewCommentListingError: hardGitHubError(502) },
+      status: 502,
+    },
+    {
+      operation: "reaction creation",
+      options: { acceptedIssueReactionError: hardGitHubError(422) },
+      status: 422,
+    },
+  ])(
+    "logs and surfaces hard GitHub failures during $operation without crashing",
+    async ({ options, status }) => {
+      const runtime = buildRuntime(options);
+      const logger = buildLogger();
+      const context = buildIssueCommentContext(runtime.octokit, {
+        deliveryId: FailureDeliveryId,
+      });
+      const dependencies = createIssueCommentHandlerDependencies(
+        context,
+        { SOVRI_BOT_LOGIN: "sovri-bot" },
+        logger,
+      );
+
+      await handleIssueCommentCreated(context, dependencies);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          delivery_id: FailureDeliveryId,
+          github_status: status,
+          pr_number: PullRequestNumber,
+          repo: RepoFullName,
+        }),
+        "Resolve command failed",
+      );
+      expect(runtime.octokit.rest.issues.createComment).toHaveBeenCalledWith({
+        body: "Resolve command could not be completed. Please retry later.",
+        issue_number: PullRequestNumber,
+        owner: "octo-org",
+        repo: "sovri-target",
+      });
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.objectContaining({ delivery_id: FailureDeliveryId, result: "success" }),
+        "Resolve command completed",
+      );
+    },
+  );
 
   it("posts a not-found message without changing state for an unknown finding id", async () => {
     const runtime = buildRuntime();
@@ -311,7 +360,7 @@ describe("resolve command handler", () => {
 
   it("logs and surfaces hard resolve failures without crashing the webhook", async () => {
     const runtime = buildRuntime({
-      resolveError: Object.assign(new Error("GitHub 503"), { status: 503 }),
+      resolveError: hardGitHubError(503),
     });
     const logger = buildLogger();
     const context = buildIssueCommentContext(runtime.octokit, {
@@ -347,8 +396,10 @@ describe("resolve command handler", () => {
 type ReviewThreadMode = "missing" | "open" | "resolved";
 
 type RuntimeOptions = {
+  readonly acceptedIssueReactionError?: unknown;
   readonly authorLookupError?: unknown;
   readonly issueCommentReactions?: readonly IssueCommentReactionFixture[];
+  readonly reviewCommentListingError?: unknown;
   readonly resolveError?: unknown;
   readonly thread?: ReviewThreadMode;
 };
@@ -398,21 +449,33 @@ function buildRuntime(options: RuntimeOptions = {}) {
           }
           return { data: { user: { login: "alice" } } };
         }),
-        listReviewComments: vi.fn(async () => ({
-          data: [
-            {
-              body: KnownInlineCommentBody,
-              id: ReviewCommentId,
-              node_id: ReviewCommentNodeId,
-              user: { login: "sovri-bot" },
-            },
-          ],
-        })),
+        listReviewComments: vi.fn(async () => {
+          if (options.reviewCommentListingError !== undefined) {
+            throw options.reviewCommentListingError;
+          }
+
+          return {
+            data: [
+              {
+                body: KnownInlineCommentBody,
+                id: ReviewCommentId,
+                node_id: ReviewCommentNodeId,
+                user: { login: "sovri-bot" },
+              },
+            ],
+          };
+        }),
         listReviews: vi.fn(async () => ({ data: [] })),
         updateReview: vi.fn(async () => ({ data: { id: 6000 } })),
       },
       reactions: {
-        createForIssueComment: vi.fn(async () => ({ data: {} })),
+        createForIssueComment: vi.fn(async () => {
+          if (options.acceptedIssueReactionError !== undefined) {
+            throw options.acceptedIssueReactionError;
+          }
+
+          return { data: {} };
+        }),
         createForPullRequestReviewComment: vi.fn(async () => ({ data: {} })),
         listForIssueComment: vi.fn(async () => ({ data: options.issueCommentReactions ?? [] })),
         listForPullRequestReviewComment: vi.fn(async () => ({ data: [] })),
@@ -575,6 +638,10 @@ function buildLogger() {
       () => undefined,
     ),
   };
+}
+
+function hardGitHubError(status: number): Error & { readonly status: number } {
+  return Object.assign(new Error(`GitHub ${status}`), { status });
 }
 
 function buildIssueCommentContext(
