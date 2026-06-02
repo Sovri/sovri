@@ -19,7 +19,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+
+## [0.4.0] - 2026-06-02
 ### Added
+
+- `test(review-engine)`: allow the syntax-sanity scope acceptance test to read
+  release-promoted changelog entries after `[Unreleased]` has been cut for a
+  version tag, keeping the v0.4.0 release gate compatible with the documentation
+  contract.
+
+- `ci(deps)`: allow `Python-2.0` and `CC-BY-4.0` in the local license gate and
+  Dependency Review workflow for existing transitive dev dependencies with
+  permissive or metadata-only licensing.
 
 - `feat(bot)`: route parsed `@sovri-bot resolve <findingId>` commands toward a
   dedicated resolve handler so PR authors can acknowledge handled findings
