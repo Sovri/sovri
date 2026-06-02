@@ -46,6 +46,7 @@ export type IssueCommentHandlerDependencies = {
   readonly botLogin: string;
   readonly handleDismiss: (context: IssueCommentDismissCommandContext) => Promise<void>;
   readonly handleReReview: (context: IssueCommentCommandContext) => Promise<void>;
+  readonly handleResolve: (context: IssueCommentDismissCommandContext) => Promise<void>;
   readonly parseCommand: (body: string) => ParsedCommand;
   readonly reactToUnknown: (reaction: IssueCommentUnknownReaction) => Promise<void>;
 };
@@ -76,7 +77,12 @@ export async function handleIssueCommentCreated(
   }
 
   if (command.kind === "resolve") {
-    await reactConfusedToUnsupportedCommand(context, dependencies);
+    const commandContext = buildCommandContext(context);
+    await dependencies.handleResolve({
+      ...commandContext,
+      commentAuthorLogin: requireString(context.payload.comment.user?.login, "comment.user.login"),
+      findingId: command.findingId,
+    });
     return;
   }
 

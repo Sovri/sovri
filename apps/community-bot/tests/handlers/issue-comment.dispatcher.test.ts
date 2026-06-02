@@ -350,7 +350,7 @@ describe("issue comment dispatcher - ATDD task 76", () => {
     expect(dependencies.postReviewResult).not.toHaveBeenCalled();
   });
 
-  it("reacts confused to parsed resolve commands until resolve handling exists", async () => {
+  it("propagates delivery and comment IDs to the resolve handler", async () => {
     const dependencies = buildDependencies({ kind: "resolve", findingId: FindingId });
     const context = buildIssueCommentContext({
       author: "alice",
@@ -377,15 +377,21 @@ describe("issue comment dispatcher - ATDD task 76", () => {
     // When Sovri dispatches the issue comment webhook context
     await handleIssueCommentCreated(context, dependencies);
 
-    // Then GitHub receives one reaction request for comment 98765 with content "confused"
-    expect(dependencies.reactToUnknown).toHaveBeenCalledTimes(1);
-    expect(dependencies.reactToUnknown).toHaveBeenCalledWith({
+    // Then the resolve handler is called once for pull request 42
+    expect(dependencies.handleResolve).toHaveBeenCalledTimes(1);
+    expect(dependencies.handleResolve).toHaveBeenCalledWith({
+      commentAuthorLogin: "alice",
       commentId: CommentId,
-      content: "confused",
+      correlationId: ResolveUnsupportedDeliveryId,
+      findingId: FindingId,
+      issueNumber: PullRequestNumber,
+      pullRequestNumber: PullRequestNumber,
+      repoFullName: RepoFullName,
     });
-    // And no command handler is called
+    // And no other command handler is called
     expect(dependencies.handleReReview).not.toHaveBeenCalled();
     expect(dependencies.handleDismiss).not.toHaveBeenCalled();
+    expect(dependencies.reactToUnknown).not.toHaveBeenCalled();
     // And the dispatcher does not fetch a pull request diff
     expect(dependencies.fetchPullRequestDiff).not.toHaveBeenCalled();
     // And the dispatcher does not post a review result

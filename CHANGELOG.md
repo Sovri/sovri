@@ -25,6 +25,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   dedicated resolve handler so PR authors can acknowledge handled findings
   without invoking dismiss suppression.
 
+- `test(bot)`: add issue-comment dispatcher coverage for forwarding parsed
+  `resolve <findingId>` commands with delivery, comment, author, and PR context.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 

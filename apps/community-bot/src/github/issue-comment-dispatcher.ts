@@ -170,6 +170,7 @@ export function createIssueCommentHandlerDependencies(
     handleDismiss: (command) => handleDismissCommand(context, command, botLogin, dispatchLogger),
     handleReReview: (command) =>
       handleReReviewCommand(command, createReReviewCommandDependencies(context.octokit, env)),
+    handleResolve: async () => undefined,
     parseCommand,
     reactToUnknown: (reaction) => reactConfused(context, reaction),
   };
