@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: route parsed `@sovri-bot resolve <findingId>` commands toward a
+  dedicated resolve handler so PR authors can acknowledge handled findings
+  without invoking dismiss suppression.
+
 - `feat(bot)`: parse `@sovri-bot resolve <findingId>` as a distinct command
   kind using the existing finding-id validation rules.
 

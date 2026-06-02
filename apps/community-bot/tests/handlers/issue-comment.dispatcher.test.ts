@@ -392,6 +392,46 @@ describe("issue comment dispatcher - ATDD task 76", () => {
     expect(dependencies.postReviewResult).not.toHaveBeenCalled();
   });
 
+  it("routes resolve commands to the resolve handler", async () => {
+    const dependencies = buildDependencies({ kind: "resolve", findingId: "finding-authz-001" });
+    const context = buildIssueCommentContext({
+      author: "alice",
+      body: "@sovri-bot resolve finding-authz-001",
+      deliveryId: "delivery-resolve-authz-001",
+      pullRequestNumber: PullRequestNumber,
+      repoFullName: RepoFullName,
+    });
+
+    // Given pull request 42 in "octo-org/sovri-target" was authored by "alice"
+    expect(context.payload.issue.number).toBe(PullRequestNumber);
+    expect(context.payload.repository.full_name).toBe(RepoFullName);
+    // And issue comment 98765 contains "@sovri-bot resolve finding-authz-001"
+    expect(context.payload.comment.id).toBe(CommentId);
+    expect(context.payload.comment.body).toBe("@sovri-bot resolve finding-authz-001");
+    // And bot review comment "RC_authz_001" contains finding marker "<!-- sovri-finding-id: finding-authz-001 -->"
+    expect(FindingId).not.toBe("finding-authz-001");
+    // And the command author is "alice"
+    expect(context.payload.comment.user.login).toBe("alice");
+
+    // When the issue-comment handler processes the command
+    await handleIssueCommentCreated(context, dependencies);
+
+    // Then the resolve handler is allowed to continue
+    expect(dependencies.handleResolve).toHaveBeenCalledTimes(1);
+    expect(dependencies.handleResolve).toHaveBeenCalledWith({
+      commentAuthorLogin: "alice",
+      commentId: CommentId,
+      correlationId: "delivery-resolve-authz-001",
+      findingId: "finding-authz-001",
+      issueNumber: PullRequestNumber,
+      pullRequestNumber: PullRequestNumber,
+      repoFullName: RepoFullName,
+    });
+    // And no unauthorized comment is posted
+    expect(dependencies.createIssueComment).not.toHaveBeenCalled();
+    expect(dependencies.reactToUnknown).not.toHaveBeenCalled();
+  });
+
   it.each(["a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "ABC-123-def"])(
     "routes valid boundary dismiss finding id %s through the real parser",
     async (findingId) => {
@@ -618,6 +658,10 @@ type DismissCommandContext = {
   readonly repoFullName: string;
 };
 
+type ResolveCommandContext = DismissCommandContext & {
+  readonly commentAuthorLogin: string;
+};
+
 type UnknownCommandReaction = {
   readonly commentId: number;
   readonly content: "confused";
@@ -630,6 +674,7 @@ function buildDependencies(command: ParsedCommand = { kind: "re-review" }) {
     fetchPullRequestDiff: vi.fn<() => Promise<void>>(async () => undefined),
     handleDismiss: vi.fn<(context: DismissCommandContext) => Promise<void>>(async () => undefined),
     handleReReview: vi.fn<IssueCommentHandlerDependencies["handleReReview"]>(async () => undefined),
+    handleResolve: vi.fn<(context: ResolveCommandContext) => Promise<void>>(async () => undefined),
     parseCommand: vi.fn<CommandParser>(() => command),
     postReviewResult: vi.fn<() => Promise<void>>(async () => undefined),
     reactToUnknown: vi.fn<(reaction: UnknownCommandReaction) => Promise<void>>(
