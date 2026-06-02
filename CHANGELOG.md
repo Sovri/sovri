@@ -19,10 +19,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `docs(adr)`: add ADR-015 (`@sovri/brand` design-system package), ADR-016 (bot
+  review output is GitHub Markdown; CSS is a local snapshot harness), ADR-017
+  (optional walkthrough provenance field), ADR-018 (GitHub Checks API as a bot
+  output surface), and ADR-019 (OpenTelemetry deferred to v0.6, revising
+  ADR-006).
+
 ### Changed
 
-- `docs(roadmap)`: align the public roadmap around the completed v0.4 resolve
-  workflow sprint and mark v0.5 as the next Community BYOK sprint.
+- `docs(roadmap)`: realign the public roadmap so the BYOK productization sits in
+  the v0.4 line, v0.5 becomes the public design sprint (design system + bot
+  review-output rendering), and v0.6 covers observability and supply-chain
+  hardening; update the README next-sprint note.
 
 - `ci(release)`: align the README release reference policy and nominal fixture
   with the published v0.4.0 Community image tag.
