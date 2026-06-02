@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: add a pure parsing source convention inspector for
+  review-engine purity, TypeScript, and ESM boundary checks.
+
+- `test(review-engine)`: add acceptance coverage for parsing source purity,
+  TypeScript conventions, forbidden implementation pattern checks, multiline
+  import, dynamic import and import-attribute edge cases, directive edge cases,
+  and stable committable suggestion contracts.
+
 - `test(review-engine)`: add acceptance coverage proving syntactically suspect
   suggestions keep their display text while the one-click committable gate rejects
   them.
@@ -228,6 +236,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   repeated compatible-provider token and default-limit test fixtures.
 
 ### Fixed
+
+- `fix(review-engine)`: detect CommonJS loads and bare specifiers for forbidden
+  Node.js modules, dynamic relative imports with options, generic `any` type
+  arguments, direct `any` type aliases, and generic `any` type aliases in parsing
+  source convention checks.
 
 - `fix(review-engine)`: reject syntactically suspect single-line suggestions from
   the one-click committable path while preserving their suggestion text for review
