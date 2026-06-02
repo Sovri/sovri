@@ -323,7 +323,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   operator rejection.
 
 - `fix(bot)`: react `confused` to parsed `@sovri-bot resolve <findingId>`
-  issue comments until resolve handling exists, avoiding silent dispatcher no-ops.
+  issue comments in the pre-handler phase, avoiding silent dispatcher no-ops.
+
+- `refactor(bot)`: share GitHub command helper utilities between dismiss and
+  resolve command handlers so repository parsing, duplicate-reaction detection,
+  marker extraction, and typed GitHub status handling stay consistent.
 
 - `fix(review-engine)`: wire provider `suggested_code` through review findings
   before inline comments are posted, and size GitHub suggestion fences around
