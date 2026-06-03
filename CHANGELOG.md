@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(llm-providers)`: lock the Mistral structured error contract. The
+  `status`, `requestId`, `attemptDurationsMs`, `issues`, `tokenUsage`, and
+  `retryableWithCorrectivePrompt` fields are populated dynamically (the
+  `response.ts` schema-validation path, parity with the OpenAI/Anthropic
+  providers) but had no reader, so Fallow flagged them as unused class members.
+  Rather than delete live contract fields, assert them directly on
+  `MistralProviderError` and the retry/timeout errors (#2246).
+
 - `feat(review-engine)`: add GitHub-safe badge helpers in
   `walkthrough/badge.ts` — `severityBadge` (brand glyph alone), `categoryBadge`
   (`glyph + label`), and `renderAuditReference` (the
