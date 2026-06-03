@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(brand)`: add the `@sovri/brand` leaf package — the typed, Zod-validated
+  design system (`spacing`, `typeScale`, light/dark `colors`, `severityPalette`,
+  `categoryPalette`) ported from the mockup tokens. Every export is deeply frozen
+  (nested palette entries included) and validated at module load; the palettes stay exhaustive against the core
+  `Severity`/`Category` enums. `zod`-only, no workspace runtime deps (ADR-015).
+
 - `docs(adr)`: add ADR-015 (`@sovri/brand` design-system package), ADR-016 (bot
   review output is GitHub Markdown; CSS is a local snapshot harness), ADR-017
   (optional walkthrough provenance field), ADR-018 (GitHub Checks API as a bot

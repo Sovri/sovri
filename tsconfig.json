@@ -3,6 +3,7 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
+    { "path": "./packages/brand" },
     { "path": "./packages/compliance" },
     { "path": "./packages/config" },
     { "path": "./packages/core" },
