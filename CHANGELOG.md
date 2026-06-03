@@ -58,16 +58,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   with the published v0.4.0 Community image tag.
 
 - `feat(review-engine)`: the walkthrough summary now leads with a deterministic
-  verdict header (`## ✅ Approve` / `## ❌ Request changes`) computed once by
-  `computeVerdict` — request-changes iff any finding is ranked at or above
-  `major` — followed by a single severity-badged findings table (task-117
-  `severityBadge`) and an optional, off-by-default mermaid pipeline flow
-  (`diff → prompt → LLM → findings`). The count line lists only the severities
-  that occur. Section order (TL;DR → Findings → File-by-file → compliance →
-  cost), `WalkthroughInputSchema` validation, and table-cell escaping are
-  preserved; the banner/flow stay GitHub-safe (headings, emoji, hosted `<img>`,
-  mermaid fences — no CSS). (task-118, mockup §01)
-  <!-- task-118 atdd progress (internal marker, removed before release): R-01 -->
+  verdict header — `## ✅ Approve` / `## ❌ Request changes`, computed once by
+  `computeVerdict` (request-changes iff any finding is ranked at or above
+  `major`) — placed above `### TL;DR` in front of the existing sections, with a
+  one-line finding count. Replaces the static `## Sovri review` title. The
+  banner is GitHub-safe (an emoji heading, no CSS). (task-118, mockup §01)
 
 
 ## [0.4.0] - 2026-06-02
