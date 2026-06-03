@@ -10,6 +10,7 @@ const repoRoot = fileURLToPath(new URL(".", import.meta.url));
 // package's built dist/. Tests then run against current source with no rebuild step, and never
 // race a concurrent `turbo build` rewriting dist/ mid-run or read a stale dist from an earlier build.
 const workspaceSourceAliases = {
+  "@sovri/brand": fileURLToPath(new URL("./packages/brand/src/index.ts", import.meta.url)),
   "@sovri/compliance": fileURLToPath(
     new URL("./packages/compliance/src/index.ts", import.meta.url),
   ),

@@ -1,0 +1,50 @@
+{
+  "name": "@sovri/brand",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Sovri brand — the typed, Zod-validated design system (colour, spacing, type scale, severity/category palettes) used as the single source of truth by the review-engine rendering and the repo brand assets (ADR-015).",
+  "homepage": "https://github.com/mpiton/sovri/tree/main/packages/brand#readme",
+  "bugs": {
+    "url": "https://github.com/mpiton/sovri/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpiton/sovri.git",
+    "directory": "packages/brand"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --root . --passWithNoTests",
+    "lint": "oxlint . --max-warnings=0 --no-error-on-unmatched-pattern",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@sovri/core": "workspace:*",
+    "@types/node": "24.12.4",
+    "tsup": "8.5.1",
+    "vitest": "4.1.7"
+  },
+  "engines": {
+    "node": ">=24.8.0 <25.0.0",
+    "pnpm": ">=10.0.0 <11.0.0"
+  }
+}
