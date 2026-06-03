@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { computeSeverityRank, type Finding } from "@sovri/core";
+import { computeSeverityRank, type Finding, type Severity } from "@sovri/core";
 
 // The verdict is the deterministic Approve / Request-changes outcome a maintainer reads at the top
 // of the walkthrough. It is computed once here so the same outcome can be reused wherever it must
@@ -33,11 +33,24 @@ const VerdictGlyph: Record<Verdict["kind"], string> = {
   "request-changes": "❌",
 };
 
-// The verdict header: an H2 emoji banner heading and a one-line finding count. The count is the
-// total only here; the per-severity breakdown is added where its rule requires it.
+// The verdict header: an H2 emoji banner heading and a one-line finding count. The count names the
+// total and then breaks it down per occurring severity, in descending rank order (so a maintainer
+// reads the worst severities first); severities with no finding are omitted.
 export function renderVerdictHeader(verdict: Verdict, findings: readonly Finding[]): string[] {
   const total = findings.length;
-  const countLine = `${total} ${total === 1 ? "finding" : "findings"}`;
+  const noun = total === 1 ? "finding" : "findings";
+
+  const counts = new Map<Severity, number>();
+  for (const finding of findings) {
+    counts.set(finding.severity, (counts.get(finding.severity) ?? 0) + 1);
+  }
+
+  const breakdown = [...counts.entries()]
+    .toSorted(([left], [right]) => computeSeverityRank(right) - computeSeverityRank(left))
+    .map(([severity, count]) => `${count} ${severity}`);
+
+  const countLine =
+    breakdown.length > 0 ? `${total} ${noun} — ${breakdown.join(", ")}` : `${total} ${noun}`;
 
   return [`## ${VerdictGlyph[verdict.kind]} ${verdict.label}`, "", countLine];
 }

@@ -1,6 +1,6 @@
 ## ❌ Request changes
 
-1 finding
+1 finding — 1 major
 
 ### TL;DR
 

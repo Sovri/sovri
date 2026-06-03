@@ -63,7 +63,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `major` — i.e. a `blocker` or `major` — otherwise approve, including reviews
   with only `minor`/`info`/`nitpick` findings or none) — placed above
   `### TL;DR` in front of the existing sections, with a one-line finding count
-  that breaks the total down per severity. Replaces the static `## Sovri review`
+  that breaks the total down per occurring severity, in descending rank order.
+  Replaces the static `## Sovri review`
   title. The
   banner is GitHub-safe (an emoji heading, no CSS). (task-118, mockup §01)
 
