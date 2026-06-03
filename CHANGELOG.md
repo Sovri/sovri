@@ -33,7 +33,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `response.ts` schema-validation path, parity with the OpenAI/Anthropic
   providers) but had no reader, so Fallow flagged them as unused class members.
   Rather than delete live contract fields, assert them directly on
-  `MistralProviderError` and the retry/timeout errors (#2246).
+  `MistralProviderError` and the retry/timeout errors, and extend the
+  schema-invalid provider test to assert the `issues` /
+  `retryableWithCorrectivePrompt` / `tokenUsage` fields the `response.ts` path
+  forwards into the thrown error, so the wiring itself is guarded (#2246).
 
 - `feat(review-engine)`: add GitHub-safe badge helpers in
   `walkthrough/badge.ts` — `severityBadge` (brand glyph alone), `categoryBadge`

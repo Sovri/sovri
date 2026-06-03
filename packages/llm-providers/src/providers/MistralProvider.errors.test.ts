@@ -155,11 +155,17 @@ describe("MistralProvider errors and redaction", () => {
       schema: z.strictObject({ summary: z.string() }),
     });
 
-    // Then MistralProviderError is thrown
-    await expect(result).rejects.toMatchObject({
-      name: "MistralProviderError",
-      message: expect.stringContaining("schema validation"),
-    });
+    // Then MistralProviderError is thrown carrying the fields forwarded by the
+    // response.ts schema-validation path (not just manual construction)
+    const error = await captureProviderError(result);
+    expect(error).toBeInstanceOf(MistralProviderError);
+    if (!(error instanceof MistralProviderError)) {
+      throw new Error("Expected a MistralProviderError");
+    }
+    expect(error.message).toContain("schema validation");
+    expect(error.issues ?? []).not.toHaveLength(0);
+    expect(error.retryableWithCorrectivePrompt).toBe(true);
+    expect(error.tokenUsage).toEqual({ prompt: 123, completion: 45 });
   });
 });
 
