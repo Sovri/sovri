@@ -1,6 +1,6 @@
 ## ❌ Request changes
 
-3 findings
+3 findings — 1 blocker, 1 major, 1 minor
 
 ### TL;DR
 
