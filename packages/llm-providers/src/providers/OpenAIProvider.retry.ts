@@ -32,7 +32,7 @@ const OPENAI_RETRY_BASE_DELAY_MS = 500;
 
 export type OpenAIChatComplete = Completions["create"];
 export type OpenAIChatRequest = ChatCompletionCreateParamsNonStreaming;
-export type OpenAIChatOptions = Parameters<OpenAIChatComplete>[1];
+type OpenAIChatOptions = Parameters<OpenAIChatComplete>[1];
 
 export interface OpenAIChatClient {
   readonly chat: {

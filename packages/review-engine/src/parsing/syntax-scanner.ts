@@ -35,7 +35,7 @@ export type QuotedScanResult = {
   readonly opensTemplateExpression: boolean;
 };
 
-export function scanQuotedCharacter(
+function scanQuotedCharacter(
   code: string,
   index: number,
   char: string,
@@ -60,7 +60,7 @@ export type RegexScanResult = {
   readonly inRegexClass: boolean;
 };
 
-export function scanRegexCharacter(
+function scanRegexCharacter(
   char: string,
   escaping: boolean,
   inRegexClass: boolean,
@@ -111,7 +111,7 @@ type SyntaxFragmentScanOptions = {
   readonly rejectEmptyInitialDelimiter?: boolean;
 };
 
-export function scanNormalCharacter(
+function scanNormalCharacter(
   code: string,
   index: number,
   char: string,

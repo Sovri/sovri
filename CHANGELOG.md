@@ -84,6 +84,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Removed
 
+- `refactor`: tighten the public export surface by un-exporting internal-only
+  symbols flagged dead by Fallow (#2246), with no behavior change. Dropped the
+  `export` keyword on module-private helpers — `scanQuotedCharacter` /
+  `scanRegexCharacter` / `scanNormalCharacter` (review-engine syntax scanner),
+  `FLAGSHIP_CREDENTIALS_CWE_ID` (compliance), `MistralChatOptions` /
+  `OpenAIChatOptions` (llm-providers retry), the `ForbiddenCompatibleNetworkPattern`
+  test type, and `OperationalRouteError` (community-bot). Pruned redundant barrel
+  re-exports that had no importer: `mapParsedDiffFiles` / `iterateRightSideLines`
+  from `review-engine/diff/index.ts`, `ReviewPromptModeSchema` from
+  `review-engine/prompt/index.ts`, and the `comment-poster` re-export block from
+  `community-bot/github/index.ts`. All symbols remain available to their internal
+  callers and tests via their defining module.
+
 - `chore(deps)`: drop the redundant direct `zod` declaration from `@sovri/config`
   and `@sovri/llm-providers`. Neither package imports `zod` directly — both consume
   `z` through `@sovri/core` (which re-exports it), so the direct dependency was an
