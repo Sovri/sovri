@@ -57,6 +57,40 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `ci(release)`: align the README release reference policy and nominal fixture
   with the published v0.4.0 Community image tag.
 
+- `feat(review-engine)`: the walkthrough summary now leads with a deterministic
+  verdict header — `## ✅ Approve` / `## ❌ Request changes`, computed once by
+  `computeVerdict` (request-changes when any finding is ranked at or above
+  `major` — i.e. a `blocker` or `major` — otherwise approve, including reviews
+  with only `minor`/`info`/`nitpick` findings or none) — placed above
+  `### TL;DR` in front of the existing sections, with a one-line finding count
+  that breaks the total down per occurring severity, in descending rank order.
+  Replaces the static `## Sovri review`
+  title. The `### Findings` section now renders as a single severity-badged
+  table — one row per finding, the task-117 brand severity glyph
+  (`severityBadge`) in the Severity column — in place of the per-severity
+  grouped `#### ` tables, keeping the existing rank-then-file ordering.
+  `WalkthroughInputSchema` validation at the boundary and the table-cell /
+  markdown escaping of summary, titles, bodies, and file paths are preserved.
+  An optional pipeline-flow diagram (`diff → prompt → LLM → findings`) renders
+  under the verdict header as a single ```mermaid fence when enabled via the
+  `pipelineFlow` option, and is off by default so existing snapshots stay
+  byte-stable. The canonical section order (verdict header → TL;DR → Findings →
+  File-by-file → compliance → cost footer) is preserved, and the banner/flow are
+  GitHub-safe (headings, emoji, and ```mermaid fences only — no CSS class/style
+  attributes, no `gh-chrome.css`). Adversarial finding content (e.g. an embedded
+  `<style>`/`<script>`) is escaped to inert text rather than activated, and the
+  composer sources no credential of its own — it reads no token, key, or
+  environment, so it cannot leak one it was never given. (task-118, mockup §01)
+
+### Fixed
+
+- `fix(review-engine)`: post deterministic composed walkthrough markdown from the
+  orchestrator success path instead of provider-supplied legacy markdown,
+  recompose markdown and reset stale summaries after community-bot finding
+  reconciliation, avoid redundant review revalidation during composition, make
+  direct findings-table rendering sort rows by severity rank then file/line, add
+  verdict-module JSDoc, and keep
+  the community-bot E2E assertions aligned with the badged findings table.
 
 ## [0.4.0] - 2026-06-02
 ### Added

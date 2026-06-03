@@ -419,12 +419,12 @@ describe("community bot pull request review E2E ATDD", () => {
         minor: 1,
         nitpick: 0,
       });
-      // And the posted walkthrough renders exactly 1 finding row under "#### Blocker"
-      expect(countRowsUnderHeading(runtime.reviewRequests[0]?.body ?? "", "#### Blocker")).toBe(1);
-      // And the posted walkthrough renders exactly 1 finding row under "#### Major"
-      expect(countRowsUnderHeading(runtime.reviewRequests[0]?.body ?? "", "#### Major")).toBe(1);
-      // And the posted walkthrough renders exactly 1 finding row under "#### Minor"
-      expect(countRowsUnderHeading(runtime.reviewRequests[0]?.body ?? "", "#### Minor")).toBe(1);
+      // And the posted walkthrough renders exactly 1 blocker row in the badged findings table
+      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "⛔")).toBe(1);
+      // And the posted walkthrough renders exactly 1 major row in the badged findings table
+      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "🔴")).toBe(1);
+      // And the posted walkthrough renders exactly 1 minor row in the badged findings table
+      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "🟡")).toBe(1);
       // And the review request contains inline comments at "apps/community-bot/src/handlers/pull-request.ts:42", "apps/community-bot/src/github/comment-poster.ts:57", and "packages/review-engine/src/orchestrator.ts:88"
       expect(commentAnchors(runtime.reviewRequests[0]?.comments ?? [])).toEqual([
         "apps/community-bot/src/handlers/pull-request.ts:42",
@@ -1571,22 +1571,8 @@ function countSeverities(response: ProviderReviewResponse) {
   return counts;
 }
 
-function countRowsUnderHeading(markdown: string, heading: string): number {
-  const lines = markdown.split("\n");
-  const headingIndex = lines.indexOf(heading);
-  if (headingIndex < 0) {
-    return 0;
-  }
-  let rows = 0;
-  for (const line of lines.slice(headingIndex + 1)) {
-    if (line.startsWith("#### ")) {
-      break;
-    }
-    if (line.startsWith("| ") && !line.includes("---") && !line.includes("Severity |")) {
-      rows += 1;
-    }
-  }
-  return rows;
+function countRowsWithBadge(markdown: string, badge: string): number {
+  return markdown.split("\n").filter((line) => line.startsWith(`| ${badge}`)).length;
 }
 
 function commentAnchors(comments: readonly ReviewRequest["comments"][number][]): string[] {

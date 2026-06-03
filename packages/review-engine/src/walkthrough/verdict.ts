@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Sovri SAS
+
+/**
+ * Deterministic walkthrough verdict helpers.
+ *
+ * `Verdict` represents either approve or request-changes; `computeVerdict` derives
+ * that outcome from finding severities; `renderVerdictHeader` turns it into a
+ * GitHub-safe heading plus severity-count summary for composed walkthroughs.
+ */
+
+import { computeSeverityRank, type Finding, type Severity } from "@sovri/core";
+
+// The verdict is the deterministic Approve / Request-changes outcome a maintainer reads at the top
+// of the walkthrough. It is computed once here so the same outcome can be reused wherever it must
+// appear (e.g. the `Sovri / review` check conclusion). GitHub strips CSS in PR comments (ADR-016),
+// so the banner is an emoji heading — never a styled element.
+export type Verdict =
+  | { readonly kind: "approve"; readonly label: string }
+  | { readonly kind: "request-changes"; readonly label: string };
+
+// Request changes as soon as a single finding is ranked at or above `major`; otherwise approve
+// (zero findings approve). `computeSeverityRank` from @sovri/core is the one rank source of truth.
+const RequestChangesRank = computeSeverityRank("major");
+
+export function computeVerdict(findings: readonly Finding[]): Verdict {
+  const blocking = findings.some(
+    (finding) => computeSeverityRank(finding.severity) >= RequestChangesRank,
+  );
+
+  return blocking
+    ? { kind: "request-changes", label: "Request changes" }
+    : { kind: "approve", label: "Approve" };
+}
+
+// @sovri/brand carries no verdict palette (it covers severity and category only), so these
+// conventional glyphs live next to the verdict they render. Neither collides with the severity
+// scale (⛔🔴🟡ℹ️💬).
+const VerdictGlyph: Record<Verdict["kind"], string> = {
+  approve: "✅",
+  "request-changes": "❌",
+};
+
+// The verdict header: an H2 emoji banner heading and a one-line finding count. The count names the
+// total and then breaks it down per occurring severity, in descending rank order (so a maintainer
+// reads the worst severities first); severities with no finding are omitted.
+export function renderVerdictHeader(verdict: Verdict, findings: readonly Finding[]): string[] {
+  const total = findings.length;
+  const noun = total === 1 ? "finding" : "findings";
+
+  const counts = new Map<Severity, number>();
+  for (const finding of findings) {
+    counts.set(finding.severity, (counts.get(finding.severity) ?? 0) + 1);
+  }
+
+  const breakdown = [...counts.entries()]
+    .toSorted(([left], [right]) => computeSeverityRank(right) - computeSeverityRank(left))
+    .map(([severity, count]) => `${count} ${severity}`);
+
+  const countLine =
+    breakdown.length > 0 ? `${total} ${noun} — ${breakdown.join(", ")}` : `${total} ${noun}`;
+
+  return [`## ${VerdictGlyph[verdict.kind]} ${verdict.label}`, "", countLine];
+}

@@ -5,8 +5,10 @@ import { ReviewSchema, z, type Review } from "@sovri/core";
 
 import { renderComplianceSection } from "./compliance.js";
 import { renderCostFooter } from "./cost.js";
+import { renderPipelineFlow } from "./flow.js";
 import { formatMarkdownText } from "./markdown.js";
 import { renderFiles, renderFindings, sortFindings } from "./sections.js";
+import { computeVerdict, renderVerdictHeader } from "./verdict.js";
 
 const ZeroTokenUsage = { prompt: 0, completion: 0 };
 
@@ -50,12 +52,17 @@ type WalkthroughInputWithoutUsage = Omit<Review, "tokens_used"> & {
 export type WalkthroughInput = Review | WalkthroughInputWithoutUsage;
 
 export { categoryBadge, renderAuditReference, severityBadge } from "./badge.js";
+export { computeVerdict, renderVerdictHeader } from "./verdict.js";
+export type { Verdict } from "./verdict.js";
 export { buildInlineComments, InlineCommentDraftSchema } from "./inline.js";
 export type { InlineCommentDraft } from "./inline.js";
 export { estimateCostUsd, PROVIDER_PRICING, renderCostFooter } from "./cost.js";
 export type { ModelPricing, PricingProvider } from "./cost.js";
 
-export function composeWalkthrough(input: unknown): string {
+export function composeWalkthrough(
+  input: unknown,
+  options: { readonly pipelineFlow?: boolean } = {},
+): string {
   const review = WalkthroughInputSchema.parse(input);
   const findings = sortFindings(review.findings);
   const summary = review.summary.trim();
@@ -65,8 +72,15 @@ export function composeWalkthrough(input: unknown): string {
       : undefined;
   const costFooter = renderCostFooter(tokenUsage, review.llm_provider, review.llm_model);
 
-  const sections = [
-    "## Sovri review",
+  const verdict = computeVerdict(findings);
+
+  const sections = [...renderVerdictHeader(verdict, findings)];
+
+  if (options.pipelineFlow === true) {
+    sections.push("", ...renderPipelineFlow());
+  }
+
+  sections.push(
     "",
     "### TL;DR",
     "",
@@ -79,7 +93,7 @@ export function composeWalkthrough(input: unknown): string {
     "### File-by-file",
     "",
     ...renderFiles(findings),
-  ];
+  );
 
   const complianceSection = renderComplianceSection(findings);
   if (complianceSection.length > 0) {

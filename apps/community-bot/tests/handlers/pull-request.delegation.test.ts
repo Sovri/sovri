@@ -1072,6 +1072,55 @@ describe("handlePullRequest reconciliation seam (R-07, R-01, R-04)", () => {
       ["RC_gone"],
     );
   });
+
+  it("recomposes walkthrough markdown after dropping already-posted findings", async () => {
+    const diff = buildDiff();
+    const baseReview = buildReview({ commitSha: OPENED_HEAD_SHA });
+    const [firstFinding] = baseReview.findings;
+    if (firstFinding === undefined) {
+      throw new Error("fixture review must contain a finding");
+    }
+    const postedFingerprint = computeFindingFingerprint(firstFinding, diff);
+    const review: Review = {
+      ...baseReview,
+      summary: "Major stale issue still needs attention.",
+      walkthrough_markdown: [
+        "## ❌ Request changes",
+        "",
+        "1 finding — 1 major",
+        "",
+        "### Findings",
+        "",
+        "| Severity | Location | Title | Details |",
+        "| --- | --- | --- | --- |",
+        "| 🔴 | apps/community-bot/src/handlers/pull-request.ts:42 | Delegation check | stale |",
+      ].join("\n"),
+    };
+    const dependencies = buildReconcilingDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff,
+      review,
+    });
+    dependencies.fetchPostedFindings.mockResolvedValue({
+      fingerprints: new Set([postedFingerprint]),
+      comments: [],
+    });
+
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    const postedReview = dependencies.postReview.mock.calls[0]?.[1];
+    expect(postedReview?.findings).toHaveLength(0);
+    expect(postedReview?.summary).toBe(
+      "No findings remain after reconciling previously posted findings.",
+    );
+    expect(postedReview?.walkthrough_markdown).toContain("## ✅ Approve");
+    expect(postedReview?.walkthrough_markdown).toContain("0 findings");
+    expect(postedReview?.walkthrough_markdown).not.toContain("Delegation check");
+    expect(postedReview?.walkthrough_markdown).not.toContain("Major stale issue");
+  });
 });
 
 function buildDiff(
