@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `chore(tooling)`: add `.fallowrc.jsonc` resolving the remaining Fallow false
+  positives (#2246) — declare the two CLI entry-point scripts
+  (`scripts/check-licenses.mjs`, `scripts/validate-v0-1-soak.mjs`), which are run
+  via `node`/subprocess and never imported, and ignore the string-referenced
+  `pino-pretty` Pino transport dependency. Fallow now reports zero issues.
+
 - `test(llm-providers)`: lock the Mistral structured error contract. The
   `status`, `requestId`, `attemptDurationsMs`, `issues`, `tokenUsage`, and
   `retryableWithCorrectivePrompt` fields are populated dynamically (the
