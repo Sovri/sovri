@@ -5,6 +5,7 @@ import type { SovriConfig } from "@sovri/config";
 import { MissingApiKeyError } from "@sovri/llm-providers";
 import {
   classifyResolvedComments,
+  composeWalkthrough,
   computeFindingFingerprint,
   reconcileFindings,
   type Diff,
@@ -278,12 +279,36 @@ async function postReconciledReview(
     posted = { comments: [], fingerprints: new Set() };
   }
 
+  const reconciledFindings = reconcileFindings(review.findings, diff, posted.fingerprints);
+  const reconciledSummary = summarizeReconciledFindings(review, reconciledFindings);
   const reconciled: Review = {
     ...review,
-    findings: reconcileFindings(review.findings, diff, posted.fingerprints),
+    findings: reconciledFindings,
+    summary: reconciledSummary,
+    walkthrough_markdown: composeWalkthrough({
+      ...review,
+      findings: reconciledFindings,
+      summary: reconciledSummary,
+    }),
   };
   await dependencies.postReview(target, reconciled, diff);
   await minimizeResolvedComments(dependencies, target, review, diff, posted.comments);
+}
+
+function summarizeReconciledFindings(
+  review: Review,
+  reconciledFindings: readonly Review["findings"][number][],
+): string {
+  if (reconciledFindings.length === review.findings.length) {
+    return review.summary;
+  }
+
+  if (reconciledFindings.length === 0) {
+    return "No findings remain after reconciling previously posted findings.";
+  }
+
+  const noun = reconciledFindings.length === 1 ? "finding remains" : "findings remain";
+  return `${String(reconciledFindings.length)} ${noun} after reconciling previously posted findings.`;
 }
 
 async function minimizeResolvedComments(

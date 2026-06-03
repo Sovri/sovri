@@ -82,6 +82,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   composer sources no credential of its own — it reads no token, key, or
   environment, so it cannot leak one it was never given. (task-118, mockup §01)
 
+### Fixed
+
+- `fix(review-engine)`: post deterministic composed walkthrough markdown from the
+  orchestrator success path instead of provider-supplied legacy markdown,
+  recompose markdown and reset stale summaries after community-bot finding
+  reconciliation, avoid redundant review revalidation during composition, make
+  direct findings-table rendering sort rows by severity rank then file/line, add
+  verdict-module JSDoc, and keep
+  the community-bot E2E assertions aligned with the badged findings table.
 
 ## [0.4.0] - 2026-06-02
 ### Added

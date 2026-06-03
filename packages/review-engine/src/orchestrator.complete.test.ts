@@ -102,8 +102,11 @@ describe("reviewPullRequest complete Review contract", () => {
     expect(review.llm_model).toBe("test-model");
     // And the returned Review has non-empty `summary`
     expect(review.summary).toBe("One major orchestration finding.");
-    // And the returned Review has non-empty `walkthrough_markdown`
-    expect(review.walkthrough_markdown.length).toBeGreaterThan(0);
+    // And the returned Review has deterministic composed walkthrough markdown
+    expect(review.walkthrough_markdown).toContain("## ❌ Request changes");
+    expect(review.walkthrough_markdown).toContain("### Findings");
+    expect(review.walkthrough_markdown).toContain("🔴");
+    expect(review.walkthrough_markdown).not.toContain("## Sovri review");
     // And the returned Review has status "success"
     expect(review.status).toBe("success");
     // And no corrective retry is used

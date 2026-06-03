@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+/**
+ * Deterministic walkthrough verdict helpers.
+ *
+ * `Verdict` represents either approve or request-changes; `computeVerdict` derives
+ * that outcome from finding severities; `renderVerdictHeader` turns it into a
+ * GitHub-safe heading plus severity-count summary for composed walkthroughs.
+ */
+
 import { computeSeverityRank, type Finding, type Severity } from "@sovri/core";
 
 // The verdict is the deterministic Approve / Request-changes outcome a maintainer reads at the top

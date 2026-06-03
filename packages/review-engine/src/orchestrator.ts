@@ -44,6 +44,7 @@ import {
   type ProviderReviewResponse,
 } from "./parsing/index.js";
 import { toFindingSuggestion } from "./parsing/suggestion.js";
+import { composeWalkthrough } from "./walkthrough/index.js";
 
 export const RunReviewInputSchema = ReviewPromptInputSchema;
 
@@ -340,7 +341,7 @@ export async function reviewPullRequest(
 
     await emitAuditEvent(sink, reviewCompletedEvent(), logger);
 
-    return ReviewSchema.parse({
+    const review = ReviewSchema.parse({
       id: uuidv7(),
       pr_number: reviewInput.pullRequest.number,
       repo_full_name: reviewInput.pullRequest.repo_full_name,
@@ -356,6 +357,8 @@ export async function reviewPullRequest(
       walkthrough_markdown: generation.parsed.walkthrough_markdown,
       status: generation.status,
     });
+
+    return withComposedWalkthrough(review);
   } catch (error) {
     await emitAuditEvent(sink, reviewFailedEvent("unexpected_error"), logger);
 
@@ -368,7 +371,7 @@ function buildNoFilesReview(
   provider: LLMProvider,
   startedAt: Date,
 ): Review {
-  return ReviewSchema.parse({
+  const review = ReviewSchema.parse({
     id: uuidv7(),
     pr_number: pullRequest.number,
     repo_full_name: pullRequest.repo_full_name,
@@ -384,6 +387,15 @@ function buildNoFilesReview(
     walkthrough_markdown: `## Sovri review\n\n${NoFilesAfterIgnoreFiltersMessage}`,
     status: "success",
   });
+
+  return withComposedWalkthrough(review);
+}
+
+function withComposedWalkthrough(review: Review): Review {
+  return {
+    ...review,
+    walkthrough_markdown: composeWalkthrough(review),
+  };
 }
 
 function parseInjectedProvider(provider: unknown): LLMProvider {

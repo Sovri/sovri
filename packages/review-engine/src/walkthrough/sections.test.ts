@@ -5,6 +5,7 @@ import type { Finding, Review } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import { composeWalkthrough } from "./index.js";
+import { renderFindings } from "./sections.js";
 
 const baseFinding: Finding = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -116,7 +117,29 @@ describe("composeWalkthrough required sections", () => {
     // Then the Findings section is a single badged table (no per-severity subheadings)
     expect(findingsSection).not.toContain("#### ");
     // And the badged row for <first> appears before the badged row for <second>
-    expect(findingsSection.indexOf(first)).toBeLessThan(findingsSection.indexOf(second));
+    const firstIndex = findingsSection.indexOf(first);
+    const secondIndex = findingsSection.indexOf(second);
+    expect(firstIndex).toBeGreaterThanOrEqual(0);
+    expect(secondIndex).toBeGreaterThanOrEqual(0);
+    expect(firstIndex).toBeLessThan(secondIndex);
+  });
+
+  it("sorts findings locally before rendering the badged table", () => {
+    // Given findings arrive in minor-before-blocker provider order
+    const findings: readonly Finding[] = [
+      findingWithSeverity("minor", "22222222-2222-4222-8222-222222222222", 20),
+      findingWithSeverity("blocker", "44444444-4444-4444-8444-444444444444", 40),
+    ];
+
+    // When the renderer builds the findings table directly
+    const markdown = renderFindings(findings).join("\n");
+
+    // Then the blocker badge is present and appears before the minor badge
+    const blockerIndex = markdown.indexOf("⛔");
+    const minorIndex = markdown.indexOf("🟡");
+    expect(blockerIndex).toBeGreaterThanOrEqual(0);
+    expect(minorIndex).toBeGreaterThanOrEqual(0);
+    expect(blockerIndex).toBeLessThan(minorIndex);
   });
 
   it("keeps the same section structure for a no-finding review", () => {

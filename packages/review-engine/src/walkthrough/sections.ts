@@ -16,11 +16,13 @@ export function renderFindings(findings: readonly Finding[]): string[] {
     return ["No findings."];
   }
 
+  const ordered = sortFindings(findings);
+
   // A single severity-badged table: the brand glyph in the Severity column, one row per finding,
-  // in the order `findings` already carries (composeWalkthrough sorts by rank then file/line).
+  // ordered by severity rank then file/line.
   return formatTable(
     ["Severity", "Location", "Title", "Details"],
-    findings.map((finding) => [
+    ordered.map((finding) => [
       severityBadge(finding.severity),
       formatLocation(finding),
       formatCell(finding.title),
