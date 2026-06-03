@@ -97,6 +97,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `community-bot/github/index.ts`. All symbols remain available to their internal
   callers and tests via their defining module.
 
+- `refactor`: un-export a second wave of internal-only symbols surfaced after
+  re-running Fallow (#2246) — `RunReviewInputSchema` (orchestrator; the public
+  `RunReviewInput` type still derives from it), `InlineSuggestionAnchorError`
+  (review-engine, thrown internally), the `QuotedScanResult` / `RegexScanResult` /
+  `NormalScanResult` / `DelimiterStackEntry` scanner result types (now that their
+  scan helpers are internal), and `OpenAIChatComplete`. Pruned dead re-exports of
+  `DiffFetchError` / `DiffFetchTimeoutError` (community-bot `diff-fetcher.ts`,
+  classes still live in `diff-fetcher-contract.ts`) and of `OpenAIChatComplete` /
+  `OpenAIChatRequest` (`OpenAIProvider.ts`). After this pass Fallow reports zero
+  unused exports, types, class members, and dependencies.
+
 - `chore(deps)`: drop the redundant direct `zod` declaration from `@sovri/config`
   and `@sovri/llm-providers`. Neither package imports `zod` directly — both consume
   `z` through `@sovri/core` (which re-exports it), so the direct dependency was an
