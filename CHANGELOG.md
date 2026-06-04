@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for the deterministic review
+  assessment effort score, including repeated-call purity, independence from
+  clock/env/random changes, and the closed `1..5` score range (#2254).
+
 - `chore(tooling)`: add `.fallowrc.jsonc` resolving the remaining Fallow false
   positives (#2246) — declare the two CLI entry-point scripts
   (`scripts/check-licenses.mjs`, `scripts/validate-v0-1-soak.mjs`), which are run
