@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: add R-09 scaffold coverage requiring GitHub App manifest
+  `checks: write` while preserving narrow existing bot permissions (#2327).
+
 - `test(bot)`: add R-08 MSW coverage for GitHub Checks creation and the
   thin-adapter descriptor contract (#2326).
 
