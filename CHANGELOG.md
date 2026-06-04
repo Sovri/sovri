@@ -256,6 +256,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unreconciled review findings so already-posted blocking findings cannot be
   hidden by reconciliation before check mapping (#2324).
 
+- `fix(review-engine)`: format the one-finding GitHub Check summary as
+  `1 finding found.` while keeping plural summaries for other counts (R-07,
+  #2325).
+
 - `test(bot)`: widen the repeated synchronize e2e fixture timeout to absorb CI
   variance after GitHub Check run posting was added (#2324).
 
