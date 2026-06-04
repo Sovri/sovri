@@ -24,7 +24,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(review-engine)`: extend the review assessment effort-score contract with
   ATDD coverage for the resolved severity, volume, confidence, and clamp
   heuristic. The score remains deterministic and closed over `1..5`, with
-  confidence bonus inclusion at `0.85` (#2255).
+  confidence bonus inclusion at `0.85`; the implementation now applies the
+  matching pure helper logic in `review-engine` (#2255).
 
 - `feat(review-engine)`: add the deterministic review assessment effort-score
   helper with ATDD coverage for repeated-call purity, independence from
