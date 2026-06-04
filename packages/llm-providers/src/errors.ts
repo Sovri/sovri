@@ -4,6 +4,7 @@
 import type { z } from "@sovri/core";
 
 import type { TokenUsage } from "./types/LLMProvider.js";
+import { errorOptions } from "./errors-internal.js";
 
 export interface FactoryProviderErrorOptions {
   readonly cause?: unknown;
@@ -129,8 +130,4 @@ export class AnthropicTimeoutError extends AnthropicResponseError<"AnthropicTime
   protected override get errorName(): "AnthropicTimeoutError" {
     return "AnthropicTimeoutError";
   }
-}
-
-function errorOptions(cause: unknown): ErrorOptions | undefined {
-  return cause === undefined ? undefined : { cause };
 }

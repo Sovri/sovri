@@ -66,6 +66,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `refactor(llm-providers)`: hoist the identical `errorOptions(cause)` builder
+  (repeated at the tail of `errors.ts`, `providers/OpenAIProvider.errors.ts`,
+  `providers/MistralProvider.errors.ts`) into a shared internal
+  `errors-internal.ts`. The flagged error-class constructor clones
+  (`dup:3d7fdb2a` / `c0fe4ef7` / `a7d236c2`) are deliberately left: the
+  per-provider field forwarding diverges (Mistral routes through
+  `applyMistralErrorOptions` with `Object.defineProperty`, the others assign
+  directly), so a shared extractor would need an unjustified cast (#2247).
+
 - `refactor(llm-providers)`: extract the duplicated `isJsonObject` /
   `isStringArray` / `stringArray` JSON-value guards (byte-identical across
   `OpenAIProvider.schema-{matching,normalization,stripping}.ts`) into a shared
