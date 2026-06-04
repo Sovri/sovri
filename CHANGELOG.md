@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for the GitHub Checks provenance
+  conclusion, including successful signed audit evidence and the neutral
+  missing-audit case (R-04, #2322).
+
 - `test(review-engine)`: add ATDD coverage proving GitHub Checks descriptor
   mapping is deterministic for identical inputs and independent of wall-clock
   time (R-03, #2321).
