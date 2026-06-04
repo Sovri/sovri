@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { createHash } from "node:crypto";
+import { createHash, type Hash } from "node:crypto";
 
 import type { AuditTrailLogicalEvent, AuditTrailSink } from "@sovri/compliance";
 import type { Finding, PullRequest } from "@sovri/core";
@@ -24,6 +24,8 @@ const AuditFailureMessages: Record<AuditFailureCode, string> = {
   parse_error: "LLM response failed schema validation",
   unexpected_error: "Unexpected error during review",
 };
+
+const PromptHashDomain = "sovri.review-engine.prompt-sha256.v1";
 
 /**
  * Append one unsigned logical event to an injected sink. An audit failure is logged
@@ -111,5 +113,16 @@ export function reviewFailedEvent(code: AuditFailureCode): AuditTrailLogicalEven
 }
 
 export function computePromptSha256(systemPrompt: string, userPrompt: string): string {
-  return createHash("sha256").update(`${systemPrompt}\n${userPrompt}`).digest("hex");
+  const hash = createHash("sha256");
+  updateLengthDelimitedHashPart(hash, PromptHashDomain);
+  updateLengthDelimitedHashPart(hash, systemPrompt);
+  updateLengthDelimitedHashPart(hash, userPrompt);
+
+  return hash.digest("hex");
+}
+
+function updateLengthDelimitedHashPart(hash: Hash, value: string): void {
+  hash.update(`${Buffer.byteLength(value, "utf8")}:`, "utf8");
+  hash.update(value, "utf8");
+  hash.update(";", "utf8");
 }

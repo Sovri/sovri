@@ -48,7 +48,9 @@ const invalidProvenanceCases: readonly InvalidProvenanceCase[] = [
   { field: "prompt_sha256", value: "abc" },
   { field: "prompt_sha256", value: "A".repeat(64) },
   { field: "hosting_region", value: "" },
+  { field: "hosting_region", value: "   " },
   { field: "data_residency", value: "" },
+  { field: "data_residency", value: "   " },
 ];
 
 describe("walkthrough provenance payload validation", () => {
@@ -92,5 +94,28 @@ describe("walkthrough provenance payload validation", () => {
 
     // Then validation succeeds
     expect(parsed.success).toBe(true);
+  });
+
+  it("trims optional provenance evidence fields before rendering", () => {
+    // Given the review input includes provenance strings with surrounding whitespace
+    const review = {
+      ...baseReview,
+      provenance: {
+        hosting_region: "  Mistral - Paris (EU)  ",
+        data_residency: "  EU only - 0 egress  ",
+        signed_audit_entry: "  review-42-entry-3  ",
+      },
+    };
+
+    // When the walkthrough input is validated
+    const parsed = WalkthroughInputSchema.safeParse(review);
+
+    // Then validation succeeds and stores trimmed provenance evidence
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.provenance?.hosting_region).toBe("Mistral - Paris (EU)");
+      expect(parsed.data.provenance?.data_residency).toBe("EU only - 0 egress");
+      expect(parsed.data.provenance?.signed_audit_entry).toBe("review-42-entry-3");
+    }
   });
 });

@@ -18,9 +18,9 @@ const PromptSha256Pattern = /^[a-f0-9]{64}$/u;
 export const WalkthroughProvenanceSchema = z
   .object({
     prompt_sha256: z.string().regex(PromptSha256Pattern).optional(),
-    hosting_region: z.string().min(1).optional(),
-    data_residency: z.string().min(1).optional(),
-    signed_audit_entry: z.string().min(1).optional(),
+    hosting_region: z.string().trim().min(1).optional(),
+    data_residency: z.string().trim().min(1).optional(),
+    signed_audit_entry: z.string().trim().min(1).optional(),
   })
   .strict();
 

@@ -209,6 +209,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   output surface), and ADR-019 (OpenTelemetry deferred to v0.6, revising
   ADR-006).
 
+### Fixed
+
+- `fix(review-engine)`: trim optional free-text provenance fields before
+  rendering and compute prompt SHA-256 digests from an unambiguous
+  length-delimited prompt pair encoding (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body
