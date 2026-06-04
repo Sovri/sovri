@@ -742,11 +742,19 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       const sink = new MemoryAuditTrailSink();
 
       // When the provider throws a retryable schema error carrying token usage on both attempts
-      await reviewPullRequest({ pullRequest, diff, config }, { provider, auditTrailSink: sink });
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider, auditTrailSink: sink },
+      );
 
       // Then llm.called is recorded (the model responded and was charged) before parse_error
       expect(eventTypes(sink)).toEqual(["review.started", "llm.called", "review.failed"]);
       expect(findEvent(sink, "review.failed")?.["error_code"]).toBe("parse_error");
+      const promptHash = findEvent(sink, "llm.called")?.["prompt_hash"];
+      expect(typeof promptHash).toBe("string");
+      expect(review.walkthrough_markdown).toContain(
+        `Prompt sha256: ${String(promptHash).replace("sha256:", "")}`,
+      );
     });
 
     it("a propagated exception records review.failed then re-throws", async () => {

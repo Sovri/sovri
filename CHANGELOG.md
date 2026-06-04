@@ -223,6 +223,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   failure copy instead of rendering an approve verdict for empty failed reviews
   (#2316).
 
+- `test(review-engine)`: assert token-bearing retryable schema failures render
+  the audited prompt SHA-256 in failed walkthrough provenance (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body
