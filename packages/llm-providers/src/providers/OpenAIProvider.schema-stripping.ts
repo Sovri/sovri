@@ -17,8 +17,7 @@ export function stripOpenAIOptionalNulls(value: unknown, schema: z.ZodType): unk
 
 function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
   if (Array.isArray(value)) {
-    const itemSchema = isJsonObject(schema) ? schema["items"] : undefined;
-    return value.map((item) => stripOptionalNullsFromValue(item, itemSchema));
+    return stripOptionalNullsFromArray(value, schema);
   }
   if (!isJsonObject(value) || !isJsonObject(schema)) {
     return value;
@@ -34,6 +33,19 @@ function stripOptionalNullsFromValue(value: unknown, schema: unknown): unknown {
     return value;
   }
 
+  return stripOptionalNullsFromObject(value, properties, schema);
+}
+
+function stripOptionalNullsFromArray(value: readonly unknown[], schema: unknown): unknown[] {
+  const itemSchema = isJsonObject(schema) ? schema["items"] : undefined;
+  return value.map((item) => stripOptionalNullsFromValue(item, itemSchema));
+}
+
+function stripOptionalNullsFromObject(
+  value: Record<string, unknown>,
+  properties: Record<string, unknown>,
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
   const requiredProperties = new Set(stringArray(schema["required"]));
   const normalized: Record<string, unknown> = {};
   for (const [propertyName, propertyValue] of Object.entries(value)) {

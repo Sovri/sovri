@@ -70,20 +70,19 @@ function readBody(value: unknown): string {
 }
 
 function usesJsonSchemaOutput(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || !("output_config" in value)) {
+  if (!isRecordWithKey(value, "output_config")) {
     return false;
   }
 
   const outputConfig = value.output_config;
-  if (typeof outputConfig !== "object" || outputConfig === null || !("format" in outputConfig)) {
+  if (!isRecordWithKey(outputConfig, "format")) {
     return false;
   }
 
   const format = outputConfig.format;
-  return (
-    typeof format === "object" &&
-    format !== null &&
-    "type" in format &&
-    format.type === "json_schema"
-  );
+  return isRecordWithKey(format, "type") && format.type === "json_schema";
+}
+
+function isRecordWithKey(value: unknown, key: string): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && key in value;
 }

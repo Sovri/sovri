@@ -68,31 +68,28 @@ function applyMistralErrorOptions(
   error: MistralProviderError | MistralProviderRetryError | MistralProviderTimeoutError,
   options: MistralProviderErrorOptions,
 ): void {
-  if (options.status !== undefined) {
-    Object.defineProperty(error, "status", { value: options.status, enumerable: true });
+  defineEnumerableOption(error, "status", options.status);
+  defineEnumerableOption(error, "requestId", options.requestId);
+  defineEnumerableOption(
+    error,
+    "attemptDurationsMs",
+    options.attemptDurationsMs === undefined ? undefined : [...options.attemptDurationsMs],
+  );
+  if (!(error instanceof MistralProviderError)) {
+    return;
   }
-  if (options.requestId !== undefined) {
-    Object.defineProperty(error, "requestId", { value: options.requestId, enumerable: true });
-  }
-  if (options.attemptDurationsMs !== undefined) {
-    Object.defineProperty(error, "attemptDurationsMs", {
-      value: [...options.attemptDurationsMs],
-      enumerable: true,
-    });
-  }
-  if (error instanceof MistralProviderError && options.issues !== undefined) {
-    Object.defineProperty(error, "issues", { value: options.issues, enumerable: true });
-  }
-  if (error instanceof MistralProviderError && options.tokenUsage !== undefined) {
-    Object.defineProperty(error, "tokenUsage", { value: options.tokenUsage, enumerable: true });
-  }
-  if (
-    error instanceof MistralProviderError &&
-    options.retryableWithCorrectivePrompt !== undefined
-  ) {
-    Object.defineProperty(error, "retryableWithCorrectivePrompt", {
-      value: options.retryableWithCorrectivePrompt,
-      enumerable: true,
-    });
+
+  defineEnumerableOption(error, "issues", options.issues);
+  defineEnumerableOption(error, "tokenUsage", options.tokenUsage);
+  defineEnumerableOption(
+    error,
+    "retryableWithCorrectivePrompt",
+    options.retryableWithCorrectivePrompt,
+  );
+}
+
+function defineEnumerableOption(error: Error, key: string, value: unknown): void {
+  if (value !== undefined) {
+    Object.defineProperty(error, key, { value, enumerable: true });
   }
 }

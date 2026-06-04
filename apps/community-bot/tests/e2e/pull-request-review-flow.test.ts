@@ -406,31 +406,21 @@ describe("community bot pull request review E2E ATDD", () => {
       const runtime = await runOpenedReviewFlow();
 
       // Then GitHub receives one `POST /repos/octo-org/sovri-target/pulls/42/reviews` request
-      expect(runtime.reviewRequests).toHaveLength(1);
+      expectPostedReviewRequest(runtime);
       // And the review request commit ID is "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      expect(runtime.reviewRequests[0]?.commit_id).toBe(OpenedHeadSha);
+      expectReviewRequestCommit(runtime);
       // And the review request event is "COMMENT"
-      expect(runtime.reviewRequests[0]?.event).toBe("COMMENT");
+      expectReviewRequestEvent(runtime);
       // And the review result severity counts are blocker 1, major 1, minor 1, info 0, and nitpick 0
-      expect(countSeverities(buildProviderResponse(3))).toEqual({
-        blocker: 1,
-        info: 0,
-        major: 1,
-        minor: 1,
-        nitpick: 0,
-      });
+      expectExpectedSeverityCounts();
       // And the posted walkthrough renders exactly 1 blocker row in the badged findings table
-      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "⛔")).toBe(1);
+      expectBadgeRowCount(runtime, "⛔");
       // And the posted walkthrough renders exactly 1 major row in the badged findings table
-      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "🔴")).toBe(1);
+      expectBadgeRowCount(runtime, "🔴");
       // And the posted walkthrough renders exactly 1 minor row in the badged findings table
-      expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", "🟡")).toBe(1);
+      expectBadgeRowCount(runtime, "🟡");
       // And the review request contains inline comments at "apps/community-bot/src/handlers/pull-request.ts:42", "apps/community-bot/src/github/comment-poster.ts:57", and "packages/review-engine/src/orchestrator.ts:88"
-      expect(commentAnchors(runtime.reviewRequests[0]?.comments ?? [])).toEqual([
-        "apps/community-bot/src/handlers/pull-request.ts:42",
-        "apps/community-bot/src/github/comment-poster.ts:57",
-        "packages/review-engine/src/orchestrator.ts:88",
-      ]);
+      expectReviewCommentAnchors(runtime);
       // And the review-flow budget assertion passes
       expect(evaluateBudget(elapsedMs, 10_000).passed).toBe(true);
     },
@@ -1573,6 +1563,40 @@ function countSeverities(response: ProviderReviewResponse) {
 
 function countRowsWithBadge(markdown: string, badge: string): number {
   return markdown.split("\n").filter((line) => line.startsWith(`| ${badge}`)).length;
+}
+
+function expectPostedReviewRequest(runtime: ObservedRuntime): void {
+  expect(runtime.reviewRequests).toHaveLength(1);
+}
+
+function expectReviewRequestCommit(runtime: ObservedRuntime): void {
+  expect(runtime.reviewRequests[0]?.commit_id).toBe(OpenedHeadSha);
+}
+
+function expectReviewRequestEvent(runtime: ObservedRuntime): void {
+  expect(runtime.reviewRequests[0]?.event).toBe("COMMENT");
+}
+
+function expectExpectedSeverityCounts(): void {
+  expect(countSeverities(buildProviderResponse(3))).toEqual({
+    blocker: 1,
+    info: 0,
+    major: 1,
+    minor: 1,
+    nitpick: 0,
+  });
+}
+
+function expectBadgeRowCount(runtime: ObservedRuntime, badge: string): void {
+  expect(countRowsWithBadge(runtime.reviewRequests[0]?.body ?? "", badge)).toBe(1);
+}
+
+function expectReviewCommentAnchors(runtime: ObservedRuntime): void {
+  expect(commentAnchors(runtime.reviewRequests[0]?.comments ?? [])).toEqual([
+    "apps/community-bot/src/handlers/pull-request.ts:42",
+    "apps/community-bot/src/github/comment-poster.ts:57",
+    "packages/review-engine/src/orchestrator.ts:88",
+  ]);
 }
 
 function commentAnchors(comments: readonly ReviewRequest["comments"][number][]): string[] {

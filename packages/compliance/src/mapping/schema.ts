@@ -121,76 +121,98 @@ export const ComplianceMappingEntrySchema = z
     references: z.array(ComplianceReferenceEntrySchema),
   })
   .superRefine((entry, context) => {
-    const canonicalCweNumber = getCanonicalCweNumber(entry.cwe_id);
-    const canonicalCweId =
-      canonicalCweNumber === undefined ? undefined : `CWE-${canonicalCweNumber}`;
-
-    const canonicalMitreUrl = buildCanonicalMitreUrl(entry.cwe_id);
-    if (canonicalMitreUrl !== undefined && entry.mitre_url !== canonicalMitreUrl) {
-      context.addIssue({
-        code: "custom",
-        path: ["mitre_url"],
-        message: `${entry.cwe_id} requires canonical MITRE URL ${canonicalMitreUrl}`,
-      });
-    }
-
-    if (canonicalCweId === classicBufferOverflowCweId) {
-      const hasIsoSecureCodingReference = entry.references.some(
-        (reference) =>
-          reference.framework === isoSecureCodingFramework &&
-          reference.identifier === isoSecureCodingIdentifier,
-      );
-
-      if (!hasIsoSecureCodingReference) {
-        context.addIssue({
-          code: "custom",
-          path: ["references"],
-          message: `${classicBufferOverflowCweId} requires ${isoSecureCodingFramework} reference ${isoSecureCodingIdentifier}`,
-        });
-      }
-    }
-
-    if (canonicalCweId === missingAuthorizationCweId) {
-      const hasDoraReference = entry.references.some(
-        (reference) =>
-          reference.framework === doraFramework &&
-          reference.identifier === doraIctRiskManagementIdentifier,
-      );
-
-      if (!hasDoraReference) {
-        context.addIssue({
-          code: "custom",
-          path: ["references"],
-          message: `${missingAuthorizationCweId} requires ${doraFramework} reference ${doraIctRiskManagementIdentifier}`,
-        });
-      }
-    }
-
-    if (canonicalCweId !== undefined && webVulnerabilityCweIds.has(canonicalCweId)) {
-      const hasGdprArt32Reference = entry.references.some(
-        (reference) =>
-          reference.framework === gdprFramework && reference.identifier === gdprArt32Identifier,
-      );
-
-      if (!hasGdprArt32Reference) {
-        context.addIssue({
-          code: "custom",
-          path: ["references"],
-          message: `${entry.cwe_id} requires ${gdprFramework} reference ${gdprArt32Identifier}`,
-        });
-      }
-    }
-
-    const missingRequiredReference =
-      canonicalCweId === undefined
-        ? undefined
-        : findMissingRequiredReference(canonicalCweId, entry.references);
-    if (missingRequiredReference !== undefined) {
-      context.addIssue({
-        code: "custom",
-        path: ["references"],
-        message: `${canonicalCweId} requires ${missingRequiredReference.framework} reference ${missingRequiredReference.identifier}`,
-      });
-    }
+    validateCanonicalMitreUrl(entry, context);
+    validateSpecialCaseReferences(entry, context);
+    validateRequiredReferences(entry, context);
   });
 export type ComplianceMappingEntry = z.infer<typeof ComplianceMappingEntrySchema>;
+
+function getCanonicalCweId(cweId: string): string | undefined {
+  const canonicalCweNumber = getCanonicalCweNumber(cweId);
+  return canonicalCweNumber === undefined ? undefined : `CWE-${canonicalCweNumber}`;
+}
+
+function validateCanonicalMitreUrl(
+  entry: z.infer<typeof ComplianceMappingEntrySchema>,
+  context: z.RefinementCtx,
+): void {
+  const canonicalMitreUrl = buildCanonicalMitreUrl(entry.cwe_id);
+  if (canonicalMitreUrl === undefined || entry.mitre_url === canonicalMitreUrl) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    path: ["mitre_url"],
+    message: `${entry.cwe_id} requires canonical MITRE URL ${canonicalMitreUrl}`,
+  });
+}
+
+function validateSpecialCaseReferences(
+  entry: z.infer<typeof ComplianceMappingEntrySchema>,
+  context: z.RefinementCtx,
+): void {
+  const canonicalCweId = getCanonicalCweId(entry.cwe_id);
+  if (canonicalCweId === classicBufferOverflowCweId) {
+    requireReference(
+      entry,
+      context,
+      isoSecureCodingFramework,
+      isoSecureCodingIdentifier,
+      classicBufferOverflowCweId,
+    );
+  }
+  if (canonicalCweId === missingAuthorizationCweId) {
+    requireReference(
+      entry,
+      context,
+      doraFramework,
+      doraIctRiskManagementIdentifier,
+      missingAuthorizationCweId,
+    );
+  }
+  if (canonicalCweId !== undefined && webVulnerabilityCweIds.has(canonicalCweId)) {
+    requireReference(entry, context, gdprFramework, gdprArt32Identifier, entry.cwe_id);
+  }
+}
+
+function validateRequiredReferences(
+  entry: z.infer<typeof ComplianceMappingEntrySchema>,
+  context: z.RefinementCtx,
+): void {
+  const canonicalCweId = getCanonicalCweId(entry.cwe_id);
+  const missingRequiredReference =
+    canonicalCweId === undefined
+      ? undefined
+      : findMissingRequiredReference(canonicalCweId, entry.references);
+  if (missingRequiredReference === undefined) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    path: ["references"],
+    message: `${canonicalCweId} requires ${missingRequiredReference.framework} reference ${missingRequiredReference.identifier}`,
+  });
+}
+
+function requireReference(
+  entry: z.infer<typeof ComplianceMappingEntrySchema>,
+  context: z.RefinementCtx,
+  framework: ComplianceFramework,
+  identifier: string,
+  cweLabel: string,
+): void {
+  const hasReference = entry.references.some(
+    (reference) => reference.framework === framework && reference.identifier === identifier,
+  );
+  if (hasReference) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    path: ["references"],
+    message: `${cweLabel} requires ${framework} reference ${identifier}`,
+  });
+}

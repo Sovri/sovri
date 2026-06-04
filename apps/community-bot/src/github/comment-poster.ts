@@ -376,18 +376,10 @@ function validatePullRequestReviewComment(value: unknown): PullRequestReviewComm
     throw new Error("Pull request review comment must be an object");
   }
 
-  const side = value["side"];
-  if (side !== "RIGHT") {
-    throw new Error("Pull request review comment side must be RIGHT");
-  }
-
   const startLine = value["start_line"];
   const startSide = value["start_side"];
-  const hasStartLine = startLine !== undefined;
-  const hasStartSide = startSide !== undefined;
-  if (hasStartLine !== hasStartSide) {
-    throw new Error("Pull request review start_line and start_side must be paired");
-  }
+  validateReviewCommentSide(value["side"]);
+  validateReviewCommentRangePair(startLine, startSide);
 
   const base = {
     body: readString(value, "body"),
@@ -396,23 +388,39 @@ function validatePullRequestReviewComment(value: unknown): PullRequestReviewComm
     side: "RIGHT" as const,
   };
 
-  if (!hasStartLine && !hasStartSide) {
+  if (startLine === undefined && startSide === undefined) {
     return base;
-  }
-
-  if (startSide !== "RIGHT") {
-    throw new Error("Pull request review comment start_side must be RIGHT");
-  }
-
-  if (typeof startLine !== "number" || !Number.isInteger(startLine) || startLine <= 0) {
-    throw new Error("Pull request review comment start_line must be a positive integer");
   }
 
   return {
     ...base,
-    start_line: startLine,
+    start_line: readReviewCommentStartLine(startLine),
     start_side: "RIGHT" as const,
   };
+}
+
+function validateReviewCommentSide(side: unknown): void {
+  if (side !== "RIGHT") {
+    throw new Error("Pull request review comment side must be RIGHT");
+  }
+}
+
+function validateReviewCommentRangePair(startLine: unknown, startSide: unknown): void {
+  const hasStartLine = startLine !== undefined;
+  const hasStartSide = startSide !== undefined;
+  if (hasStartLine !== hasStartSide) {
+    throw new Error("Pull request review start_line and start_side must be paired");
+  }
+  if (startSide !== undefined && startSide !== "RIGHT") {
+    throw new Error("Pull request review comment start_side must be RIGHT");
+  }
+}
+
+function readReviewCommentStartLine(startLine: unknown): number {
+  if (typeof startLine !== "number" || !Number.isInteger(startLine) || startLine <= 0) {
+    throw new Error("Pull request review comment start_line must be a positive integer");
+  }
+  return startLine;
 }
 
 async function findMarkedReview(

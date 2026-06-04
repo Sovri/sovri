@@ -66,6 +66,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `refactor(review-engine,bot,scripts)`: reduce Fallow health hotspots by
+  splitting syntax scanning, CI policy checks, soak evidence parsing,
+  compliance mapping validation, provider error shaping, and GitHub bot review
+  helpers into smaller behavior-preserving units (#2248).
+
 - `refactor(scripts)`: consolidate the duration-budget guard and result emitter
   in `ci-policy.mjs` — `guardNonNegativeElapsed` (the identical
   `--job-end-ms >= --job-start-ms` check across the four budget commands) and
