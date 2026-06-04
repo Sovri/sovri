@@ -79,7 +79,7 @@ function callsVitestApi(source: string, api: string): boolean {
   return pattern.test(source);
 }
 
-function extractVitestImports(source: string): ReadonlySet<string> {
+export function extractVitestImports(source: string): ReadonlySet<string> {
   const imports = new Set<string>();
   const matches = source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']vitest["']/gu);
   for (const match of matches) {

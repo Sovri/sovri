@@ -66,6 +66,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `test(review-engine)`: export the existing `extractVitestImports` helper from
+  `test/vitest-api-style-policy.ts` and import it in `vitest-root-config.test.ts`,
+  dropping the test-local copy (`dup:7c648746`). The return type widens to
+  `ReadonlySet<string>`, which the consumers (spread + `.has()`) accept.
+
 - `test(llm-providers)`: reuse the shared `mockOpenAIModule` / `captureError`
   test helpers (and the `FakeOpenAIChatClient` type) from
   `test/providers/OpenAICompatibleProvider.mock-helper.ts` in the OpenAI

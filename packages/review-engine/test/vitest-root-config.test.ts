@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { evaluateVitestApiStyle } from "./vitest-api-style-policy.js";
+import { evaluateVitestApiStyle, extractVitestImports } from "./vitest-api-style-policy.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -127,22 +127,6 @@ function buildVitestCall(api: string): string {
   }
 
   return `${api}();`;
-}
-
-function extractVitestImports(source: string): Set<string> {
-  const imports = new Set<string>();
-  const matches = source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']vitest["']/gu);
-  for (const match of matches) {
-    const importList = match[1] ?? "";
-    for (const name of importList.split(",")) {
-      const importParts = name.trim().split(/\s+as\s+/u);
-      const importedName = importParts[1]?.trim() ?? importParts[0]?.trim();
-      if (importedName !== undefined && importedName.length > 0) {
-        imports.add(importedName);
-      }
-    }
-  }
-  return imports;
 }
 
 describe("Vitest root config explicit import policy", () => {
