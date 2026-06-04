@@ -38,6 +38,11 @@ export type PullRequestOctokit = CommentPosterOctokit &
       variables: Readonly<Record<string, unknown>>,
     ) => Promise<unknown>;
     readonly rest: {
+      readonly checks?: {
+        readonly create: (
+          parameters: CheckRunCreateParameters,
+        ) => Promise<{ readonly data: unknown }>;
+      };
       readonly repos: {
         readonly getContent: (
           parameters: RepositoryContentParameters,
@@ -45,6 +50,19 @@ export type PullRequestOctokit = CommentPosterOctokit &
       };
     };
   };
+
+type CheckRunCreateParameters = {
+  readonly conclusion: "failure" | "neutral" | "success";
+  readonly head_sha: string;
+  readonly name: string;
+  readonly output: {
+    readonly summary: string;
+    readonly title: string;
+  };
+  readonly owner: string;
+  readonly repo: string;
+  readonly status: "completed";
+};
 
 type RepositoryContentParameters = {
   readonly mediaType: {
@@ -83,7 +101,12 @@ export type PullRequestHandlerDependencies = {
   readonly loadConfig: (target: ReviewPostTarget) => Promise<SovriConfig>;
   readonly logger: PullRequestHandlerLogger;
   readonly postErrorComment: (target: ReviewCommentTarget, message: string) => Promise<void>;
-  readonly postReview: (target: ReviewPostTarget, review: Review, diff: Diff) => Promise<void>;
+  readonly postReview: (
+    target: ReviewPostTarget,
+    review: Review,
+    diff: Diff,
+    checkSourceReview?: Review,
+  ) => Promise<void>;
   readonly reviewPullRequest: (
     input: ReviewPullRequestInput,
     options: ReviewPullRequestOptions,
@@ -304,7 +327,7 @@ async function postReconciledReview(
       summary: reconciledSummary,
     }),
   };
-  await dependencies.postReview(target, reconciled, diff);
+  await dependencies.postReview(target, reconciled, diff, review);
   await minimizeResolvedComments(dependencies, target, review, diff, posted.comments);
 }
 

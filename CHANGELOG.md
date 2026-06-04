@@ -21,6 +21,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(bot)`: post Sovri GitHub Check runs after review posting on a
+  best-effort basis, logging `checks.create` failures without failing the
+  webhook flow (R-06, #2324).
+
+- `test(bot)`: add ATDD coverage for best-effort GitHub Checks posting when
+  `checks.create` rejects, including delivery, repository, and pull request log
+  context (R-06, #2324).
+
 - `test(review-engine)`: add ATDD coverage proving the GitHub Checks
   license-scan row stays a neutral v1.0 placeholder and does not wire a SARIF
   reader or license scanner command (R-05, #2323).
@@ -239,6 +247,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-006).
 
 ### Fixed
+
+- `fix(bot)`: derive the `Sovri / review` Check run conclusion from the
+  unreconciled review findings so already-posted blocking findings cannot be
+  hidden by reconciliation before check mapping (#2324).
+
+- `test(bot)`: widen the repeated synchronize e2e fixture timeout to absorb CI
+  variance after GitHub Check run posting was added (#2324).
 
 - `fix(review-engine)`: trim optional free-text provenance fields before
   rendering and compute prompt SHA-256 digests from an unambiguous

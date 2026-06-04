@@ -1028,6 +1028,7 @@ describe("handlePullRequest reconciliation seam (R-07, R-01, R-04)", () => {
       expect.objectContaining({ number: 41 }),
       expect.objectContaining({ findings: review.findings }),
       diff,
+      review,
     );
     // And no comment is minimized, and no error comment is posted
     expect(dependencies.minimizeComments).not.toHaveBeenCalled();
@@ -1065,6 +1066,7 @@ describe("handlePullRequest reconciliation seam (R-07, R-01, R-04)", () => {
       expect.objectContaining({ number: 41 }),
       expect.objectContaining({ findings: [] }),
       diff,
+      review,
     );
     // The comment whose fingerprint the run no longer produces is minimized
     expect(dependencies.minimizeComments).toHaveBeenCalledWith(
