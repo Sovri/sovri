@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: add R-10 source-contract coverage for GitHub Checks helper and
+  poster adapter headers, ESM imports, Zod-derived input typing, and
+  payload-safe logging (#2328).
+
 - `test(bot)`: add R-09 scaffold coverage requiring GitHub App manifest
   `checks: write` while preserving narrow existing bot permissions (#2327).
 
