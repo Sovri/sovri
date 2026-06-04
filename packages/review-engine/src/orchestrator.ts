@@ -324,6 +324,7 @@ export async function reviewPullRequest(
 
       return buildFailedReview(reviewInput.pullRequest, provider, startedAt, generation.error, {
         findings,
+        ...(generation.promptSha256 === undefined ? {} : { promptSha256: generation.promptSha256 }),
         tokenUsage: generation.tokenUsage,
         tokenUsageReported: generation.tokenUsageReported,
       });
@@ -715,11 +716,12 @@ function buildFailedReview(
   error: string,
   options: {
     readonly findings?: readonly Finding[];
+    readonly promptSha256?: string;
     readonly tokenUsage?: TokenUsage;
     readonly tokenUsageReported?: boolean;
   } = {},
 ): Review {
-  return ReviewSchema.parse({
+  const review = ReviewSchema.parse({
     id: uuidv7(),
     pr_number: pullRequest.number,
     repo_full_name: pullRequest.repo_full_name,
@@ -736,6 +738,12 @@ function buildFailedReview(
     status: "failed",
     error,
   });
+
+  if (options.promptSha256 === undefined) {
+    return review;
+  }
+
+  return withComposedWalkthrough(review, { promptSha256: options.promptSha256 });
 }
 
 function buildReviewFailedFinding(diff: Diff, error: string): Finding {

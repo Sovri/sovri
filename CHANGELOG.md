@@ -215,6 +215,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   rendering and compute prompt SHA-256 digests from an unambiguous
   length-delimited prompt pair encoding (#2316).
 
+- `fix(review-engine)`: include computed prompt SHA-256 provenance in failed
+  review walkthroughs when provider responses are audited but still fail parsing
+  after retry (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body
