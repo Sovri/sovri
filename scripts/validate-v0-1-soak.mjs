@@ -1229,7 +1229,7 @@ function evaluateNoCrashEvidence(content, range) {
     return rejectedNoCrash("restart evidence is incomplete");
   }
 
-  const restartResult = evaluateRestartEvidence(content, range.fromPr, prRange);
+  const restartResult = evaluateRestartEvidence(content, prRange.fromPr, prRange);
   if (restartResult !== undefined) {
     return restartResult;
   }
