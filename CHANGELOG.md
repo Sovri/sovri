@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for empty-review compliance block
+  behavior, including omission without provenance and provenance evidence
+  rendering for clean reviews that include provenance, with the composer now
+  preserving provenance-only evidence blocks (R-10, #2303).
+
 - `test(review-engine)`: add ATDD coverage for secret-safe compliance
   provenance output, ensuring non-provenance secret-shaped fields are ignored
   while signed audit-entry identifiers still render (R-09, #2302).
