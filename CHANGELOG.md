@@ -21,13 +21,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
-- `feat(review-engine)`: validate optional walkthrough provenance and render
-  prompt SHA-256 provenance plus the no-signed-audit-trail default (R-04,
-  #2297).
+- `feat(review-engine)`: validate optional walkthrough provenance, thread
+  orchestrated prompt SHA-256 digests into composed walkthroughs, and render
+  supplied hosting, residency, and signed audit-entry provenance with the
+  no-signed-audit-trail default (R-04, #2297).
 
-- `test(review-engine)`: add ATDD coverage for prompt SHA-256 provenance
-  rendering and the no-signed-audit-trail default when provenance is absent
-  (R-04, #2297).
+- `test(review-engine)`: add ATDD and integration coverage for prompt SHA-256
+  provenance rendering, audit-backed prompt digest threading, supplied
+  provenance fields, and the no-signed-audit-trail default when provenance is
+  absent (R-04, #2297).
 
 - `feat(review-engine)`: render the review provider and model in the compliance
   provenance block with markdown escaping (R-03, #2296).

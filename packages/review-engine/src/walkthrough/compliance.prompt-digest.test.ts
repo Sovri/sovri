@@ -47,8 +47,6 @@ describe("composeWalkthrough compliance prompt digest provenance", () => {
       ...baseReview,
       provenance: {
         prompt_sha256: promptSha256,
-        hosting_region: "Mistral - Paris (EU)",
-        data_residency: "EU only - 0 egress",
       },
     };
 
@@ -57,6 +55,26 @@ describe("composeWalkthrough compliance prompt digest provenance", () => {
 
     // Then it contains "Prompt sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     expect(markdown).toContain(`Prompt sha256: ${promptSha256}`);
+  });
+
+  it("renders every supplied provenance field without the no-signed default", () => {
+    const review = {
+      ...baseReview,
+      provenance: {
+        prompt_sha256: promptSha256,
+        hosting_region: "Mistral - Paris (EU)",
+        data_residency: "EU only - 0 egress",
+        signed_audit_entry: "#142-3 signed",
+      },
+    };
+
+    const markdown = composeWalkthrough(review);
+
+    expect(markdown).toContain(`Prompt sha256: ${promptSha256}`);
+    expect(markdown).toContain("Hosting: Mistral - Paris (EU)");
+    expect(markdown).toContain("Data residency: EU only - 0 egress");
+    expect(markdown).toContain("Signed audit entry: #142-3 signed");
+    expect(markdown).not.toContain("No signed audit trail is attached");
   });
 
   it("omits the prompt digest line and states no signed trail when provenance is absent", () => {

@@ -69,7 +69,7 @@ export function llmCalledEvent(
   return {
     ts: new Date().toISOString(),
     event: "llm.called",
-    prompt_hash: hashPrompt(systemPrompt, userPrompt),
+    prompt_hash: `sha256:${computePromptSha256(systemPrompt, userPrompt)}`,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
   };
@@ -111,6 +111,6 @@ export function reviewFailedEvent(code: AuditFailureCode): AuditTrailLogicalEven
   };
 }
 
-function hashPrompt(systemPrompt: string, userPrompt: string): string {
-  return `sha256:${createHash("sha256").update(`${systemPrompt}\n${userPrompt}`).digest("hex")}`;
+export function computePromptSha256(systemPrompt: string, userPrompt: string): string {
+  return createHash("sha256").update(`${systemPrompt}\n${userPrompt}`).digest("hex");
 }

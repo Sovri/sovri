@@ -404,7 +404,10 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       const sink = new MemoryAuditTrailSink();
 
       // When reviewPullRequest runs
-      await reviewPullRequest({ pullRequest, diff, config }, { provider, auditTrailSink: sink });
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider, auditTrailSink: sink },
+      );
 
       // Then the recorded event types are exactly the nominal sequence
       expect(eventTypes(sink)).toEqual([
@@ -429,6 +432,9 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
       expect(String(promptHash)).not.toHaveLength(0);
       expect(called?.["tokens_in"]).toBe(812);
       expect(called?.["tokens_out"]).toBe(144);
+      expect(review.walkthrough_markdown).toContain(
+        `Prompt sha256: ${String(promptHash).replace("sha256:", "")}`,
+      );
 
       // And each finding.created carries the finding's audit_reference, severity, references
       const findings = sink.getEvents().filter((event) => event.event === "finding.created");

@@ -17,9 +17,9 @@ const PromptSha256Pattern = /^[a-f0-9]{64}$/u;
 
 export const WalkthroughProvenanceSchema = z
   .object({
-    prompt_sha256: z.string().regex(PromptSha256Pattern),
-    hosting_region: z.string().min(1),
-    data_residency: z.string().min(1),
+    prompt_sha256: z.string().regex(PromptSha256Pattern).optional(),
+    hosting_region: z.string().min(1).optional(),
+    data_residency: z.string().min(1).optional(),
     signed_audit_entry: z.string().min(1).optional(),
   })
   .strict();
@@ -175,6 +175,15 @@ export function composeWalkthrough(
     ...(review.provenance?.prompt_sha256 === undefined
       ? {}
       : { promptSha256: review.provenance.prompt_sha256 }),
+    ...(review.provenance?.hosting_region === undefined
+      ? {}
+      : { hostingRegion: review.provenance.hosting_region }),
+    ...(review.provenance?.data_residency === undefined
+      ? {}
+      : { dataResidency: review.provenance.data_residency }),
+    ...(review.provenance?.signed_audit_entry === undefined
+      ? {}
+      : { signedAuditEntry: review.provenance.signed_audit_entry }),
   };
   const complianceSection = renderComplianceSection(findings, complianceProvenance);
   if (complianceSection.length > 0) {

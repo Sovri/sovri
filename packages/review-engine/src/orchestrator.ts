@@ -24,6 +24,7 @@ import { v4 as uuidv4, v7 as uuidv7 } from "uuid";
 
 import { generateAuditReference } from "./audit-ref.js";
 import {
+  computePromptSha256,
   emitAuditEvent,
   findingCreatedEvent,
   llmCalledEvent,
@@ -202,6 +203,10 @@ export interface ReviewPullRequestOptions {
   readonly strictAudit?: boolean;
 }
 
+interface ComposedWalkthroughProvenance {
+  readonly promptSha256?: string;
+}
+
 export async function runReview(
   input: RunReviewInput,
   options: RunReviewOptions,
@@ -293,6 +298,10 @@ export async function reviewPullRequest(
       schema: ProviderReviewResponseSchema,
       maxTokens: provider.maxTokens,
     });
+    const promptSha256 =
+      generation.responseReturned === true
+        ? computePromptSha256(prompt.systemPrompt, prompt.userPrompt)
+        : undefined;
 
     if (generation.responseReturned) {
       await emitAuditEvent(
@@ -358,7 +367,7 @@ export async function reviewPullRequest(
       status: generation.status,
     });
 
-    return withComposedWalkthrough(review);
+    return withComposedWalkthrough(review, promptSha256 === undefined ? {} : { promptSha256 });
   } catch (error) {
     await emitAuditEvent(sink, reviewFailedEvent("unexpected_error"), logger);
 
@@ -391,10 +400,18 @@ function buildNoFilesReview(
   return withComposedWalkthrough(review);
 }
 
-function withComposedWalkthrough(review: Review): Review {
+function withComposedWalkthrough(
+  review: Review,
+  provenance: ComposedWalkthroughProvenance = {},
+): Review {
+  const input =
+    provenance.promptSha256 === undefined
+      ? review
+      : { ...review, provenance: { prompt_sha256: provenance.promptSha256 } };
+
   return {
     ...review,
-    walkthrough_markdown: composeWalkthrough(review),
+    walkthrough_markdown: composeWalkthrough(input),
   };
 }
 
