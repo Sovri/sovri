@@ -255,6 +255,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot, review-engine)`: attach GitHub Check descriptors to review-engine
+  results and keep the bot adapter as a descriptor-posting pass-through (R-08,
+  #2326).
+
 - `fix(bot)`: derive the `Sovri / review` Check run conclusion from the
   unreconciled review findings so already-posted blocking findings cannot be
   hidden by reconciliation before check mapping (#2324).
