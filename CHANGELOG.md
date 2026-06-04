@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments preserve exact committable GitHub suggestion block rendering after
+  the body and before the reconcile marker (R-04, #2278).
+
 - `test(review-engine)`: add ATDD coverage proving refreshed inline findings
   render a present audit reference exactly once through the shared helper and
   keep it immediately before the reconcile marker (R-03, #2277).
