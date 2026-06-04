@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: add ATDD coverage for best-effort GitHub Checks posting when
+  `checks.create` rejects, including delivery, repository, and pull request log
+  context (R-06, #2324).
+
 - `test(review-engine)`: add ATDD coverage proving the GitHub Checks
   license-scan row stays a neutral v1.0 placeholder and does not wire a SARIF
   reader or license scanner command (R-05, #2323).
