@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for GitHub Checks review
+  conclusion mapping and unknown-verdict validation (R-02, #2320).
+
 - `feat(review-engine)`: add the initial pure GitHub Checks descriptor mapper
   returning the three stable completed Sovri status rows (R-01, #2319).
 
