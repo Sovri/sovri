@@ -90,6 +90,9 @@ export function renderSeverityDistribution(findings: readonly Finding[]): readon
   ];
 }
 
+/**
+ * Renders the markdown-only review assessment block used in posted walkthroughs.
+ */
 export function renderAssessmentBlock(findings: readonly Finding[]): readonly string[] {
   if (findings.length === 0) {
     return [EMPTY_ASSESSMENT_LINE];
