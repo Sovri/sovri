@@ -29,6 +29,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `checks.create` rejects, including delivery, repository, and pull request log
   context (R-06, #2324).
 
+- `test(bot, review-engine)`: add ATDD coverage that GitHub Check descriptor
+  titles, summaries, and posted output omit GitHub tokens, LLM keys, and raw
+  webhook payloads (R-07, #2325).
+
 - `test(review-engine)`: add ATDD coverage proving the GitHub Checks
   license-scan row stays a neutral v1.0 placeholder and does not wire a SARIF
   reader or license scanner command (R-05, #2323).
@@ -251,6 +255,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(bot)`: derive the `Sovri / review` Check run conclusion from the
   unreconciled review findings so already-posted blocking findings cannot be
   hidden by reconciliation before check mapping (#2324).
+
+- `fix(review-engine)`: format the one-finding GitHub Check summary as
+  `1 finding found.` while keeping plural summaries for other counts (R-07,
+  #2325).
 
 - `test(bot)`: widen the repeated synchronize e2e fixture timeout to absorb CI
   variance after GitHub Check run posting was added (#2324).

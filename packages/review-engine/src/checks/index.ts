@@ -39,6 +39,11 @@ const ReviewConclusionByVerdictKind: Record<MapChecksInput["verdict"]["kind"], C
     "request-changes": "failure",
   };
 
+function formatFindingSummary(findingCount: number): string {
+  const noun = findingCount === 1 ? "finding" : "findings";
+  return `${String(findingCount)} ${noun} found.`;
+}
+
 function mapProvenanceDescriptor(hasSignedAuditEntry: boolean): CheckRunDescriptor {
   if (hasSignedAuditEntry) {
     return {
@@ -67,7 +72,7 @@ export function mapChecks(input: unknown): readonly CheckRunDescriptor[] {
       status: "completed",
       conclusion: ReviewConclusionByVerdictKind[parsedInput.verdict.kind],
       title: "Sovri review completed",
-      summary: `${String(parsedInput.findingCount)} findings found.`,
+      summary: formatFindingSummary(parsedInput.findingCount),
     },
     mapProvenanceDescriptor(parsedInput.hasSignedAuditEntry),
     {
