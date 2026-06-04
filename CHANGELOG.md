@@ -66,6 +66,65 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `refactor(scripts)`: consolidate the duration-budget guard and result emitter
+  in `ci-policy.mjs` — `guardNonNegativeElapsed` (the identical
+  `--job-end-ms >= --job-start-ms` check across the four budget commands) and
+  `emitDurationBudgetResult(statusKey, outcome, elapsedMs, format)` (the
+  `measured_duration_ms / <statusKey> / reported_duration` pass/fail lines),
+  clearing `dup:f1db16ab`. The special-case emissions (cache-miss, unsupported,
+  build-docker cache-fail) keep their distinct field shapes inline. The broader
+  ci-policy report-builder clones are left for a later pass. Verified by
+  `scripts/ci-policy.test.sh` (414 cases) (#2247).
+
+- `refactor(scripts)`: fold the qualifying-row scan shared by
+  `findInvalidFindingCountPr`, `findInvalidLatencyPr` and
+  `evaluateSoakLogQualityRatings` in `validate-v0-1-soak.mjs` into an
+  `iterateQualifyingSoakLogRows` generator (`dup:ed29aaa7` / `5357d940`). The
+  pre-filtered scanners (`findMissingRequiredSoakLogField`,
+  `readSoakEvidenceRowPrNumbers`) keep their own row guards and are untouched.
+
+- `test(review-engine)`: export the existing `extractVitestImports` helper from
+  `test/vitest-api-style-policy.ts` and import it in `vitest-root-config.test.ts`,
+  dropping the test-local copy (`dup:7c648746`). The return type widens to
+  `ReadonlySet<string>`, which the consumers (spread + `.has()`) accept.
+
+- `test(llm-providers)`: reuse the shared `mockOpenAIModule` / `captureError`
+  test helpers (and the `FakeOpenAIChatClient` type) from
+  `test/providers/OpenAICompatibleProvider.mock-helper.ts` in the OpenAI
+  api-key-validation and base-url acceptance tests, dropping the inlined copies
+  (`dup:b98789d1`). The provider-specific `fakeOpenAIClient` stub stays local.
+
+- `refactor(bot)`: extract the review-comment helpers shared by the resolve
+  handler and the issue-comment dispatcher into
+  `apps/community-bot/src/github/review-comments.ts` —
+  `listReviewCommentsOnAllPages` (raw paginated list, bot-login filtering left
+  to callers), `hasFindingMarker` / `extractFindingId`, and
+  `resolvePullRequestAuthorLogin` (throws via an injected `createError` factory
+  so each caller keeps its own typed adapter error). Removes the duplicated
+  pagination, author-lookup and finding-marker blocks
+  (`dup:d9d97218` / `eb4bec7e` / `a5bd2842`). Behaviour-preserving (#2247).
+
+- `refactor(llm-providers)`: hoist the identical `errorOptions(cause)` builder
+  (repeated at the tail of `errors.ts`, `providers/OpenAIProvider.errors.ts`,
+  `providers/MistralProvider.errors.ts`) into a shared internal
+  `errors-internal.ts`. The flagged error-class constructor clones
+  (`dup:3d7fdb2a` / `c0fe4ef7` / `a7d236c2`) are deliberately left: the
+  per-provider field forwarding diverges (Mistral routes through
+  `applyMistralErrorOptions` with `Object.defineProperty`, the others assign
+  directly), so a shared extractor would need an unjustified cast (#2247).
+
+- `refactor(llm-providers)`: extract the duplicated `isJsonObject` /
+  `isStringArray` / `stringArray` JSON-value guards (byte-identical across
+  `OpenAIProvider.schema-{matching,normalization,stripping}.ts`) into a shared
+  internal `OpenAIProvider.schema-guards.ts` module, imported as runtime values
+  (`verbatimModuleSyntax`). Scoped to the OpenAI schema triple (#2247).
+
+- `refactor(review-engine)`: extract the duplicated `splitFilePatches` helper
+  (byte-identical in `diff/filter.ts` and `diff/parser.ts`) into a shared
+  internal `diff/split-file-patches.ts` module, imported relatively and kept out
+  of the package barrel (mirrors the `right-side-lines.ts` sibling convention).
+  First production clone removed from the Fallow duplication baseline (#2247).
+
 - `docs(roadmap)`: realign the public roadmap so the BYOK productization sits in
   the v0.4 line, v0.5 becomes the public design sprint (design system + bot
   review-output rendering), and v0.6 covers observability and supply-chain
