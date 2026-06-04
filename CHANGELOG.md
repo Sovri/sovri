@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments preserve exact committable GitHub suggestion block rendering after
+  the body and before the reconcile marker (R-04, #2278).
+
 - `test(review-engine)`: add ATDD coverage proving refreshed inline findings
   render a present audit reference exactly once through the shared helper and
   keep it immediately before the reconcile marker (R-03, #2277).
@@ -264,6 +268,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unused declaration flagged by Fallow. Removed via `pnpm remove`, lockfile updated.
 
 ### Fixed
+
+- `test(review-engine)`: harden R-04 inline suggestion-block coverage by asserting
+  the body text, GitHub suggestion fence, and reconcile marker are all present
+  before comparing their order, with named fixtures for the single-line suggestion
+  case (#2286).
 
 - `fix(bot)`: break the re-review issue-comment import cycle by moving the
   shared bot-login resolver into `commands/shared-utilities`, reusing the

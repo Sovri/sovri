@@ -506,6 +506,40 @@ describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)"
 });
 
 describe("buildInlineComments — committable suggestion blocks", () => {
+  it("keeps the exact single-line committable suggestion block after the refreshed header", () => {
+    // Given the finding suggestion.code is "const total = amount ?? 0;"
+    // And suggestion.committable is true
+    const findingBody = "The total can be undefined before formatting.";
+    const suggestionCode = "const total = amount ?? 0;";
+    const markerPrefix = "<!-- sovri-finding-id:";
+    const suggestionBlock = ["```suggestion", suggestionCode, "```"].join("\n");
+    const findings: Finding[] = [
+      makeFinding({
+        file: "src/totals.ts",
+        lineStart: 14,
+        title: "Use an explicit fallback",
+        body: findingBody,
+        suggestion: { code: suggestionCode, committable: true },
+      }),
+    ];
+    const diff = makeDiff("src/totals.ts", [14]);
+
+    // When Sovri formats the inline comment body
+    const comments = buildInlineComments(findings, diff);
+    const body = comments[0]?.body ?? "";
+
+    // Then the suggestion block is byte-identical and follows the body text
+    const bodyTextIndex = body.indexOf(findingBody);
+    const suggestionIndex = body.indexOf(suggestionBlock);
+    const markerIndex = body.indexOf(markerPrefix);
+
+    expect(suggestionIndex).not.toBe(-1);
+    expect(bodyTextIndex).not.toBe(-1);
+    expect(markerIndex).not.toBe(-1);
+    expect(bodyTextIndex).toBeLessThan(suggestionIndex);
+    expect(suggestionIndex).toBeLessThan(markerIndex);
+  });
+
   it("renders committable suggestion code exactly inside a GitHub suggestion fence", () => {
     // Given a finding targets "src/totals.ts" from line 14 to line 14
     // And the finding suggestion.code is "const total = amount ?? 0;"
