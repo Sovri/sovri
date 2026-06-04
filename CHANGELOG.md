@@ -21,6 +21,35 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for the inline renderer quality
+  contract, including shared helper imports, package headers, TypeScript escape
+  hatch guards, Zod validation boundaries, and no I/O/log/env expansion (R-08,
+  #2282).
+
+- `test(review-engine)`: add ATDD coverage proving the inline refresh preserves
+  existing draft schema validation, anchoring filters, and the committable
+  single-line suggestion guard (R-07, #2281).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments stay GitHub-safe markdown with plain emoji badge labels, no local CSS
+  vocabulary, and committable suggestions as markdown fences (R-06, #2280).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments keep the reconcile marker as the final line and extract the final
+  fingerprint even when the body contains marker-like text (R-05, #2279).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments preserve exact committable GitHub suggestion block rendering after
+  the body and before the reconcile marker (R-04, #2278).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline findings
+  render a present audit reference exactly once through the shared helper and
+  keep it immediately before the reconcile marker (R-03, #2277).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments keep the bold title on its own line after the badge prefix, followed
+  by a blank separator and the verbatim finding body (R-02, #2276).
+
 - `fix(review-engine)`: clarify assessment effort-score heuristic thresholds in
   public documentation and keep walkthrough type exports alphabetized after PR
   review feedback (#2272).
@@ -120,6 +149,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-006).
 
 ### Changed
+
+- `feat(review-engine)`: refresh inline finding comment headers so the body
+  starts with the shared severity and category badge prefix before the standalone
+  bold title, preserving the existing body, audit reference, suggestion, and
+  reconcile-marker contracts while updating review-engine fixtures and bot
+  adapter expectations (#2275).
 
 - `refactor(review-engine,bot,scripts)`: reduce Fallow health hotspots by
   splitting syntax scanning, CI policy checks, soak evidence parsing,
@@ -250,6 +285,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unused declaration flagged by Fallow. Removed via `pnpm remove`, lockfile updated.
 
 ### Fixed
+
+- `test(review-engine)`: harden R-04 inline suggestion-block coverage by asserting
+  the body text, GitHub suggestion fence, and reconcile marker are all present
+  before comparing their order, with named fixtures for the single-line suggestion
+  case (#2286).
 
 - `fix(bot)`: break the re-review issue-comment import cycle by moving the
   shared bot-login resolver into `commands/shared-utilities`, reusing the
