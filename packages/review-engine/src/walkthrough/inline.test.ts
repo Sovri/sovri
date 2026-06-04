@@ -548,6 +548,41 @@ describe("buildInlineComments — finding marker reconciliation (R-05)", () => {
   });
 });
 
+describe("buildInlineComments — GitHub-safe markdown (R-06)", () => {
+  it("uses plain badge text and markdown fences without local preview styling", () => {
+    // Given the finding targets "src/render.ts" at line 9
+    const suggestionCode = "return renderMarkdown(comment);";
+    const finding = makeFinding({
+      file: "src/render.ts",
+      lineStart: 9,
+      title: "Avoid local CSS in bot output",
+      body: "GitHub strips class and style attributes from PR comments.",
+      severity: "info",
+      category: "documentation",
+      suggestion: { code: suggestionCode, committable: true },
+    });
+    const diff = makeDiff("src/render.ts", [9]);
+
+    // When Sovri formats the inline comment body
+    const comments = buildInlineComments([finding], diff);
+    const body = comments[0]?.body ?? "";
+    const lines = body.split("\n");
+    const suggestionBlock = ["```suggestion", suggestionCode, "```"].join("\n");
+
+    // Then the badge output is emoji and plain label text
+    expect(lines[0]).toBe("ℹ️ 📝 Documentation");
+    // And the suggestion remains a GitHub markdown suggestion fence
+    expect(body).toContain(suggestionBlock);
+    // And the inline comment emits no local preview CSS or styled HTML vocabulary
+    expect(body).not.toMatch(/\bclass\s*=/iu);
+    expect(body).not.toMatch(/\bstyle\s*=/iu);
+    expect(body).not.toMatch(/<\/?(?:article|div|section|span)\b/iu);
+    for (const forbiddenFragment of [".diff", ".suggestion", ".pill", "gh-chrome"]) {
+      expect(body).not.toContain(forbiddenFragment);
+    }
+  });
+});
+
 describe("buildInlineComments — committable suggestion blocks", () => {
   it("keeps the exact single-line committable suggestion block after the refreshed header", () => {
     // Given the finding suggestion.code is "const total = amount ?? 0;"

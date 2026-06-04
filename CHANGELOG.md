@@ -22,6 +22,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments stay GitHub-safe markdown with plain emoji badge labels, no local CSS
+  vocabulary, and committable suggestions as markdown fences (R-06, #2280).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
   comments keep the reconcile marker as the final line and extract the final
   fingerprint even when the body contains marker-like text (R-05, #2279).
 
