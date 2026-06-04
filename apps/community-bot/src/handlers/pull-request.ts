@@ -145,6 +145,11 @@ type FailedReviewDiagnostics = {
   readonly token_usage_reported: boolean | undefined;
 };
 
+type PullRequestReviewRunState = {
+  failureStage: PullRequestReviewFailureStage;
+  target: ReviewPostTarget | undefined;
+};
+
 const MaxLoggedErrorMessageLength = 240;
 const SecretLikeErrorFragmentPattern =
   /\b(?:gh[opsru]_[A-Za-z0-9_]{8,}|sk-[A-Za-z0-9_-]{8,}|(?:api[_-]?key|secret|token)[A-Za-z0-9_.:-]*)\b/giu;
@@ -195,63 +200,71 @@ async function handlePullRequest(
 ): Promise<void> {
   const initialLogContext = buildInitialLogContext(context);
   const commentTarget = buildOptionalCommentTarget(context);
+  const runState: PullRequestReviewRunState = {
+    failureStage: "target_validation",
+    target: undefined,
+  };
   dependencies.logger.info(initialLogContext, "Pull request review started");
 
-  let target: ReviewPostTarget | undefined;
-  let failureStage: PullRequestReviewFailureStage = "target_validation";
   try {
-    target = buildTarget(context);
-    const logContext = buildLogContext(context, target);
-    failureStage = "config_load";
-    const config = await dependencies.loadConfig(target);
-    if ((context.payload.pull_request.draft ?? false) && !config.review.autoReviewDrafts) {
-      dependencies.logger.info(
-        {
-          ...logContext,
-          draft: true,
-        },
-        "Pull request review skipped",
-      );
-      return;
-    }
-
-    failureStage = "diff_fetch";
-    const diff = await dependencies.fetchDiff(target);
-    const reviewOptions =
-      dependencies.buildReviewOptions?.(config) ??
-      dependencies.reviewOptions ??
-      DefaultReviewOptions;
-    failureStage = "pull_request_input_validation";
-    const pullRequest = buildPullRequest(context);
-    failureStage = "review_engine";
-    const review = await dependencies.reviewPullRequest(
-      {
-        config,
-        diff,
-        pullRequest,
-      },
-      reviewOptions,
-    );
-    failureStage = "review_result";
-    requireSuccessfulReview(review);
-    failureStage = "review_post";
-    await postReconciledReview(dependencies, target, review, diff);
-    dependencies.logger.info(
-      {
-        ...logContext,
-        result: review.status,
-      },
-      "Pull request review completed",
-    );
+    await runPullRequestReview(context, dependencies, runState);
   } catch (error) {
     await reportReviewFailure({
-      commentTarget: target ?? commentTarget,
+      commentTarget: runState.target ?? commentTarget,
       dependencies,
       error,
-      failureStage,
-      logContext: target === undefined ? initialLogContext : buildLogContext(context, target),
+      failureStage: runState.failureStage,
+      logContext:
+        runState.target === undefined
+          ? initialLogContext
+          : buildLogContext(context, runState.target),
     });
   }
+}
+
+async function runPullRequestReview(
+  context: PullRequestWebhookContext,
+  dependencies: PullRequestHandlerDependencies,
+  state: PullRequestReviewRunState,
+): Promise<void> {
+  state.target = buildTarget(context);
+  const target = state.target;
+  const logContext = buildLogContext(context, target);
+  state.failureStage = "config_load";
+  const config = await dependencies.loadConfig(target);
+  if (shouldSkipDraftReview(context, config)) {
+    dependencies.logger.info({ ...logContext, draft: true }, "Pull request review skipped");
+    return;
+  }
+
+  state.failureStage = "diff_fetch";
+  const diff = await dependencies.fetchDiff(target);
+  const reviewOptions = buildEffectiveReviewOptions(dependencies, config);
+  state.failureStage = "pull_request_input_validation";
+  const pullRequest = buildPullRequest(context);
+  state.failureStage = "review_engine";
+  const review = await dependencies.reviewPullRequest({ config, diff, pullRequest }, reviewOptions);
+  state.failureStage = "review_result";
+  requireSuccessfulReview(review);
+  state.failureStage = "review_post";
+  await postReconciledReview(dependencies, target, review, diff);
+  dependencies.logger.info(
+    { ...logContext, result: review.status },
+    "Pull request review completed",
+  );
+}
+
+function shouldSkipDraftReview(context: PullRequestWebhookContext, config: SovriConfig): boolean {
+  return (context.payload.pull_request.draft ?? false) && !config.review.autoReviewDrafts;
+}
+
+function buildEffectiveReviewOptions(
+  dependencies: PullRequestHandlerDependencies,
+  config: SovriConfig,
+): ReviewPullRequestOptions {
+  return (
+    dependencies.buildReviewOptions?.(config) ?? dependencies.reviewOptions ?? DefaultReviewOptions
+  );
 }
 
 async function postReconciledReview(

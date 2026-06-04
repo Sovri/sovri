@@ -113,29 +113,30 @@ if (matchedKeys.length === 0) {
 }
 
 const aggregate = (metric) => {
-  let total = 0;
-  let covered = 0;
-  let skipped = 0;
+  const counts = { covered: 0, skipped: 0, total: 0 };
   for (const key of matchedKeys) {
-    const entry = summary[key];
-    if (entry === null || typeof entry !== "object") continue;
-    const slot = entry[metric];
-    if (slot === null || typeof slot !== "object") continue;
-    const t = Number(slot.total);
-    const c = Number(slot.covered);
-    const s = Number(slot.skipped);
-    if (Number.isFinite(t)) total += t;
-    if (Number.isFinite(c)) covered += c;
-    if (Number.isFinite(s)) skipped += s;
+    addCoverageSlotCounts(counts, summary[key]?.[metric]);
   }
-  const denom = total - skipped;
+  const denom = counts.total - counts.skipped;
   // `pct` is for human-readable output only. The threshold comparison
   // below uses raw integer counts (`covered * 100 vs threshold * denom`)
   // to avoid floating-point boundary errors where ratios such as
   // 29 / 100 evaluate to 28.999999999999996 in IEEE 754 and would
   // false-fail at threshold = 29.
-  const pct = denom > 0 ? (covered / denom) * 100 : 100;
-  return { total, covered, skipped, denom, pct };
+  const pct = denom > 0 ? (counts.covered / denom) * 100 : 100;
+  return { ...counts, denom, pct };
+};
+
+const addCoverageSlotCounts = (counts, slot) => {
+  if (slot === null || typeof slot !== "object") return;
+  addFiniteCount(counts, "total", slot.total);
+  addFiniteCount(counts, "covered", slot.covered);
+  addFiniteCount(counts, "skipped", slot.skipped);
+};
+
+const addFiniteCount = (counts, key, value) => {
+  const count = Number(value);
+  if (Number.isFinite(count)) counts[key] += count;
 };
 
 const fmtMetric = (m, name) =>

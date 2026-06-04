@@ -353,16 +353,21 @@ const parseAtom = (state) => {
     return { type: "fail", reason: "unexpected end of license expression" };
   }
   if (tok === "(") {
-    const inner = parseExpr(state);
-    const close = advance(state);
-    if (close !== ")") {
-      return { type: "fail", reason: 'missing ")" in license expression' };
-    }
-    return inner;
+    return parseGroupedAtom(state);
   }
   if (tok === ")") {
     return { type: "fail", reason: 'unexpected ")"' };
   }
+  return parseLicenseAtom(state, tok);
+};
+
+const parseGroupedAtom = (state) => {
+  const inner = parseExpr(state);
+  const close = advance(state);
+  return close === ")" ? inner : { type: "fail", reason: 'missing ")" in license expression' };
+};
+
+const parseLicenseAtom = (state, tok) => {
   // `WITH <exception>` keeps the licence atom for the allowlist
   // decision (exceptions modify allocation terms but cannot promote a
   // permissive licence to copyleft), but only when the exception token
@@ -373,17 +378,21 @@ const parseAtom = (state) => {
   const next = peek(state);
   if (next !== undefined && next.toUpperCase() === "WITH") {
     advance(state);
-    const exception = advance(state);
-    if (exception === undefined) {
-      return { type: "fail", reason: `dangling WITH after "${tok}"` };
-    }
-    if (!SPDX_EXCEPTIONS.has(exception)) {
-      return {
-        type: "fail",
-        reason: `unknown SPDX exception after WITH: ${exception}`,
-      };
-    }
-    return { type: "atom", value: tok };
+    return parseLicenseExceptionAtom(state, tok);
+  }
+  return { type: "atom", value: tok };
+};
+
+const parseLicenseExceptionAtom = (state, tok) => {
+  const exception = advance(state);
+  if (exception === undefined) {
+    return { type: "fail", reason: `dangling WITH after "${tok}"` };
+  }
+  if (!SPDX_EXCEPTIONS.has(exception)) {
+    return {
+      type: "fail",
+      reason: `unknown SPDX exception after WITH: ${exception}`,
+    };
   }
   return { type: "atom", value: tok };
 };
@@ -434,27 +443,34 @@ const collectParseFailure = (node) => {
 const evalNode = (node) => {
   if (node.type === "atom") return classifyAtom(node.value);
   if (node.type === "or") {
-    const left = evalNode(node.left);
-    if (left.satisfied) return { satisfied: true };
-    const right = evalNode(node.right);
-    if (right.satisfied) return { satisfied: true };
-    return {
-      satisfied: false,
-      reason: `OR has no allowed branch (${left.reason}; ${right.reason})`,
-    };
+    return evalOrNode(node);
   }
   if (node.type === "and") {
-    const left = evalNode(node.left);
-    if (!left.satisfied) {
-      return { satisfied: false, reason: `AND fails on left: ${left.reason}` };
-    }
-    const right = evalNode(node.right);
-    if (!right.satisfied) {
-      return { satisfied: false, reason: `AND fails on right: ${right.reason}` };
-    }
-    return { satisfied: true };
+    return evalAndNode(node);
   }
   return { satisfied: false, reason: node.reason ?? "unparseable expression" };
+};
+
+const evalOrNode = (node) => {
+  const left = evalNode(node.left);
+  if (left.satisfied) return { satisfied: true };
+  const right = evalNode(node.right);
+  if (right.satisfied) return { satisfied: true };
+  return {
+    satisfied: false,
+    reason: `OR has no allowed branch (${left.reason}; ${right.reason})`,
+  };
+};
+
+const evalAndNode = (node) => {
+  const left = evalNode(node.left);
+  if (!left.satisfied) {
+    return { satisfied: false, reason: `AND fails on left: ${left.reason}` };
+  }
+  const right = evalNode(node.right);
+  return right.satisfied
+    ? { satisfied: true }
+    : { satisfied: false, reason: `AND fails on right: ${right.reason}` };
 };
 
 const classifyLicense = (licenseStr) => {
@@ -492,16 +508,31 @@ const toOffender = (entry, bucketKey, reason) => {
   if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
     return { name: "<malformed entry>", version: "", license: bucketKey, path: "", reason };
   }
-  const name = typeof entry.name === "string" ? entry.name : "<unnamed>";
-  const versions = Array.isArray(entry.versions) ? entry.versions : [];
-  const version =
-    versions.length > 0 && versions.every((v) => typeof v === "string") ? versions.join(", ") : "";
-  const paths = Array.isArray(entry.paths) ? entry.paths : [];
-  const path = paths.length > 0 && typeof paths[0] === "string" ? paths[0] : "";
-  const license =
-    typeof entry.license === "string" && entry.license.length > 0 ? entry.license : bucketKey;
-  return { name, version, license, path, reason };
+  return {
+    name: readPackageName(entry),
+    version: readPackageVersions(entry),
+    license: readPackageLicense(entry, bucketKey),
+    path: readPackagePath(entry),
+    reason,
+  };
 };
+
+const readPackageName = (entry) => (typeof entry.name === "string" ? entry.name : "<unnamed>");
+
+const readPackageVersions = (entry) => {
+  const versions = Array.isArray(entry.versions) ? entry.versions : [];
+  return versions.length > 0 && versions.every((v) => typeof v === "string")
+    ? versions.join(", ")
+    : "";
+};
+
+const readPackagePath = (entry) => {
+  const paths = Array.isArray(entry.paths) ? entry.paths : [];
+  return paths.length > 0 && typeof paths[0] === "string" ? paths[0] : "";
+};
+
+const readPackageLicense = (entry, bucketKey) =>
+  typeof entry.license === "string" && entry.license.length > 0 ? entry.license : bucketKey;
 
 // Iterate every license bucket; collect violations. Each entry is
 // classified against BOTH the bucket key and its own `license` field so

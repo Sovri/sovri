@@ -332,25 +332,34 @@ function findResolveReviewThreadOnPage(
 ): { readonly exact?: ResolveReviewThread; readonly fallback?: ResolveReviewThread } {
   let fallback: ResolveReviewThread | undefined;
   for (const thread of threads) {
-    const rootComment = thread.comments.nodes[0];
-    if (
-      rootComment?.author?.login !== botLogin ||
-      extractFindingId(rootComment.body) !== findingId
-    ) {
+    const candidate = resolveThreadCandidate(thread, botLogin, findingId, targetRootCommentNodeId);
+    if (candidate === undefined) {
       continue;
     }
-
-    const candidate = { id: thread.id, isResolved: thread.isResolved };
-    if (
-      rootComment.id === targetRootCommentNodeId ||
-      (targetRootCommentNodeId === undefined && !thread.isResolved)
-    ) {
+    if (candidate.exact) {
       return { exact: candidate };
     }
     fallback ??= candidate;
   }
 
   return fallback === undefined ? {} : { fallback };
+}
+
+function resolveThreadCandidate(
+  thread: ResolveReviewThreadNode,
+  botLogin: string,
+  findingId: string,
+  targetRootCommentNodeId: string | undefined,
+): (ResolveReviewThread & { readonly exact: boolean }) | undefined {
+  const rootComment = thread.comments.nodes[0];
+  if (rootComment?.author?.login !== botLogin || extractFindingId(rootComment.body) !== findingId) {
+    return undefined;
+  }
+
+  const exact =
+    rootComment.id === targetRootCommentNodeId ||
+    (targetRootCommentNodeId === undefined && !thread.isResolved);
+  return { exact, id: thread.id, isResolved: thread.isResolved };
 }
 
 async function resolveReviewThread(

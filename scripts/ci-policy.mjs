@@ -426,23 +426,27 @@ const coverageSummaryEntriesForPackage = (summary, packagePath) => {
 };
 
 const aggregateCoverageMetric = (entries, metric) => {
-  let total = 0;
-  let covered = 0;
-  let skipped = 0;
+  const counts = { covered: 0, skipped: 0, total: 0 };
   for (const [, entry] of entries) {
-    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) continue;
-    const slot = entry[metric];
-    if (slot === null || typeof slot !== "object" || Array.isArray(slot)) continue;
-    const currentTotal = Number(slot.total);
-    const currentCovered = Number(slot.covered);
-    const currentSkipped = Number(slot.skipped);
-    if (Number.isFinite(currentTotal)) total += currentTotal;
-    if (Number.isFinite(currentCovered)) covered += currentCovered;
-    if (Number.isFinite(currentSkipped)) skipped += currentSkipped;
+    addCoverageMetricSlot(counts, entry, metric);
   }
-  const denom = total - skipped;
-  const pct = denom > 0 ? (covered / denom) * 100 : 100;
-  return { covered, denom, pct, skipped, total };
+  const denom = counts.total - counts.skipped;
+  const pct = denom > 0 ? (counts.covered / denom) * 100 : 100;
+  return { ...counts, denom, pct };
+};
+
+const addCoverageMetricSlot = (counts, entry, metric) => {
+  if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return;
+  const slot = entry[metric];
+  if (slot === null || typeof slot !== "object" || Array.isArray(slot)) return;
+  addFiniteMetricCount(counts, "total", slot.total);
+  addFiniteMetricCount(counts, "covered", slot.covered);
+  addFiniteMetricCount(counts, "skipped", slot.skipped);
+};
+
+const addFiniteMetricCount = (counts, key, value) => {
+  const count = Number(value);
+  if (Number.isFinite(count)) counts[key] += count;
 };
 
 const runCoverageGate = (args) => {
@@ -653,50 +657,76 @@ const getCoverageUploadStep = (workflow) =>
     /^\s*(?:-\s*)?uses:\s*actions\/upload-artifact@[^\s#]+/mu.test(step.block),
   );
 
-const runCoverageArtifactPolicy = (args) => {
-  const options = parseOptions(args);
-  const workflowPath = readRequiredOption(options, "workflow", coverageArtifactPolicyUsage);
-  const workflow = readWorkflowFile(workflowPath);
+const readCoverageUploadPolicy = (workflow) => {
   const uploadStep = getCoverageUploadStep(workflow);
-
   if (uploadStep === undefined) {
     writeStdout("coverage_artifact_retention=fail\ncoverage_artifact=missing\n");
     fail("backend-checks must upload the TypeScript coverage artifact", 1);
   }
 
-  const actionReference = extractActionReferences(uploadStep.block)[0];
-  const name = getStepInput(uploadStep.block, "name", workflow, uploadStep.startIndex);
-  const path = getStepInput(uploadStep.block, "path", workflow, uploadStep.startIndex);
-  const retentionDaysRaw = getStepInput(
-    uploadStep.block,
-    "retention-days",
-    workflow,
-    uploadStep.startIndex,
-  );
-  const condition = getStepPropertyValue(uploadStep.block, "if");
-  const retentionDays = Number(retentionDaysRaw);
+  return {
+    actionReference: extractActionReferences(uploadStep.block)[0],
+    condition: getStepPropertyValue(uploadStep.block, "if"),
+    name: getStepInput(uploadStep.block, "name", workflow, uploadStep.startIndex),
+    path: getStepInput(uploadStep.block, "path", workflow, uploadStep.startIndex),
+    retentionDaysRaw: getStepInput(
+      uploadStep.block,
+      "retention-days",
+      workflow,
+      uploadStep.startIndex,
+    ),
+  };
+};
 
-  if (actionReference === undefined || !PINNED_EXTERNAL_ACTION_PATTERN.test(actionReference)) {
+const assertCoverageArtifactActionPinned = (policy) => {
+  if (
+    policy.actionReference === undefined ||
+    !PINNED_EXTERNAL_ACTION_PATTERN.test(policy.actionReference)
+  ) {
     writeStdout("coverage_artifact_retention=fail\nupload_artifact_pin=missing\n");
     fail("coverage artifact upload action must be pinned to a full commit SHA", 1);
   }
+};
 
-  if (name !== "ts-coverage" || path !== "coverage/") {
-    writeStdout(`coverage_artifact_retention=fail\nartifact_name=${name}\nartifact_path=${path}\n`);
+const assertCoverageArtifactTarget = (policy) => {
+  if (policy.name !== "ts-coverage" || policy.path !== "coverage/") {
+    writeStdout(
+      `coverage_artifact_retention=fail\nartifact_name=${policy.name}\nartifact_path=${policy.path}\n`,
+    );
     fail('coverage artifact must be named "ts-coverage" and upload "coverage/"', 1);
   }
+};
 
-  if (condition === undefined || !isAlwaysCondition(condition)) {
+const assertCoverageArtifactCondition = (policy) => {
+  if (policy.condition === undefined || !isAlwaysCondition(policy.condition)) {
     writeStdout("coverage_artifact_retention=fail\ncoverage artifact upload must use always()\n");
     fail("coverage artifact upload must use always()", 1);
   }
+};
+
+const readCoverageArtifactRetentionDays = (policy) => {
+  const retentionDays = Number(policy.retentionDaysRaw);
 
   if (!Number.isFinite(retentionDays) || retentionDays < 90) {
     writeStdout(
-      `coverage_artifact_retention=fail\ncoverage artifact retention < 90\nretention_days=${retentionDaysRaw}\n`,
+      `coverage_artifact_retention=fail\ncoverage artifact retention < 90\nretention_days=${policy.retentionDaysRaw}\n`,
     );
     fail("coverage artifact retention < 90", 1);
   }
+
+  return retentionDays;
+};
+
+const runCoverageArtifactPolicy = (args) => {
+  const options = parseOptions(args);
+  const workflowPath = readRequiredOption(options, "workflow", coverageArtifactPolicyUsage);
+  const workflow = readWorkflowFile(workflowPath);
+  const policy = readCoverageUploadPolicy(workflow);
+
+  assertCoverageArtifactActionPinned(policy);
+  assertCoverageArtifactTarget(policy);
+  assertCoverageArtifactCondition(policy);
+  const retentionDays = readCoverageArtifactRetentionDays(policy);
 
   writeStdout(
     `coverage_artifact_retention=pass\nartifact_name=ts-coverage\nretention_days=${retentionDays}\nupload_condition=always()\n`,
@@ -880,71 +910,93 @@ const getStepPropertyBlockRaw = (step, propertyName) => {
   const stepIndent = getIndent(firstLine);
   const inlinePattern = new RegExp(`^\\s*-\\s+${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
   const propertyPattern = new RegExp(`^\\s*${propertyName}:\\s*(?:&[^\\s#]+)?\\s*(?:#.*)?$`);
+  const start = findStepPropertyBlockStart(lines, stepIndent, inlinePattern, propertyPattern);
+  return start === undefined ? "" : collectStepPropertyBlock(lines, start).join("\n");
+};
 
+const findStepPropertyBlockStart = (lines, stepIndent, inlinePattern, propertyPattern) => {
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const lineIndent = getIndent(line);
     const isInlineProperty = index === 0 && lineIndent === stepIndent && inlinePattern.test(line);
     const isBlockProperty =
       index > 0 && lineIndent === stepIndent + 2 && propertyPattern.test(line);
-    if (!isInlineProperty && !isBlockProperty) continue;
-
-    const block = [line];
-    for (const blockLine of lines.slice(index + 1)) {
-      if (blockLine.trim().length === 0) {
-        block.push(blockLine);
-        continue;
-      }
-      if (getIndent(blockLine) <= lineIndent) break;
-      block.push(blockLine);
-    }
-    return block.join("\n");
+    if (isInlineProperty || isBlockProperty) return { index, lineIndent };
   }
+  return undefined;
+};
 
-  return "";
+const collectStepPropertyBlock = (lines, start) => {
+  const block = [lines[start.index]];
+  for (const blockLine of lines.slice(start.index + 1)) {
+    if (blockLine.trim().length === 0) {
+      block.push(blockLine);
+      continue;
+    }
+    if (getIndent(blockLine) <= start.lineIndent) break;
+    block.push(blockLine);
+  }
+  return block;
 };
 
 const getInputFromWithBlock = (withBlock, inputName) => {
   const lines = withBlock.split(/\r?\n/);
   const withIndent = getIndent(lines[0] ?? "");
   const inputPattern = new RegExp(`^\\s*${inputName}:\\s*(.*?)\\s*(?:#.*)?$`);
-  let childIndent;
-  let activeScalarIndent;
+  const state = { activeScalarIndent: undefined, childIndent: undefined };
 
   for (let inputIndex = 1; inputIndex < lines.length; inputIndex += 1) {
-    const inputLine = lines[inputIndex];
-    const trimmedInputLine = inputLine.trim();
-    if (trimmedInputLine.length === 0 || trimmedInputLine.startsWith("#")) continue;
-
-    const indent = getIndent(inputLine);
-    if (activeScalarIndent !== undefined) {
-      if (indent > activeScalarIndent) continue;
-      activeScalarIndent = undefined;
-    }
-    if (indent <= withIndent) break;
-
-    childIndent ??= indent;
-    if (indent !== childIndent) continue;
-
-    const isBlockScalar = BLOCK_SCALAR_PATTERN.test(inputLine);
-    const value = inputLine.match(inputPattern)?.[1]?.trim();
-    if (value === undefined) {
-      if (isBlockScalar) activeScalarIndent = indent;
-      continue;
-    }
-    if (!isBlockScalar) return stripYamlQuotes(value);
-
-    const scalarLines = [];
-    for (const line of lines.slice(inputIndex + 1)) {
-      if (line.trim().length === 0) continue;
-      if (getIndent(line) <= indent) break;
-      scalarLines.push(line.trim());
-    }
-    const scalarSeparator = /:\s*>/.test(inputLine) ? " " : "\n";
-    return scalarLines.join(scalarSeparator);
+    const result = scanWithBlockInputLine(lines, inputIndex, withIndent, inputPattern, state);
+    if (result.kind === "stop") break;
+    if (result.kind === "found") return result.value;
   }
 
   return undefined;
+};
+
+const scanWithBlockInputLine = (lines, inputIndex, withIndent, inputPattern, state) => {
+  const inputLine = lines[inputIndex];
+  const trimmedInputLine = inputLine.trim();
+  if (trimmedInputLine.length === 0 || trimmedInputLine.startsWith("#")) return { kind: "skip" };
+
+  const indent = getIndent(inputLine);
+  if (isInsideActiveScalar(indent, state)) return { kind: "skip" };
+  if (indent <= withIndent) return { kind: "stop" };
+
+  state.childIndent ??= indent;
+  if (indent !== state.childIndent) return { kind: "skip" };
+
+  return readWithBlockInputValue(lines, inputIndex, indent, inputPattern, state);
+};
+
+const isInsideActiveScalar = (indent, state) => {
+  if (state.activeScalarIndent === undefined) return false;
+  if (indent > state.activeScalarIndent) return true;
+  state.activeScalarIndent = undefined;
+  return false;
+};
+
+const readWithBlockInputValue = (lines, inputIndex, indent, inputPattern, state) => {
+  const inputLine = lines[inputIndex];
+  const isBlockScalar = BLOCK_SCALAR_PATTERN.test(inputLine);
+  const value = inputLine.match(inputPattern)?.[1]?.trim();
+  if (value === undefined) {
+    if (isBlockScalar) state.activeScalarIndent = indent;
+    return { kind: "skip" };
+  }
+  if (!isBlockScalar) return { kind: "found", value: stripYamlQuotes(value) };
+  return { kind: "found", value: readWithBlockScalar(lines, inputIndex, indent, inputLine) };
+};
+
+const readWithBlockScalar = (lines, inputIndex, indent, inputLine) => {
+  const scalarLines = [];
+  for (const line of lines.slice(inputIndex + 1)) {
+    if (line.trim().length === 0) continue;
+    if (getIndent(line) <= indent) break;
+    scalarLines.push(line.trim());
+  }
+  const scalarSeparator = /:\s*>/.test(inputLine) ? " " : "\n";
+  return scalarLines.join(scalarSeparator);
 };
 
 const getIndentedBlockRawFromIndex = (workflow, startIndex) => {
@@ -1540,12 +1592,15 @@ const readWorkflowRootEventNames = (workflow) => {
   const entries = getYamlStructureEntries(workflow);
   const onEntry = findRootEntry(entries, /^\s*on:\s*(?:#.*)?$/);
   if (onEntry === undefined) return [];
+  return readRootChildKeys(entries, onEntry);
+};
 
-  const onIndent = getIndent(onEntry.line);
+const readRootChildKeys = (entries, parentEntry) => {
+  const onIndent = getIndent(parentEntry.line);
   let eventIndent;
   const events = [];
 
-  for (const entry of entries.filter((candidate) => candidate.index > onEntry.index)) {
+  for (const entry of entries.filter((candidate) => candidate.index > parentEntry.index)) {
     const trimmedLine = entry.line.trim();
     if (trimmedLine.length === 0 || trimmedLine.startsWith("#")) continue;
 
@@ -1579,6 +1634,12 @@ const readYamlListEntryValues = (workflow, entry) => {
     .map((value) => stripYamlQuotes(value));
 };
 
+const readDirectChildScalarEntry = (entry) => {
+  const match = entry.line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*(?:#.*)?$/);
+  if (match?.[1] === undefined || match[2] === undefined) return undefined;
+  return [match[1], stripYamlQuotes(match[2].trim())];
+};
+
 const readDirectChildScalarMap = (workflow, parentEntry) => {
   const entries = getYamlStructureEntries(workflow);
   const parentIndent = getIndent(parentEntry.line);
@@ -1595,10 +1656,8 @@ const readDirectChildScalarMap = (workflow, parentEntry) => {
     childIndent ??= indent;
     if (indent !== childIndent) continue;
 
-    const match = entry.line.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*(?:#.*)?$/);
-    if (match?.[1] !== undefined && match[2] !== undefined) {
-      values.set(match[1], stripYamlQuotes(match[2].trim()));
-    }
+    const scalarEntry = readDirectChildScalarEntry(entry);
+    if (scalarEntry !== undefined) values.set(...scalarEntry);
   }
 
   return values;
@@ -1789,7 +1848,7 @@ const getSingleLicenseInputFailures = (inputs, required, inputName, adjective) =
   return getExactLicenseListFailures(inputs[0] ?? [], required, inputName, adjective);
 };
 
-const getDependencyReviewWorkflowFailures = (workflow) => {
+const getDependencyReviewTriggerFailures = (workflow) => {
   const failures = [];
   const eventNames = readWorkflowRootEventNames(workflow);
 
@@ -1805,21 +1864,25 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
     failures.push("Dependency Review workflow must be pull_request-only");
   }
 
-  const stepEntries = getDependencyReviewStepEntries(workflow);
-  const dependencyReviewSteps = stepEntries.filter((entry) =>
+  return failures;
+};
+
+const getDependencyReviewActionSteps = (workflow) =>
+  getDependencyReviewStepEntries(workflow).filter((entry) =>
     isDependencyReviewActionStep(entry.block),
   );
-  if (dependencyReviewSteps.length === 0) {
-    failures.push(`${DEPENDENCY_REVIEW_ACTION_REPOSITORY} is required`);
-    return failures;
-  }
 
+const getDependencyReviewActionPinFailures = (dependencyReviewSteps) => {
+  const failures = [];
   for (const dependencyReviewStep of dependencyReviewSteps) {
     const actionReference = getStepPropertyValue(dependencyReviewStep.block, "uses") ?? "";
     const pinFailure = getDependencyReviewActionPinFailure(actionReference);
     if (pinFailure !== undefined) failures.push(pinFailure);
   }
+  return failures;
+};
 
+const getDependencyReviewSeverityFailures = (workflow, dependencyReviewSteps) => {
   const severityInputs = dependencyReviewSteps.map((dependencyReviewStep) =>
     getStepInput(
       dependencyReviewStep.block,
@@ -1829,12 +1892,17 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
     ),
   );
   if (severityInputs.some((failOnSeverity) => failOnSeverity === undefined)) {
-    failures.push("fail-on-severity: high is required");
-    failures.push("fail-on-severity must be configured on actions/dependency-review-action");
+    return [
+      "fail-on-severity: high is required",
+      "fail-on-severity must be configured on actions/dependency-review-action",
+    ];
   } else if (severityInputs.some((failOnSeverity) => failOnSeverity !== "high")) {
-    failures.push("high severity advisories must fail");
+    return ["high severity advisories must fail"];
   }
+  return [];
+};
 
+const getDependencyReviewLicenseModeFailures = (workflow, dependencyReviewSteps) => {
   const stepsWithBothLicenseModes = dependencyReviewSteps.filter((dependencyReviewStep) => {
     const allowLicensesInput = getStepInput(
       dependencyReviewStep.block,
@@ -1850,12 +1918,14 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
     );
     return allowLicensesInput !== undefined && denyLicensesInput !== undefined;
   });
-  if (stepsWithBothLicenseModes.length > 0) {
-    failures.push(
-      "allow-licenses and deny-licenses must be configured on separate actions/dependency-review-action steps",
-    );
-  }
+  return stepsWithBothLicenseModes.length === 0
+    ? []
+    : [
+        "allow-licenses and deny-licenses must be configured on separate actions/dependency-review-action steps",
+      ];
+};
 
+const getDependencyReviewLicenseListFailures = (workflow, dependencyReviewSteps) => {
   const allowLicenseInputs = dependencyReviewSteps.flatMap((dependencyReviewStep) => {
     const value = getStepInput(
       dependencyReviewStep.block,
@@ -1876,23 +1946,20 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
   });
   const allowLicenses = allowLicenseInputs[0] ?? [];
   const denyLicenses = denyLicenseInputs[0] ?? [];
-
-  failures.push(
+  const failures = [
     ...getSingleLicenseInputFailures(
       allowLicenseInputs,
       DEPENDENCY_REVIEW_REQUIRED_ALLOW_LICENSES,
       "allow-licenses",
       "allowed",
     ),
-  );
-  failures.push(
     ...getSingleLicenseInputFailures(
       denyLicenseInputs,
       DEPENDENCY_REVIEW_REQUIRED_DENY_LICENSES,
       "deny-licenses",
       "denied",
     ),
-  );
+  ];
 
   if (allowLicenses.includes("GPL-3.0-only")) {
     failures.push("unexpected allowed license GPL-3.0-only");
@@ -1901,7 +1968,25 @@ const getDependencyReviewWorkflowFailures = (workflow) => {
     failures.push("unexpected denied license MIT");
   }
 
-  return [...new Set(failures)];
+  return failures;
+};
+
+const getDependencyReviewWorkflowFailures = (workflow) => {
+  const triggerFailures = getDependencyReviewTriggerFailures(workflow);
+  const dependencyReviewSteps = getDependencyReviewActionSteps(workflow);
+  if (dependencyReviewSteps.length === 0) {
+    return [...triggerFailures, `${DEPENDENCY_REVIEW_ACTION_REPOSITORY} is required`];
+  }
+
+  return [
+    ...new Set([
+      ...triggerFailures,
+      ...getDependencyReviewActionPinFailures(dependencyReviewSteps),
+      ...getDependencyReviewSeverityFailures(workflow, dependencyReviewSteps),
+      ...getDependencyReviewLicenseModeFailures(workflow, dependencyReviewSteps),
+      ...getDependencyReviewLicenseListFailures(workflow, dependencyReviewSteps),
+    ]),
+  ];
 };
 
 const getDependencyReviewWorkflowActionReferences = (workflow) =>
@@ -1955,7 +2040,7 @@ const getCodeqlPermissionFailures = (permissions) => {
   return [...missingOrWrongPermissions, ...extraPermissions];
 };
 
-const getCodeqlWorkflowFailures = (workflow) => {
+const getCodeqlTriggerFailures = (workflow) => {
   const failures = [];
   const eventNames = readWorkflowRootEventNames(workflow);
 
@@ -1973,54 +2058,76 @@ const getCodeqlWorkflowFailures = (workflow) => {
     failures.push(`CodeQL weekly schedule must use ${CODEQL_REQUIRED_CRON}`);
   }
 
-  failures.push(...getCodeqlPermissionFailures(readCodeqlPermissions(workflow)));
+  return failures;
+};
 
+const getCodeqlJobFailures = (workflow) => {
   const jobEntry = getJobBlockEntry(workflow, CODEQL_JOB_NAME);
   if (jobEntry === undefined) {
-    failures.push("missing codeql job");
-  } else {
-    const jobBlock = getIndentedBlockRawFromIndex(workflow, jobEntry.index);
-    if (getStepPropertyValue(jobBlock, "timeout-minutes") !== "8") {
-      failures.push("CodeQL job timeout-minutes must be 8");
-    }
+    return ["missing codeql job"];
   }
+  const jobBlock = getIndentedBlockRawFromIndex(workflow, jobEntry.index);
+  return getStepPropertyValue(jobBlock, "timeout-minutes") === "8"
+    ? []
+    : ["CodeQL job timeout-minutes must be 8"];
+};
 
+const getCodeqlInitStepFailures = (workflow) => {
   const stepEntries = getCodeqlStepEntries(workflow);
   const initStep = stepEntries.find((entry) => isCodeqlInitActionStep(entry.block));
-  const analyzeStep = stepEntries.find((entry) => isCodeqlAnalyzeActionStep(entry.block));
-
   if (initStep === undefined) {
-    failures.push(`CodeQL workflow must use ${CODEQL_INIT_ACTION_REPOSITORY}`);
-  } else {
-    const language = getStepInput(initStep.block, "languages", workflow, initStep.startIndex);
-    if (language !== CODEQL_REQUIRED_LANGUAGE) {
-      failures.push(`CodeQL must analyze ${CODEQL_REQUIRED_LANGUAGE}`);
-    }
-
-    const queries = readCodeqlQuerySet(
-      getStepInput(initStep.block, "queries", workflow, initStep.startIndex),
-    );
-    if (!CODEQL_REQUIRED_QUERIES.every((query) => queries.has(query))) {
-      failures.push("CodeQL queries must include security-extended and security-and-quality");
-    }
+    return [`CodeQL workflow must use ${CODEQL_INIT_ACTION_REPOSITORY}`];
   }
+  return getCodeqlInitInputFailures(workflow, initStep);
+};
 
+const getCodeqlInitInputFailures = (workflow, initStep) => {
+  const failures = [];
+  const language = getStepInput(initStep.block, "languages", workflow, initStep.startIndex);
+  if (language !== CODEQL_REQUIRED_LANGUAGE) {
+    failures.push(`CodeQL must analyze ${CODEQL_REQUIRED_LANGUAGE}`);
+  }
+  const queries = readCodeqlQuerySet(
+    getStepInput(initStep.block, "queries", workflow, initStep.startIndex),
+  );
+  if (!CODEQL_REQUIRED_QUERIES.every((query) => queries.has(query))) {
+    failures.push("CodeQL queries must include security-extended and security-and-quality");
+  }
+  return failures;
+};
+
+const getCodeqlAnalyzeStepFailures = (workflow) => {
+  const stepEntries = getCodeqlStepEntries(workflow);
+  const analyzeStep = stepEntries.find((entry) => isCodeqlAnalyzeActionStep(entry.block));
   if (analyzeStep === undefined) {
-    failures.push(`CodeQL workflow must use ${CODEQL_ANALYZE_ACTION_REPOSITORY}`);
-  } else {
-    const category = getStepInput(analyzeStep.block, "category", workflow, analyzeStep.startIndex);
-    if (category !== CODEQL_REQUIRED_CATEGORY) {
-      failures.push(`CodeQL analyze category must be ${CODEQL_REQUIRED_CATEGORY}`);
-    }
+    return [`CodeQL workflow must use ${CODEQL_ANALYZE_ACTION_REPOSITORY}`];
   }
+  const category = getStepInput(analyzeStep.block, "category", workflow, analyzeStep.startIndex);
+  return category === CODEQL_REQUIRED_CATEGORY
+    ? []
+    : [`CodeQL analyze category must be ${CODEQL_REQUIRED_CATEGORY}`];
+};
 
+const getCodeqlWorkflowFailures = (workflow) => {
   const pinFailures = getCodeqlPinFailures(workflow);
-  if (pinFailures.length > 0) {
-    failures.push("CodeQL workflow actions must be pinned to a full commit SHA");
-    failures.push(...pinFailures.map((failure) => failure.reason));
-  }
+  const pinFailureMessages =
+    pinFailures.length === 0
+      ? []
+      : [
+          "CodeQL workflow actions must be pinned to a full commit SHA",
+          ...pinFailures.map((failure) => failure.reason),
+        ];
 
-  return [...new Set(failures)];
+  return [
+    ...new Set([
+      ...getCodeqlTriggerFailures(workflow),
+      ...getCodeqlPermissionFailures(readCodeqlPermissions(workflow)),
+      ...getCodeqlJobFailures(workflow),
+      ...getCodeqlInitStepFailures(workflow),
+      ...getCodeqlAnalyzeStepFailures(workflow),
+      ...pinFailureMessages,
+    ]),
+  ];
 };
 
 const runCodeqlWorkflowConfig = (args) => {
@@ -2157,30 +2264,32 @@ const getChangelogUnreleasedBody = (changelog) => {
 
 const hasMarkdownBulletEntry = (body) => /^\s*(?:[-*+]|\d+[.)])\s+\S/m.test(body);
 
-const runReleaseVerifyTag = (args) => {
-  const options = parseOptions(args);
-  const tag = readRequiredOption(options, "tag", releaseVerifyTagUsage);
-  const expectedVersion = getExpectedVersionFromTag(tag);
-  const packageFiles = readPackageFiles(options);
-  const packageVersions = packageFiles.map((packagePath) => ({
+const readReleasePackageVersions = (options) =>
+  readPackageFiles(options).map((packagePath) => ({
     path: packagePath,
     version: readPackageVersion(packagePath),
   }));
+
+const failReleasePackageVersionMismatch = (packageVersions, expectedVersion, tag) => {
+  const mismatches = packageVersions.filter((entry) => entry.version !== expectedVersion);
+  writeStdout("verify_tag=fail\n");
+  fail(
+    [
+      "package version mismatch",
+      ...mismatches.map(
+        (entry) =>
+          `${formatPackageDisplayName(entry.path)} version ${entry.version} does not match tag ${tag}`,
+      ),
+    ].join("\n"),
+    1,
+  );
+};
+
+const assertReleasePackageVersionsMatchTag = (packageVersions, expectedVersion, tag) => {
   const versionSet = new Set(packageVersions.map((entry) => entry.version));
 
   if (versionSet.size > 1) {
-    const mismatches = packageVersions.filter((entry) => entry.version !== expectedVersion);
-    writeStdout("verify_tag=fail\n");
-    fail(
-      [
-        "package version mismatch",
-        ...mismatches.map(
-          (entry) =>
-            `${formatPackageDisplayName(entry.path)} version ${entry.version} does not match tag ${tag}`,
-        ),
-      ].join("\n"),
-      1,
-    );
+    failReleasePackageVersionMismatch(packageVersions, expectedVersion, tag);
   }
 
   const packageVersion = packageVersions[0]?.version;
@@ -2192,27 +2301,48 @@ const runReleaseVerifyTag = (args) => {
     writeStdout("verify_tag=fail\n");
     fail("tag does not match version\npackage version mismatch", 1);
   }
+};
 
-  const changelogPath = readRequiredOption(options, "changelog", releaseVerifyTagUsage);
-  const changelog = readTextFile(changelogPath, "changelog");
-  if (!hasChangelogReleaseSection(changelog, expectedVersion)) {
-    const unreleasedBody = getChangelogUnreleasedBody(changelog);
-    if (unreleasedBody !== null && !hasMarkdownBulletEntry(unreleasedBody)) {
-      writeStdout("verify_tag=fail\n");
-      fail(
-        "Refusing to release with empty Unreleased\nAdd at least one bullet under [Unreleased] before tagging",
-        1,
-      );
-    }
-    writeStdout("verify_tag=fail\n");
-    fail(`changelog section mismatch\nmissing changelog section ## [${expectedVersion}]`, 1);
-  }
+const assertReleaseChangelogSectionExists = (changelog, expectedVersion) => {
+  if (hasChangelogReleaseSection(changelog, expectedVersion)) return;
 
   const unreleasedBody = getChangelogUnreleasedBody(changelog);
-  if (unreleasedBody !== null && hasMarkdownBulletEntry(unreleasedBody)) {
+  if (unreleasedBody !== null && !hasMarkdownBulletEntry(unreleasedBody)) {
     writeStdout("verify_tag=fail\n");
-    fail("changelog inconsistent\n[Unreleased] still has entries after release section", 1);
+    fail(
+      "Refusing to release with empty Unreleased\nAdd at least one bullet under [Unreleased] before tagging",
+      1,
+    );
   }
+
+  writeStdout("verify_tag=fail\n");
+  fail(`changelog section mismatch\nmissing changelog section ## [${expectedVersion}]`, 1);
+};
+
+const assertReleaseChangelogUnreleasedEmpty = (changelog) => {
+  const unreleasedBody = getChangelogUnreleasedBody(changelog);
+  if (unreleasedBody === null || !hasMarkdownBulletEntry(unreleasedBody)) return;
+
+  writeStdout("verify_tag=fail\n");
+  fail("changelog inconsistent\n[Unreleased] still has entries after release section", 1);
+};
+
+const assertReleaseChangelogReady = (options, expectedVersion) => {
+  const changelogPath = readRequiredOption(options, "changelog", releaseVerifyTagUsage);
+  const changelog = readTextFile(changelogPath, "changelog");
+
+  assertReleaseChangelogSectionExists(changelog, expectedVersion);
+  assertReleaseChangelogUnreleasedEmpty(changelog);
+};
+
+const runReleaseVerifyTag = (args) => {
+  const options = parseOptions(args);
+  const tag = readRequiredOption(options, "tag", releaseVerifyTagUsage);
+  const expectedVersion = getExpectedVersionFromTag(tag);
+  const packageVersions = readReleasePackageVersions(options);
+
+  assertReleasePackageVersionsMatchTag(packageVersions, expectedVersion, tag);
+  assertReleaseChangelogReady(options, expectedVersion);
 
   writeStdout("verify_tag=pass\nboundary_reason=tag has one leading v and exact version\n");
 };
@@ -2292,32 +2422,38 @@ const runReleaseBuildAndPush = (args) => {
 
 const README_INSTALL_HEADING_MAX_LINES = 200;
 
+const readMarkdownFenceState = (line) => {
+  const fenceMatch = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+  if (fenceMatch === null || fenceMatch[1] === undefined) return undefined;
+  return {
+    marker: fenceMatch[1][0],
+    length: fenceMatch[1].length,
+    trailer: fenceMatch[2] ?? "",
+  };
+};
+
+const closesMarkdownFence = (openFence, candidateFence) =>
+  openFence.marker === candidateFence.marker &&
+  candidateFence.length >= openFence.length &&
+  /^[ \t]*$/.test(candidateFence.trailer);
+
+const updateOpenMarkdownFence = (openFence, line) => {
+  const candidateFence = readMarkdownFenceState(line);
+  if (candidateFence === undefined) return { handled: false, openFence };
+  if (openFence === null) return { handled: true, openFence: candidateFence };
+  if (closesMarkdownFence(openFence, candidateFence)) return { handled: true, openFence: null };
+  return { handled: true, openFence };
+};
+
 const findMarkdownHeadingLine = (markdown, headingPattern) => {
   const lines = markdown.split(/\r?\n/);
   let openFence = null;
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const fenceMatch = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
-    if (fenceMatch !== null) {
-      const fence = fenceMatch[1];
-      const trailer = fenceMatch[2] ?? "";
-      const marker = fence[0];
-      if (openFence === null) {
-        openFence = { marker, length: fence.length };
-        continue;
-      }
-      if (
-        openFence.marker === marker &&
-        fence.length >= openFence.length &&
-        /^[ \t]*$/.test(trailer)
-      ) {
-        openFence = null;
-      }
-      continue;
-    }
-    if (openFence === null && headingPattern.test(line)) {
-      return index + 1;
-    }
+    const fenceState = updateOpenMarkdownFence(openFence, line);
+    openFence = fenceState.openFence;
+    if (fenceState.handled) continue;
+    if (openFence === null && headingPattern.test(line)) return index + 1;
   }
   return null;
 };
@@ -2584,39 +2720,43 @@ const isValidCalendarDate = (value) => {
   );
 };
 
-const runPromoteChangelog = (args) => {
-  const options = parseOptions(args);
-  const version = readRequiredOption(options, "version", promoteChangelogUsage);
-  const date = readRequiredOption(options, "date", promoteChangelogUsage);
-  const changelogPath = readRequiredOption(options, "changelog", promoteChangelogUsage);
-
+const assertPromoteChangelogVersion = (version) => {
   if (!PROMOTE_CHANGELOG_VERSION_PATTERN.test(version)) {
     writeStdout("promote_changelog=fail\n");
     fail(`version must be X.Y.Z, got ${version}`, 1);
   }
+};
+
+const assertPromoteChangelogDate = (date) => {
   if (!PROMOTE_CHANGELOG_DATE_PATTERN.test(date)) {
     writeStdout("promote_changelog=fail\n");
     fail(`date must be YYYY-MM-DD, got ${date}`, 1);
   }
+
   if (!isValidCalendarDate(date)) {
     writeStdout("promote_changelog=fail\n");
     fail(`date ${date} is not a valid calendar date`, 1);
   }
+};
 
-  const changelog = readTextFile(changelogPath, "changelog");
+const readPromoteChangelogUnreleasedMatch = (changelog) => {
   const unreleasedMatch = /^## \[Unreleased\]\s*$/m.exec(changelog);
   if (unreleasedMatch === null || unreleasedMatch.index === undefined) {
     writeStdout("promote_changelog=fail\n");
     fail("missing ## [Unreleased] heading", 1);
   }
+  return unreleasedMatch;
+};
 
-  const releasedHeading = `## [${version}] - ${date}`;
+const assertPromoteChangelogHasNoRelease = (changelog, version) => {
   const existingReleasePattern = new RegExp(`^## \\[${escapeRegExp(version)}\\]`, "m");
   if (existingReleasePattern.test(changelog)) {
     writeStdout("promote_changelog=fail\n");
     fail(`version ${version} already has a section in changelog`, 1);
   }
+};
 
+const readUnreleasedChangelogParts = (changelog, unreleasedMatch) => {
   const bodyStart = unreleasedMatch.index + unreleasedMatch[0].length;
   const nextHeadingRelativeMatch = changelog.slice(bodyStart).match(/\n## \[[^\]]+\]/);
   const bodyEnd =
@@ -2624,10 +2764,14 @@ const runPromoteChangelog = (args) => {
       ? changelog.length
       : bodyStart + nextHeadingRelativeMatch.index;
 
-  const before = changelog.slice(0, bodyStart);
-  const body = changelog.slice(bodyStart, bodyEnd);
-  const after = changelog.slice(bodyEnd);
+  return {
+    after: changelog.slice(bodyEnd),
+    before: changelog.slice(0, bodyStart),
+    body: changelog.slice(bodyStart, bodyEnd),
+  };
+};
 
+const assertPromoteChangelogBodyNotEmpty = (body) => {
   if (!hasMarkdownBulletEntry(body)) {
     writeStdout("promote_changelog=fail\n");
     fail(
@@ -2635,10 +2779,29 @@ const runPromoteChangelog = (args) => {
       1,
     );
   }
+};
 
-  const promoted = `${before}\n\n${releasedHeading}${body}${after}`;
+const promoteChangelogBody = (changelog, version, date) => {
+  assertPromoteChangelogVersion(version);
+  assertPromoteChangelogDate(date);
 
-  writeFileSync(changelogPath, promoted);
+  const unreleasedMatch = readPromoteChangelogUnreleasedMatch(changelog);
+  assertPromoteChangelogHasNoRelease(changelog, version);
+
+  const { before, body, after } = readUnreleasedChangelogParts(changelog, unreleasedMatch);
+  assertPromoteChangelogBodyNotEmpty(body);
+  const releasedHeading = `## [${version}] - ${date}`;
+  return `${before}\n\n${releasedHeading}${body}${after}`;
+};
+
+const runPromoteChangelog = (args) => {
+  const options = parseOptions(args);
+  const version = readRequiredOption(options, "version", promoteChangelogUsage);
+  const date = readRequiredOption(options, "date", promoteChangelogUsage);
+  const changelogPath = readRequiredOption(options, "changelog", promoteChangelogUsage);
+  const changelog = readTextFile(changelogPath, "changelog");
+
+  writeFileSync(changelogPath, promoteChangelogBody(changelog, version, date));
   writeStdout("promote_changelog=pass\n");
 };
 
@@ -2855,64 +3018,44 @@ const getListItemBlocksFromLines = (lines) => {
 
 const getListItemBlocks = (workflow) => getListItemBlocksFromLines(getYamlStructureLines(workflow));
 
-const getTopLevelListItemBlocks = (workflow) => {
+const getTopLevelListItemBlocks = (workflow) =>
+  getTopLevelListItemBlockEntries(workflow, 0).map((entry) => entry.block);
+
+const getTopLevelListItemBlockEntries = (workflow, startIndex = 0) => {
   const lines = workflow.split(/\r?\n/);
-  const itemIndent = lines.find((line) => /^\s*-\s+/.test(line))?.match(/^ */)?.[0].length;
-  if (itemIndent === undefined) return [];
-
-  const blocks = [];
-
-  for (let index = 0; index < lines.length; index += 1) {
-    if (getIndent(lines[index]) !== itemIndent || !/^\s*-\s+/.test(lines[index])) continue;
-
-    const block = [lines[index]];
-
-    for (const line of lines.slice(index + 1)) {
-      if (line.trim().length === 0) {
-        block.push(line);
-        continue;
-      }
-
-      const indent = getIndent(line);
-      if (indent < itemIndent) break;
-      if (indent === itemIndent && /^\s*-\s+/.test(line)) break;
-      block.push(line);
-    }
-
-    blocks.push(block.join("\n"));
-  }
-
-  return blocks;
-};
-
-const getTopLevelListItemBlockEntries = (workflow, startIndex) => {
-  const lines = workflow.split(/\r?\n/);
-  const itemIndent = lines.find((line) => /^\s*-\s+/.test(line))?.match(/^ */)?.[0].length;
+  const itemIndent = getTopLevelListItemIndent(lines);
   if (itemIndent === undefined) return [];
 
   const entries = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     if (getIndent(lines[index]) !== itemIndent || !/^\s*-\s+/.test(lines[index])) continue;
-
-    const block = [lines[index]];
-
-    for (const line of lines.slice(index + 1)) {
-      if (line.trim().length === 0) {
-        block.push(line);
-        continue;
-      }
-
-      const indent = getIndent(line);
-      if (indent < itemIndent) break;
-      if (indent === itemIndent && /^\s*-\s+/.test(line)) break;
-      block.push(line);
-    }
-
-    entries.push({ block: block.join("\n"), startIndex: startIndex + index });
+    entries.push({
+      block: collectTopLevelListItemBlock(lines, index, itemIndent).join("\n"),
+      startIndex: startIndex + index,
+    });
   }
 
   return entries;
+};
+
+const getTopLevelListItemIndent = (lines) =>
+  lines.find((line) => /^\s*-\s+/.test(line))?.match(/^ */)?.[0].length;
+
+const collectTopLevelListItemBlock = (lines, index, itemIndent) => {
+  const block = [lines[index]];
+  for (const line of lines.slice(index + 1)) {
+    if (line.trim().length === 0) {
+      block.push(line);
+      continue;
+    }
+
+    const indent = getIndent(line);
+    if (indent < itemIndent) break;
+    if (indent === itemIndent && /^\s*-\s+/.test(line)) break;
+    block.push(line);
+  }
+  return block;
 };
 
 const hasInlineFullHistoryFetchDepth = (step) => {
@@ -3049,40 +3192,46 @@ const getRunCommandLines = (step) => {
   const commands = [];
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const stepRunValue = getStepRunValue(line, index, stepIndent);
-    if (stepRunValue === undefined) continue;
-
-    const runValue = stepRunValue.trim();
-    const isLiteralScalar = runValue.startsWith("|");
-    const isFoldedScalar = runValue.startsWith(">");
-    if (!isLiteralScalar && !isFoldedScalar) {
-      commands.push(stripYamlQuotes(runValue));
-      continue;
-    }
-
-    const runIndent = getIndent(line);
-    const scalarLines = [];
-    let blockEndIndex = index + 1;
-    for (; blockEndIndex < lines.length; blockEndIndex += 1) {
-      const blockLine = lines[blockEndIndex];
-      if (blockLine.trim().length === 0) {
-        scalarLines.push("");
-        continue;
-      }
-      if (getIndent(blockLine) <= runIndent) break;
-      scalarLines.push(blockLine.trim());
-    }
-
-    if (isFoldedScalar) {
-      commands.push(...foldYamlScalarLines(scalarLines));
-    } else {
-      commands.push(...getLiteralScalarCommands(scalarLines));
-    }
-    index = blockEndIndex - 1;
+    const result = readRunCommandAtLine(lines, index, stepIndent);
+    if (result === undefined) continue;
+    commands.push(...result.commands);
+    index = result.endIndex;
   }
 
   return commands;
+};
+
+const readRunCommandAtLine = (lines, index, stepIndent) => {
+  const line = lines[index];
+  const stepRunValue = getStepRunValue(line, index, stepIndent);
+  if (stepRunValue === undefined) return undefined;
+
+  const runValue = stepRunValue.trim();
+  if (!runValue.startsWith("|") && !runValue.startsWith(">")) {
+    return { commands: [stripYamlQuotes(runValue)], endIndex: index };
+  }
+
+  const scalar = readRunScalar(lines, index);
+  const commands = runValue.startsWith(">")
+    ? foldYamlScalarLines(scalar.lines)
+    : getLiteralScalarCommands(scalar.lines);
+  return { commands, endIndex: scalar.endIndex };
+};
+
+const readRunScalar = (lines, index) => {
+  const runIndent = getIndent(lines[index]);
+  const scalarLines = [];
+  let blockEndIndex = index + 1;
+  for (; blockEndIndex < lines.length; blockEndIndex += 1) {
+    const blockLine = lines[blockEndIndex];
+    if (blockLine.trim().length === 0) {
+      scalarLines.push("");
+      continue;
+    }
+    if (getIndent(blockLine) <= runIndent) break;
+    scalarLines.push(blockLine.trim());
+  }
+  return { endIndex: blockEndIndex - 1, lines: scalarLines };
 };
 
 const consumesShellOptionValue = (token) => /[oO]/.test(token.slice(1));
@@ -3106,18 +3255,9 @@ const getSharedScriptTokenIndex = (tokens, scriptPath) => {
 
   let scriptIndex = 1;
   while (scriptIndex < tokens.length) {
-    const token = tokens[scriptIndex];
-    if (token === "-o" || token === "+o") {
-      scriptIndex += 2;
-      continue;
-    }
-
-    if (/^[+-][A-Za-z]+$/.test(token)) {
-      scriptIndex += consumesShellOptionValue(token) ? 2 : 1;
-      continue;
-    }
-
-    break;
+    const nextIndex = readNextShellScriptCandidateIndex(tokens, scriptIndex);
+    if (nextIndex === scriptIndex) break;
+    scriptIndex = nextIndex;
   }
 
   const scriptToken = tokens[scriptIndex];
@@ -3125,6 +3265,15 @@ const getSharedScriptTokenIndex = (tokens, scriptPath) => {
     return undefined;
   }
 
+  return scriptIndex;
+};
+
+const readNextShellScriptCandidateIndex = (tokens, scriptIndex) => {
+  const token = tokens[scriptIndex];
+  if (token === "-o" || token === "+o") return scriptIndex + 2;
+  if (/^[+-][A-Za-z]+$/.test(token)) {
+    return scriptIndex + (consumesShellOptionValue(token) ? 2 : 1);
+  }
   return scriptIndex;
 };
 
@@ -3929,6 +4078,14 @@ const runSecretsNoSecretsReuse = (args) => {
   const workflowPath = readRequiredOption(options, "workflow", secretsNoSecretsReuseUsage);
   const scriptPath = readRequiredOption(options, "script-path", secretsNoSecretsReuseUsage);
   const repoRoot = options.get("repo-root") ?? ".";
+  const result = evaluateSecretsNoSecretsReuse(workflowPath, scriptPath, repoRoot);
+
+  writeStdout(formatSecretsNoSecretsReuseResult(result));
+  if (result.passes) return;
+  fail(getSecretsNoSecretsReuseFailureMessage(result, scriptPath), 1);
+};
+
+const evaluateSecretsNoSecretsReuse = (workflowPath, scriptPath, repoRoot) => {
   const workflow = readWorkflowFile(workflowPath);
   const stepsBlock = getSecretsScanRawStepsBlock(workflow);
   const scriptFileExists = isRepoRelativeRegularFile(repoRoot, scriptPath);
@@ -3946,115 +4103,82 @@ const runSecretsNoSecretsReuse = (args) => {
       : "fail"
     : "missing";
   const duplicatesPatternsInline = hasInlineSecretPatternList(stepsBlock);
+  const passes =
+    callsSharedScript && scriptFileExists && scriptFailurePropagates && !duplicatesPatternsInline;
 
-  if (
-    callsSharedScript &&
-    scriptFileExists &&
-    scriptFailurePropagates &&
-    !duplicatesPatternsInline
-  ) {
-    writeStdout(
-      `no_secrets_reuse=pass\nshared_script=${scriptPath}\nscript_file=present\ninline_pattern_list=absent\nscript_failure_propagation=pass\n`,
-    );
-    return;
-  }
-
-  writeStdout(
-    `no_secrets_reuse=fail\nshared_script=${callsSharedScript ? scriptPath : "missing"}\nscript_file=${scriptFileExists ? "present" : "missing"}\ninline_pattern_list=${duplicatesPatternsInline ? "present" : "absent"}\nscript_failure_propagation=${scriptFailurePropagationStatus}\n`,
-  );
-  if (!scriptFileExists) {
-    fail(`${scriptPath} is required`, 1);
-  }
-  if (callsSharedScript && !scriptFailurePropagates) {
-    fail(`CI must fail when ${scriptPath} fails`, 1);
-  }
-  fail(`CI must reuse the shared secret guard: secrets-scan must run ${scriptPath}`, 1);
+  return {
+    callsSharedScript,
+    duplicatesPatternsInline,
+    passes,
+    scriptFailurePropagationStatus,
+    scriptFileExists,
+    scriptPath,
+  };
 };
 
-const [command, ...args] = argv.slice(2);
+const formatSecretsNoSecretsReuseResult = (result) => {
+  if (result.passes) {
+    return `no_secrets_reuse=pass\nshared_script=${result.scriptPath}\nscript_file=present\ninline_pattern_list=absent\nscript_failure_propagation=pass\n`;
+  }
 
-if (command === "duration-budget") {
-  runDurationBudget(args);
-} else if (command === "secrets-duration-budget") {
-  runSecretsDurationBudget(args);
-} else if (command === "forbidden-jobs-duration-budget") {
-  runForbiddenJobsDurationBudget(args);
-} else if (command === "build-docker-duration-budget") {
-  runBuildDockerDurationBudget(args);
-} else if (command === "codeql-duration-budget") {
-  runCodeqlDurationBudget(args);
-} else if (command === "codeql-workflow-config") {
-  runCodeqlWorkflowConfig(args);
-} else if (command === "dependency-review-workflow-config") {
-  runDependencyReviewWorkflowConfig(args);
-} else if (command === "docker-build-action") {
-  runDockerBuildAction(args);
-} else if (command === "docker-setup-action-pinning") {
-  runDockerSetupActionPinning(args);
-} else if (command === "build-docker-needs") {
-  runBuildDockerNeeds(args);
-} else if (command === "build-docker-scheduler") {
-  runBuildDockerScheduler(args);
-} else if (command === "release-pipeline-result") {
-  runReleasePipelineResult(args);
-} else if (command === "release-trigger") {
-  runReleaseTrigger(args);
-} else if (command === "release-verify-tag") {
-  runReleaseVerifyTag(args);
-} else if (command === "release-build-and-push") {
-  runReleaseBuildAndPush(args);
-} else if (command === "release-extract-notes") {
-  runReleaseExtractNotes(args);
-} else if (command === "release-verify-tag-annotation") {
-  runReleaseVerifyTagAnnotation(args);
-} else if (command === "release-verify-commit-subject") {
-  runReleaseVerifyCommitSubject(args);
-} else if (command === "readme-references-release") {
-  runReadmeReferencesRelease(args);
-} else if (command === "promote-changelog") {
-  runPromoteChangelog(args);
-} else if (command === "cosign-deferral") {
-  runCosignDeferral(args);
-} else if (command === "action-pinning") {
-  runActionPinning(args);
-} else if (command === "gitleaks-action-pinning") {
-  runGitleaksActionPinning(args);
-} else if (command === "audit-gate") {
-  runAuditGate(args);
-} else if (command === "trivy-vulnerability-gate") {
-  runTrivyVulnerabilityGate(args);
-} else if (command === "trivy-scan-config") {
-  runTrivyScanConfig(args);
-} else if (command === "trivy-step-completion") {
-  runTrivyStepCompletion(args);
-} else if (command === "trivy-sarif-upload-config") {
-  runTrivySarifUploadConfig(args);
-} else if (command === "trivy-sarif-upload-after-failure") {
-  runTrivySarifUploadAfterFailure(args);
-} else if (command === "secrets-checkout-depth") {
-  runSecretsCheckoutDepth(args);
-} else if (command === "secrets-fixture-evidence") {
-  runSecretsFixtureEvidence(args);
-} else if (command === "secrets-no-secrets-reuse") {
-  runSecretsNoSecretsReuse(args);
-} else if (command === "changelog-trigger") {
-  runChangelogTrigger(args);
-} else if (command === "changelog-diff") {
-  runChangelogDiff(args);
-} else if (command === "changelog-ci-only-assert") {
-  runChangelogCiOnlyAssert(args);
-} else if (command === "changelog-remediation-message") {
-  runChangelogRemediationMessage(args);
-} else if (command === "changelog-documentation-only-assert") {
-  runChangelogDocumentationOnlyAssert(args);
-} else if (command === "coverage-gate") {
-  runCoverageGate(args);
-} else if (command === "llm-providers-coverage-workflow") {
-  runLlmProvidersCoverageWorkflow(args);
-} else if (command === "package-coverage-workflow") {
-  runPackageCoverageWorkflow(args);
-} else if (command === "coverage-artifact-policy") {
-  runCoverageArtifactPolicy(args);
-} else {
+  return `no_secrets_reuse=fail\nshared_script=${result.callsSharedScript ? result.scriptPath : "missing"}\nscript_file=${result.scriptFileExists ? "present" : "missing"}\ninline_pattern_list=${result.duplicatesPatternsInline ? "present" : "absent"}\nscript_failure_propagation=${result.scriptFailurePropagationStatus}\n`;
+};
+
+const getSecretsNoSecretsReuseFailureMessage = (result, scriptPath) => {
+  if (!result.scriptFileExists) return `${scriptPath} is required`;
+  if (result.callsSharedScript && result.scriptFailurePropagationStatus === "fail") {
+    return `CI must fail when ${scriptPath} fails`;
+  }
+  return `CI must reuse the shared secret guard: secrets-scan must run ${scriptPath}`;
+};
+
+const commandHandlers = new Map([
+  ["duration-budget", runDurationBudget],
+  ["secrets-duration-budget", runSecretsDurationBudget],
+  ["forbidden-jobs-duration-budget", runForbiddenJobsDurationBudget],
+  ["build-docker-duration-budget", runBuildDockerDurationBudget],
+  ["codeql-duration-budget", runCodeqlDurationBudget],
+  ["codeql-workflow-config", runCodeqlWorkflowConfig],
+  ["dependency-review-workflow-config", runDependencyReviewWorkflowConfig],
+  ["docker-build-action", runDockerBuildAction],
+  ["docker-setup-action-pinning", runDockerSetupActionPinning],
+  ["build-docker-needs", runBuildDockerNeeds],
+  ["build-docker-scheduler", runBuildDockerScheduler],
+  ["release-pipeline-result", runReleasePipelineResult],
+  ["release-trigger", runReleaseTrigger],
+  ["release-verify-tag", runReleaseVerifyTag],
+  ["release-build-and-push", runReleaseBuildAndPush],
+  ["release-extract-notes", runReleaseExtractNotes],
+  ["release-verify-tag-annotation", runReleaseVerifyTagAnnotation],
+  ["release-verify-commit-subject", runReleaseVerifyCommitSubject],
+  ["readme-references-release", runReadmeReferencesRelease],
+  ["promote-changelog", runPromoteChangelog],
+  ["cosign-deferral", runCosignDeferral],
+  ["action-pinning", runActionPinning],
+  ["gitleaks-action-pinning", runGitleaksActionPinning],
+  ["audit-gate", runAuditGate],
+  ["trivy-vulnerability-gate", runTrivyVulnerabilityGate],
+  ["trivy-scan-config", runTrivyScanConfig],
+  ["trivy-step-completion", runTrivyStepCompletion],
+  ["trivy-sarif-upload-config", runTrivySarifUploadConfig],
+  ["trivy-sarif-upload-after-failure", runTrivySarifUploadAfterFailure],
+  ["secrets-checkout-depth", runSecretsCheckoutDepth],
+  ["secrets-fixture-evidence", runSecretsFixtureEvidence],
+  ["secrets-no-secrets-reuse", runSecretsNoSecretsReuse],
+  ["changelog-trigger", runChangelogTrigger],
+  ["changelog-diff", runChangelogDiff],
+  ["changelog-ci-only-assert", runChangelogCiOnlyAssert],
+  ["changelog-remediation-message", runChangelogRemediationMessage],
+  ["changelog-documentation-only-assert", runChangelogDocumentationOnlyAssert],
+  ["coverage-gate", runCoverageGate],
+  ["llm-providers-coverage-workflow", runLlmProvidersCoverageWorkflow],
+  ["package-coverage-workflow", runPackageCoverageWorkflow],
+  ["coverage-artifact-policy", runCoverageArtifactPolicy],
+]);
+
+const [command, ...args] = argv.slice(2);
+const handler = commandHandlers.get(command ?? "");
+if (handler === undefined) {
   fail(usage, 2);
 }
+handler(args);

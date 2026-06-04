@@ -359,52 +359,67 @@ function hasMissingAnthropicKeyFailure(content, prNumber) {
 }
 
 function readAnthropicReviewEvidence(content, prNumber) {
-  const apiKeyPrefix = "ANTHROPIC_API_KEY value: ";
-  const reviewCommentPrefix = "Successful review comment posted: ";
-  let pendingEvidence = {};
-  let currentEvidence;
-  let matchedEvidence;
+  const state = {
+    currentEvidence: undefined,
+    matchedEvidence: undefined,
+    pendingEvidence: {},
+    prNumber,
+  };
 
   for (const line of content.split(/\r?\n/u)) {
-    if (line.startsWith(apiKeyPrefix)) {
-      if (currentEvidence?.prNumber === prNumber) {
-        matchedEvidence = { ...currentEvidence };
-      }
-
-      const apiKeyEvidence = line.slice(apiKeyPrefix.length);
-      if (currentEvidence?.prNumber !== undefined && currentEvidence.apiKeyEvidence === undefined) {
-        Object.assign(currentEvidence, { apiKeyEvidence });
-      } else {
-        currentEvidence = undefined;
-        Object.assign(pendingEvidence, { apiKeyEvidence });
-      }
-    }
-
-    if (line.startsWith("PR: ")) {
-      if (currentEvidence?.prNumber === prNumber) {
-        matchedEvidence = { ...currentEvidence };
-      }
-      currentEvidence = Object.assign({}, pendingEvidence, {
-        prNumber: line.slice("PR: ".length),
-      });
-      pendingEvidence = {};
-    }
-
-    if (line.startsWith(reviewCommentPrefix)) {
-      const successfulReviewCommentPosted = line.slice(reviewCommentPrefix.length);
-      if (currentEvidence?.prNumber !== undefined) {
-        Object.assign(currentEvidence, { successfulReviewCommentPosted });
-      } else {
-        Object.assign(pendingEvidence, { successfulReviewCommentPosted });
-      }
-    }
-
-    if (currentEvidence?.prNumber === prNumber) {
-      matchedEvidence = { ...currentEvidence };
-    }
+    readAnthropicReviewEvidenceLine(state, line);
   }
 
-  return matchedEvidence;
+  return state.matchedEvidence;
+}
+
+function readAnthropicReviewEvidenceLine(state, line) {
+  rememberMatchedAnthropicEvidence(state);
+  if (line.startsWith("ANTHROPIC_API_KEY value: ")) {
+    readAnthropicApiKeyEvidence(state, line);
+  }
+  if (line.startsWith("PR: ")) {
+    readAnthropicPrEvidence(state, line);
+  }
+  if (line.startsWith("Successful review comment posted: ")) {
+    readAnthropicReviewCommentEvidence(state, line);
+  }
+  rememberMatchedAnthropicEvidence(state);
+}
+
+function readAnthropicApiKeyEvidence(state, line) {
+  const apiKeyEvidence = line.slice("ANTHROPIC_API_KEY value: ".length);
+  if (
+    state.currentEvidence?.prNumber !== undefined &&
+    state.currentEvidence.apiKeyEvidence === undefined
+  ) {
+    Object.assign(state.currentEvidence, { apiKeyEvidence });
+    return;
+  }
+  state.currentEvidence = undefined;
+  Object.assign(state.pendingEvidence, { apiKeyEvidence });
+}
+
+function readAnthropicPrEvidence(state, line) {
+  state.currentEvidence = Object.assign({}, state.pendingEvidence, {
+    prNumber: line.slice("PR: ".length),
+  });
+  state.pendingEvidence = {};
+}
+
+function readAnthropicReviewCommentEvidence(state, line) {
+  const successfulReviewCommentPosted = line.slice("Successful review comment posted: ".length);
+  if (state.currentEvidence?.prNumber !== undefined) {
+    Object.assign(state.currentEvidence, { successfulReviewCommentPosted });
+    return;
+  }
+  Object.assign(state.pendingEvidence, { successfulReviewCommentPosted });
+}
+
+function rememberMatchedAnthropicEvidence(state) {
+  if (state.currentEvidence?.prNumber === state.prNumber) {
+    state.matchedEvidence = { ...state.currentEvidence };
+  }
 }
 
 function hasSuccessfulAnthropicWiring(content, expected) {
@@ -1143,26 +1158,41 @@ function readMarkdownTableCells(line) {
 }
 
 function readGitHubPullUrlPrNumber(value, repoFullName) {
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
+  const url = parseUrl(value);
+  const repoParts = readRepoFullNameParts(repoFullName);
+  if (url === undefined || repoParts === undefined) {
     return undefined;
   }
 
-  const [owner, repo, extraPart] = repoFullName.split("/");
   const pathParts = url.pathname.split("/").filter((part) => part.length > 0);
-  const isExpectedPullUrl =
-    extraPart === undefined &&
+  return isExpectedGitHubPullUrl(url, pathParts, repoParts) ? pathParts[3] : undefined;
+}
+
+function parseUrl(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function readRepoFullNameParts(repoFullName) {
+  const [owner, repo, extraPart] = repoFullName.split("/");
+  return extraPart === undefined && owner !== undefined && repo !== undefined
+    ? { owner, repo }
+    : undefined;
+}
+
+function isExpectedGitHubPullUrl(url, pathParts, repoParts) {
+  return (
     url.protocol === "https:" &&
     url.hostname === "github.com" &&
     pathParts.length === 4 &&
-    pathParts[0] === owner &&
-    pathParts[1] === repo &&
+    pathParts[0] === repoParts.owner &&
+    pathParts[1] === repoParts.repo &&
     pathParts[2] === "pull" &&
-    isDecimalInteger(pathParts[3]);
-
-  return isExpectedPullUrl ? pathParts[3] : undefined;
+    isDecimalInteger(pathParts[3])
+  );
 }
 
 function isDecimalInteger(value) {
@@ -1195,29 +1225,39 @@ function readLeadingDigits(value) {
 
 function evaluateNoCrashEvidence(content, range) {
   const prRange = readPrRange(range);
-  const before = readRestartCountBeforePr(content, range.fromPr);
-  const afterCounts = prRange === undefined ? [] : readRestartCountsAfterPr(content, prRange);
-
   if (prRange === undefined) {
     return rejectedNoCrash("restart evidence is incomplete");
   }
 
+  const restartResult = evaluateRestartEvidence(content, range.fromPr, prRange);
+  if (restartResult !== undefined) {
+    return restartResult;
+  }
+
+  return evaluateCrashExitEvidence(content, prRange);
+}
+
+function evaluateRestartEvidence(content, fromPr, prRange) {
+  const before = readRestartCountBeforePr(content, fromPr);
+  const afterCounts = readRestartCountsAfterPr(content, prRange);
+
   if (before === undefined && afterCounts.length === 0) {
     return rejectedNoCrash("restart evidence is incomplete", "missing container restart evidence");
   }
-
   if (before === undefined || afterCounts.length === 0) {
     return rejectedNoCrash("restart evidence is incomplete");
   }
-
   if (afterCounts.some((after) => after.restartCount > before)) {
     return rejectedNoCrash("container restarted", "container restarted during the smoke PR set");
   }
-
   if (!afterCounts.some((after) => after.prNumber >= prRange.toPr)) {
     return rejectedNoCrash("restart evidence is incomplete");
   }
 
+  return undefined;
+}
+
+function evaluateCrashExitEvidence(content, prRange) {
   const exitResult = evaluateNoExitEvidence(content, prRange);
   if (exitResult.outcome === "missing") {
     return rejectedNoCrash("crash evidence is incomplete");

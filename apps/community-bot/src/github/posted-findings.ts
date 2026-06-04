@@ -59,6 +59,12 @@ const ReviewThreadsResponseSchema = z.object({
     })
     .nullable(),
 });
+type ReviewThreadsResponse = z.infer<typeof ReviewThreadsResponseSchema>;
+type ReviewThreadConnection = NonNullable<
+  NonNullable<NonNullable<ReviewThreadsResponse["repository"]>["pullRequest"]>["reviewThreads"]
+>;
+type ReviewThreadNode = ReviewThreadConnection["nodes"][number];
+type ReviewThreadComment = ReviewThreadNode["comments"]["nodes"][number];
 
 const MINIMIZE_COMMENT_MUTATION = `
   mutation MinimizeFinding($subjectId: ID!) {
@@ -149,25 +155,7 @@ async function collectPostedComments(
     return [];
   }
 
-  const entries: PostedComment[] = [];
-  for (const thread of threads.nodes) {
-    // A manually resolved review thread is no longer active review state; if
-    // the issue still exists, the next review should be allowed to report it.
-    if (thread.isResolved) {
-      continue;
-    }
-
-    for (const comment of thread.comments.nodes) {
-      if (comment.author?.login !== botLogin || comment.isMinimized) {
-        continue;
-      }
-      const fingerprint = extractFindingFingerprint(comment.body);
-      if (fingerprint === undefined) {
-        continue;
-      }
-      entries.push({ nodeId: comment.id, fingerprint });
-    }
-  }
+  const entries = collectPostedCommentsFromThreads(threads.nodes, botLogin);
 
   if (!threads.pageInfo.hasNextPage) {
     return entries;
@@ -180,4 +168,27 @@ async function collectPostedComments(
     threads.pageInfo.endCursor,
   );
   return [...entries, ...next];
+}
+
+function collectPostedCommentsFromThreads(
+  threads: readonly ReviewThreadNode[],
+  botLogin: string,
+): PostedComment[] {
+  return threads.flatMap((thread) => {
+    // A manually resolved review thread is no longer active review state; if
+    // the issue still exists, the next review should be allowed to report it.
+    if (thread.isResolved) {
+      return [];
+    }
+
+    return thread.comments.nodes.flatMap((comment) => postedCommentFromRoot(comment, botLogin));
+  });
+}
+
+function postedCommentFromRoot(comment: ReviewThreadComment, botLogin: string): PostedComment[] {
+  if (comment.author?.login !== botLogin || comment.isMinimized) {
+    return [];
+  }
+  const fingerprint = extractFindingFingerprint(comment.body);
+  return fingerprint === undefined ? [] : [{ nodeId: comment.id, fingerprint }];
 }
