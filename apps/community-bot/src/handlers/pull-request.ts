@@ -101,7 +101,12 @@ export type PullRequestHandlerDependencies = {
   readonly loadConfig: (target: ReviewPostTarget) => Promise<SovriConfig>;
   readonly logger: PullRequestHandlerLogger;
   readonly postErrorComment: (target: ReviewCommentTarget, message: string) => Promise<void>;
-  readonly postReview: (target: ReviewPostTarget, review: Review, diff: Diff) => Promise<void>;
+  readonly postReview: (
+    target: ReviewPostTarget,
+    review: Review,
+    diff: Diff,
+    checkSourceReview?: Review,
+  ) => Promise<void>;
   readonly reviewPullRequest: (
     input: ReviewPullRequestInput,
     options: ReviewPullRequestOptions,
@@ -322,7 +327,7 @@ async function postReconciledReview(
       summary: reconciledSummary,
     }),
   };
-  await dependencies.postReview(target, reconciled, diff);
+  await dependencies.postReview(target, reconciled, diff, review);
   await minimizeResolvedComments(dependencies, target, review, diff, posted.comments);
 }
 

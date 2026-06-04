@@ -248,6 +248,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: derive the `Sovri / review` Check run conclusion from the
+  unreconciled review findings so already-posted blocking findings cannot be
+  hidden by reconciliation before check mapping (#2324).
+
 - `fix(review-engine)`: trim optional free-text provenance fields before
   rendering and compute prompt SHA-256 digests from an unambiguous
   length-delimited prompt pair encoding (#2316).

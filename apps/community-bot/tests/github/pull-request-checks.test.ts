@@ -109,6 +109,31 @@ beforeEach(() => {
 });
 
 describe("pull request GitHub checks adapter (R-06)", () => {
+  it("derives the review check conclusion from the unreconciled source review", async () => {
+    // Given reconciliation removed an already-posted major finding from the PR review body
+    // And the original review still contains that major finding
+    const runtime = buildRuntime({
+      deliveryId: "delivery-124",
+      failingCheckStatuses: new Map(),
+    });
+    const dependencies = createPullRequestHandlerDependencies(runtime.context);
+    const reconciledReview = buildReview({ findings: [] });
+    const sourceReview = buildReview({ findings: [buildFinding()] });
+
+    // When the bot posts checks for the reconciled review
+    await dependencies.postReview(buildTarget(), reconciledReview, buildDiff(), sourceReview);
+
+    // Then the visible PR review has no inline findings
+    expect(runtime.reviewRequests).toHaveLength(1);
+    // And the "Sovri / review" check still reflects the unreconciled major finding
+    expect(runtime.checkRequests).toContainEqual(
+      expect.objectContaining({
+        conclusion: "failure",
+        name: "Sovri / review",
+      }),
+    );
+  });
+
   it("logs and swallows a first checks.create rejection", async () => {
     // Given a pull request review completed for repository "mpiton/sovri"
     // And the GitHub delivery id is "delivery-122"
@@ -285,11 +310,11 @@ function buildTarget() {
   };
 }
 
-function buildReview(): Review {
+function buildReview(values: { readonly findings?: Review["findings"] } = {}): Review {
   return {
     completed_at: new Date("2026-06-04T10:00:01.000Z"),
     commit_sha: ReviewedHeadSha,
-    findings: [],
+    findings: values.findings ?? [],
     id: "123e4567-e89b-42d3-a456-426614174001",
     llm_model: "test-model",
     llm_provider: "test-provider",
@@ -310,6 +335,21 @@ function buildDiff(): Diff {
   return {
     files: [],
     unified_diff: "",
+  };
+}
+
+function buildFinding(): Review["findings"][number] {
+  return {
+    body: "A reconciled blocking finding still exists in the source review.",
+    category: "correctness",
+    confidence: 0.91,
+    file: "apps/community-bot/src/handlers/pull-request.ts",
+    id: "123e4567-e89b-42d3-a456-426614174099",
+    line_end: 42,
+    line_start: 42,
+    severity: "major",
+    source: "llm",
+    title: "Reconciled blocker",
   };
 }
 

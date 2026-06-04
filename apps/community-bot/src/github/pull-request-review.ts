@@ -55,7 +55,8 @@ export function createPullRequestHandlerDependencies(
     logger,
     minimizeComments: (_target, nodeIds) => minimizeFindingComments(context.octokit, nodeIds),
     postErrorComment: (target, message) => postErrorComment(context, target, message),
-    postReview: (target, review, diff) => postReview(context, target, review, diff),
+    postReview: (target, review, diff, checkSourceReview) =>
+      postReview(context, target, review, diff, checkSourceReview),
     reviewPullRequest,
   };
 }
@@ -102,6 +103,7 @@ async function postReview(
   target: ReviewPostTarget,
   review: Review,
   diff: Diff,
+  checkSourceReview: Review = review,
 ): Promise<void> {
   const repo = splitRepoFullName(target.repoFullName, createPullRequestReviewAdapterError);
   await postPullRequestReview(
@@ -117,7 +119,7 @@ async function postReview(
       logger,
     },
   );
-  await postCheckRuns(context, target, review);
+  await postCheckRuns(context, target, checkSourceReview);
 }
 
 async function postCheckRuns(
