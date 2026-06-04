@@ -24,6 +24,7 @@ import { v4 as uuidv4, v7 as uuidv7 } from "uuid";
 
 import { generateAuditReference } from "./audit-ref.js";
 import {
+  computePromptSha256,
   emitAuditEvent,
   findingCreatedEvent,
   llmCalledEvent,
@@ -97,6 +98,7 @@ type ParsedReviewGeneration = SuccessfulReviewGeneration | FailedReviewGeneratio
 
 interface SuccessfulReviewGeneration {
   readonly parsed: ProviderReviewResponse;
+  readonly promptSha256: string;
   readonly tokenUsage: TokenUsage;
   readonly tokenUsageReported: boolean;
   // True once the provider returned a response on any attempt. Success always has one.
@@ -107,6 +109,7 @@ interface SuccessfulReviewGeneration {
 interface FailedReviewGeneration {
   readonly error: string;
   readonly failureKind: "parse" | "provider";
+  readonly promptSha256?: string;
   readonly tokenUsage: TokenUsage;
   readonly tokenUsageReported: boolean;
   // True if any attempt returned a response (even one that failed re-parse), so the
@@ -202,6 +205,10 @@ export interface ReviewPullRequestOptions {
   readonly strictAudit?: boolean;
 }
 
+interface ComposedWalkthroughProvenance {
+  readonly promptSha256?: string;
+}
+
 export async function runReview(
   input: RunReviewInput,
   options: RunReviewOptions,
@@ -294,12 +301,11 @@ export async function reviewPullRequest(
       maxTokens: provider.maxTokens,
     });
 
-    if (generation.responseReturned) {
+    if (generation.responseReturned && generation.promptSha256 !== undefined) {
       await emitAuditEvent(
         sink,
         llmCalledEvent(
-          prompt.systemPrompt,
-          prompt.userPrompt,
+          generation.promptSha256,
           generation.tokenUsage.prompt,
           generation.tokenUsage.completion,
         ),
@@ -358,7 +364,10 @@ export async function reviewPullRequest(
       status: generation.status,
     });
 
-    return withComposedWalkthrough(review);
+    return withComposedWalkthrough(
+      review,
+      generation.promptSha256 === undefined ? {} : { promptSha256: generation.promptSha256 },
+    );
   } catch (error) {
     await emitAuditEvent(sink, reviewFailedEvent("unexpected_error"), logger);
 
@@ -391,10 +400,18 @@ function buildNoFilesReview(
   return withComposedWalkthrough(review);
 }
 
-function withComposedWalkthrough(review: Review): Review {
+function withComposedWalkthrough(
+  review: Review,
+  provenance: ComposedWalkthroughProvenance = {},
+): Review {
+  const input =
+    provenance.promptSha256 === undefined
+      ? review
+      : { ...review, provenance: { prompt_sha256: provenance.promptSha256 } };
+
   return {
     ...review,
-    walkthrough_markdown: composeWalkthrough(review),
+    walkthrough_markdown: composeWalkthrough(input),
   };
 }
 
@@ -432,10 +449,12 @@ async function generateParsedProviderReview(
   provider: LLMProvider,
   params: GenerateStructuredParams<ProviderReviewResponse>,
 ): Promise<ParsedReviewGeneration> {
+  const firstPromptSha256 = computePromptSha256(params.systemPrompt, params.userPrompt);
   const firstAttempt = await generateProviderReviewAttempt(provider, params);
   if (firstAttempt.success) {
     return {
       parsed: firstAttempt.parsed,
+      promptSha256: firstPromptSha256,
       tokenUsage: firstAttempt.tokenUsage,
       tokenUsageReported: firstAttempt.tokenUsageReported,
       responseReturned: true,
@@ -451,6 +470,7 @@ async function generateParsedProviderReview(
     return {
       error: providerFailureMessage(firstAttempt.error),
       failureKind: "provider",
+      ...(firstAttempt.responseReturned ? { promptSha256: firstPromptSha256 } : {}),
       tokenUsage: firstAttempt.tokenUsage,
       tokenUsageReported: firstAttempt.tokenUsageReported,
       responseReturned: firstAttempt.responseReturned,
@@ -458,11 +478,19 @@ async function generateParsedProviderReview(
     };
   }
 
-  const retryAttempt = await generateProviderReviewAttempt(provider, {
+  const retryParams = {
     ...params,
     systemPrompt: buildCorrectiveSystemPrompt(params.systemPrompt, firstAttempt.error),
-  });
-  const responseReturned = firstAttempt.responseReturned || attemptReturnedResponse(retryAttempt);
+  };
+  const retryPromptSha256 = computePromptSha256(retryParams.systemPrompt, retryParams.userPrompt);
+  const retryAttempt = await generateProviderReviewAttempt(provider, retryParams);
+  const retryResponseReturned = attemptReturnedResponse(retryAttempt);
+  const responseReturned = firstAttempt.responseReturned || retryResponseReturned;
+  const promptSha256 = retryResponseReturned
+    ? retryPromptSha256
+    : firstAttempt.responseReturned
+      ? firstPromptSha256
+      : undefined;
 
   if (!retryAttempt.success) {
     if (!isRetryableSchemaFailure(retryAttempt.error)) {
@@ -473,6 +501,7 @@ async function generateParsedProviderReview(
       return {
         error: providerFailureMessage(retryAttempt.error),
         failureKind: "provider",
+        ...(promptSha256 === undefined ? {} : { promptSha256 }),
         tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
         tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
         responseReturned,
@@ -483,6 +512,7 @@ async function generateParsedProviderReview(
     return {
       error: schemaFailureMessage(retryAttempt.error),
       failureKind: "parse",
+      ...(promptSha256 === undefined ? {} : { promptSha256 }),
       tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
       tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
       responseReturned,
@@ -492,6 +522,7 @@ async function generateParsedProviderReview(
 
   return {
     parsed: retryAttempt.parsed,
+    promptSha256: retryPromptSha256,
     tokenUsage: addTokenUsage(firstAttempt.tokenUsage, retryAttempt.tokenUsage),
     tokenUsageReported: hasReportedTokenUsage(firstAttempt, retryAttempt),
     responseReturned: true,

@@ -8,6 +8,10 @@ import { formatMarkdownText } from "./markdown.js";
 interface ComplianceProvenance {
   readonly llmProvider: string;
   readonly llmModel: string;
+  readonly promptSha256?: string;
+  readonly hostingRegion?: string;
+  readonly dataResidency?: string;
+  readonly signedAuditEntry?: string;
 }
 
 const FRAMEWORK_LABELS: Record<ComplianceFramework, string> = {
@@ -41,6 +45,24 @@ export function renderComplianceSection(
       "",
       `Model: ${formatMarkdownText(provenance.llmProvider)} / ${formatMarkdownText(provenance.llmModel)}`,
     );
+
+    if (provenance.promptSha256 !== undefined) {
+      lines.push(`Prompt sha256: ${formatMarkdownText(provenance.promptSha256)}`);
+    }
+
+    if (provenance.hostingRegion !== undefined) {
+      lines.push(`Hosting: ${formatMarkdownText(provenance.hostingRegion)}`);
+    }
+
+    if (provenance.dataResidency !== undefined) {
+      lines.push(`Data residency: ${formatMarkdownText(provenance.dataResidency)}`);
+    }
+
+    if (provenance.signedAuditEntry === undefined) {
+      lines.push("No signed audit trail is attached");
+    } else {
+      lines.push(`Signed audit entry: ${formatMarkdownText(provenance.signedAuditEntry)}`);
+    }
   }
 
   for (const finding of findings) {
