@@ -4,6 +4,7 @@
 import type { Diff, Finding } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
+import { categoryBadge, severityBadge } from "./badge.js";
 import { buildInlineComments } from "./inline.js";
 
 const sha = "1".repeat(40);
@@ -243,6 +244,42 @@ describe("buildInlineComments", () => {
   });
 });
 
+describe("buildInlineComments — refreshed inline finding header", () => {
+  it("starts every inline finding with the shared severity and category badges", () => {
+    // Given the finding targets "src/session.ts" at line 18
+    // And the finding title is "Missing null guard"
+    // And the finding body is "`session.user` can be undefined."
+    // And the finding severity is "major"
+    // And the finding category is "bug"
+    const findings: Finding[] = [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        severity: "major",
+        category: "bug",
+        file: "src/session.ts",
+        line_start: 18,
+        line_end: 18,
+        title: "Missing null guard",
+        body: "`session.user` can be undefined.",
+        source: "llm",
+        confidence: 0.87,
+      },
+    ];
+    const diff = makeDiff("src/session.ts", [18]);
+
+    // When Sovri formats the inline comment body
+    const comments = buildInlineComments(findings, diff);
+    const lines = comments[0]?.body.split("\n") ?? [];
+
+    // Then line 1 is exactly the shared severity badge followed by the shared category badge
+    expect(lines[0]).toBe(`${severityBadge("major")} ${categoryBadge("bug")}`);
+    // And the old title-first shape is no longer used
+    expect(lines[0]).not.toBe("**Missing null guard**");
+    // And the bold title appears after the badge prefix
+    expect(lines[1]).toBe("**Missing null guard**");
+  });
+});
+
 describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)", () => {
   it("renders the audit reference line just before the hidden finding marker", () => {
     // Given a finding "Missing null guard" in "src/session.ts" at line 18
@@ -272,11 +309,12 @@ describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)"
     // Then exactly one inline comment is produced for "src/session.ts"
     expect(comments).toHaveLength(1);
     expect(comments[0]?.path).toBe("src/session.ts");
-    // And the inline comment body renders the title, body and audit reference,
-    // then the hidden finding marker as the very last line — enforced as a
-    // single start-to-end match so nothing can be inserted before the marker
+    // And the inline comment body renders the badge prefix, title, body and
+    // audit reference, then the hidden finding marker as the very last line —
+    // enforced as a single start-to-end match so nothing can be inserted before
+    // the marker
     expect(comments[0]?.body).toMatch(
-      /^\*\*Missing null guard\*\*\n\n`session\.user` can be undefined\.\n\n🔍 Audit Reference: SOVRI-SC-AB12-CD34\n\n<!-- sovri-finding-id: [0-9a-f]{16} -->$/u,
+      /^🔴 🐛 Bug\n\*\*Missing null guard\*\*\n\n`session\.user` can be undefined\.\n\n🔍 Audit Reference: SOVRI-SC-AB12-CD34\n\n<!-- sovri-finding-id: [0-9a-f]{16} -->$/u,
     );
   });
 
@@ -306,10 +344,10 @@ describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)"
 
     // Then the inline comment body does not contain "🔍 Audit Reference:"
     expect(comments[0]?.body).not.toContain("🔍 Audit Reference:");
-    // And the inline comment body renders the title and body, then the hidden
-    // finding marker as the very last line — single start-to-end match
+    // And the inline comment body renders the badge prefix, title and body, then
+    // the hidden finding marker as the very last line — single start-to-end match
     expect(comments[0]?.body).toMatch(
-      /^\*\*Missing null guard\*\*\n\n`session\.user` can be undefined\.\n\n<!-- sovri-finding-id: [0-9a-f]{16} -->$/u,
+      /^🔴 🐛 Bug\n\*\*Missing null guard\*\*\n\n`session\.user` can be undefined\.\n\n<!-- sovri-finding-id: [0-9a-f]{16} -->$/u,
     );
   });
 
