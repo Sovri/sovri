@@ -23,7 +23,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(review-engine)`: add the deterministic review assessment effort-score
   helper with ATDD coverage for repeated-call purity, independence from
-  clock/env/random changes, and the closed `1..5` score range (#2254).
+  clock/env/random changes, and the closed `1..5` score range. The helper is
+  exported from both the walkthrough barrel and the package root (#2254).
 
 - `chore(tooling)`: add `.fallowrc.jsonc` resolving the remaining Fallow false
   positives (#2246) — declare the two CLI entry-point scripts
