@@ -2,6 +2,10 @@
 
 0 findings
 
+### Review assessment
+
+No findings — nothing to assess.
+
 ### TL;DR
 
 No actionable findings were found.

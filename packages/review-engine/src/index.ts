@@ -47,6 +47,7 @@ export {
   estimateCostUsd,
   InlineCommentDraftSchema,
   PROVIDER_PRICING,
+  renderAssessmentBlock,
   renderAuditReference,
   renderCostFooter,
   renderEffortMeter,
