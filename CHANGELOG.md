@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: add R-09 scaffold coverage requiring GitHub App manifest
+  `checks: write` while preserving narrow existing bot permissions (#2327).
+
 - `test(bot)`: add R-08 MSW coverage for GitHub Checks creation and the
   thin-adapter descriptor contract (#2326).
 
@@ -254,6 +257,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-006).
 
 ### Fixed
+
+- `fix(bot)`: request GitHub App `checks: write` permission for the
+  Community bot manifest without broadening existing repository scopes (R-09,
+  #2327).
 
 - `fix(bot, review-engine)`: attach GitHub Check descriptors to review-engine
   results and keep the bot adapter as a descriptor-posting pass-through (R-08,

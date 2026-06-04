@@ -25,6 +25,7 @@ describe("community bot manifest scaffold", () => {
     // And the manifest default permissions include "contents: read"
     // And the manifest default permissions include "issues: write"
     // And the manifest default permissions include "metadata: read"
+    // And the manifest default permissions include "checks: write"
     // And the manifest default events include "pull_request"
     // And the manifest default events include "issue_comment"
     // When the scaffold manifest is validated against the Probot schema
@@ -58,6 +59,7 @@ describe("community bot manifest scaffold", () => {
     { expectedAccess: "read", name: "contents", wrongAccess: "write" },
     { expectedAccess: "write", name: "issues", wrongAccess: "read" },
     { expectedAccess: "read", name: "metadata", wrongAccess: "write" },
+    { expectedAccess: "write", name: "checks", wrongAccess: "read" },
   ])("rejects $name with $wrongAccess access", ({ expectedAccess, name, wrongAccess }) => {
     // Given "apps/community-bot/app.yml" exists
     // And all required permissions except "<permission>" are present with their expected access
@@ -87,6 +89,7 @@ describe("community bot manifest scaffold", () => {
     // And the manifest default permissions include "contents: read"
     // And the manifest default permissions include "issues: write"
     // And the manifest default permissions include "metadata: read"
+    // And the manifest default permissions include "checks: write"
     const manifest = createValidManifest();
     const permissions = manifest.default_permissions;
     if (!isRecord(permissions)) {
@@ -108,6 +111,7 @@ describe("community bot manifest scaffold", () => {
     // And the manifest default permissions include "contents: read"
     // And the manifest default permissions include "issues: write"
     // And the manifest default permissions include "metadata: read"
+    // And the manifest default permissions include "checks: write"
     const manifest = createValidManifest();
     // And all required events except "<event>" are present
     manifest.default_events = requiredEvents.filter((requiredEvent) => requiredEvent !== event);

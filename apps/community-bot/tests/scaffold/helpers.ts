@@ -47,6 +47,7 @@ export const requiredPermissions: readonly RequiredPermission[] = [
   { access: "read", name: "contents" },
   { access: "write", name: "issues" },
   { access: "read", name: "metadata" },
+  { access: "write", name: "checks" },
 ];
 
 export const requiredSourceFiles: readonly string[] = [
