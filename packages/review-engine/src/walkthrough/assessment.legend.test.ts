@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import type { Finding, Severity } from "@sovri/core";
+import type { Finding, Review, Severity } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import * as walkthrough from "./index.js";
@@ -120,6 +120,36 @@ describe("assessment severity legend and empty state (R-07)", () => {
     // And no unicode distribution bar or severity legend rows are rendered
     expect(output).not.toContain("█");
     expect(output).not.toMatch(/(?:blocker|major|minor|info|nitpick): \d/u);
+  });
+
+  it("inserts the empty assessment state into composed walkthroughs", () => {
+    // Given a review with no findings
+    const review: Review = {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      pr_number: 36,
+      repo_full_name: "mpiton/sovri",
+      commit_sha: "a".repeat(40),
+      started_at: new Date("2026-05-17T08:00:00.000Z"),
+      completed_at: new Date("2026-05-17T08:01:00.000Z"),
+      llm_provider: "test-provider",
+      llm_model: "test-model",
+      tokens_used: { prompt: 1200, completion: 300 },
+      summary: "No issues found.",
+      findings: [],
+      walkthrough_markdown: "Previous provider walkthrough.",
+      status: "success",
+    };
+
+    // When composeWalkthrough is called
+    const output = walkthrough.composeWalkthrough(review);
+
+    // Then the assessment block appears between the verdict header and TL;DR
+    expect(output).toContain("### Review assessment");
+    expect(output).toContain("No findings — nothing to assess.");
+    expect(output.indexOf("### Review assessment")).toBeLessThan(output.indexOf("### TL;DR"));
+    expect(output.indexOf("No findings — nothing to assess.")).toBeLessThan(
+      output.indexOf("### TL;DR"),
+    );
   });
 });
 
