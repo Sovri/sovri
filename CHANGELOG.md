@@ -237,6 +237,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(review-engine)`: document the prompt SHA-256 domain separator used by
   prompt digest provenance hashing (#2316).
 
+- `test(review-engine)`: align compliance provenance test string construction
+  style and remove redundant inferred finding annotation (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body

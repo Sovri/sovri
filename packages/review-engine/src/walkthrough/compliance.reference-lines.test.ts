@@ -68,7 +68,7 @@ describe("renderComplianceSection reference lines", () => {
     //   | GDPR             | Art. 32    | Security of processing | applicable_if | system processes personal data      |
     //   | DORA             | Art. 9     | ICT risk management    | applicable_if | financial entity ICT infrastructure |
     //   | OWASP-TOP10-2021 | A07:2021   | Authentication failure | informational |                                     |
-    const finding: Finding = {
+    const finding = {
       ...baseFinding,
       compliance_references: [gdprReference, doraReference, owaspReference],
     };
