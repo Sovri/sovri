@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import type { Verdict } from "../walkthrough/index.js";
+import { z } from "@sovri/core";
 
 export type CheckRunName = "Sovri / review" | "Sovri / provenance" | "Sovri / license-scan";
 
@@ -17,20 +17,37 @@ export interface CheckRunDescriptor {
   readonly summary: string;
 }
 
-export interface MapChecksInput {
-  readonly verdict: Verdict;
-  readonly findingCount: number;
-  readonly hasSignedAuditEntry: boolean;
-}
+export const MapChecksInputSchema = z
+  .object({
+    verdict: z
+      .object({
+        kind: z.enum(["approve", "comment", "request-changes"]),
+        label: z.string().trim().min(1),
+      })
+      .strict(),
+    findingCount: z.number().int().nonnegative(),
+    hasSignedAuditEntry: z.boolean(),
+  })
+  .strict();
 
-export function mapChecks(input: MapChecksInput): readonly CheckRunDescriptor[] {
+export type MapChecksInput = z.infer<typeof MapChecksInputSchema>;
+
+const ReviewConclusionByVerdictKind: Record<MapChecksInput["verdict"]["kind"], CheckRunConclusion> =
+  {
+    approve: "success",
+    comment: "neutral",
+    "request-changes": "failure",
+  };
+
+export function mapChecks(input: unknown): readonly CheckRunDescriptor[] {
+  const parsedInput = MapChecksInputSchema.parse(input);
   return [
     {
       name: "Sovri / review",
       status: "completed",
-      conclusion: "neutral",
+      conclusion: ReviewConclusionByVerdictKind[parsedInput.verdict.kind],
       title: "Sovri review completed",
-      summary: `${String(input.findingCount)} findings found.`,
+      summary: `${String(parsedInput.findingCount)} findings found.`,
     },
     {
       name: "Sovri / provenance",
