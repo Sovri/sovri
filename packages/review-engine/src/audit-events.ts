@@ -25,6 +25,10 @@ const AuditFailureMessages: Record<AuditFailureCode, string> = {
   unexpected_error: "Unexpected error during review",
 };
 
+/**
+ * Domain separator for prompt digests so this SHA-256 namespace cannot collide
+ * with other length-delimited hashes that may use the same prompt bytes.
+ */
 const PromptHashDomain = "sovri.review-engine.prompt-sha256.v1";
 
 /**

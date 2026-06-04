@@ -234,6 +234,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   to generated reviews so reconciliation recomposition preserves the audited
   digest in posted walkthroughs (#2316).
 
+- `fix(review-engine)`: document the prompt SHA-256 domain separator used by
+  prompt digest provenance hashing (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body
