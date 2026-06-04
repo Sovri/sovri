@@ -23,7 +23,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(review-engine)`: add ATDD coverage for the review assessment block,
   including severity legend filtering and ordering plus an explicit empty-state
-  line without distribution markup (#2260).
+  line without distribution markup, exported from the walkthrough barrel and
+  package root (#2260).
 
 - `feat(review-engine)`: add ATDD coverage for the assessment severity
   distribution renderer, including total count, per-severity counts, and a

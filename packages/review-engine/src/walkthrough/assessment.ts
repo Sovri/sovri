@@ -10,6 +10,7 @@ export type EffortScore = 1 | 2 | 3 | 4 | 5;
 const FILLED_DOT = "●";
 const EMPTY_DOT = "○";
 const BLOCK_BAR_GLYPH = "█";
+const EMPTY_ASSESSMENT_LINE = "No findings — nothing to assess.";
 const EFFORT_METER_DOTS = 5;
 const VOLUME_BONUS_THRESHOLD = 4;
 const CONFIDENCE_BONUS_THRESHOLD = 0.85;
@@ -86,6 +87,22 @@ export function renderSeverityDistribution(findings: readonly Finding[]): readon
     `Total: ${formatCount(findings.length, "finding", "findings")}`,
     `Bar: ${renderSeverityBar(severityRows)}`,
     ...severityRows.map(renderSeverityLegendRow),
+  ];
+}
+
+export function renderAssessmentBlock(findings: readonly Finding[]): readonly string[] {
+  if (findings.length === 0) {
+    return [EMPTY_ASSESSMENT_LINE];
+  }
+
+  const effortScore = computeEffortScore(findings);
+
+  return [
+    `Effort: ${renderEffortMeter(effortScore)} ${effortScore}/5`,
+    `Metrics: ${renderMetricChips(findings)}`,
+    "",
+    "Severity distribution:",
+    ...renderSeverityDistribution(findings),
   ];
 }
 

@@ -60,6 +60,7 @@ export { estimateCostUsd, PROVIDER_PRICING, renderCostFooter } from "./cost.js";
 export type { ModelPricing, PricingProvider } from "./cost.js";
 export {
   computeEffortScore,
+  renderAssessmentBlock,
   renderEffortMeter,
   renderMetricChips,
   renderSeverityDistribution,
