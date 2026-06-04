@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for the inline renderer quality
+  contract, including shared helper imports, package headers, TypeScript escape
+  hatch guards, Zod validation boundaries, and no I/O/log/env expansion (R-08,
+  #2282).
+
 - `test(review-engine)`: add ATDD coverage proving the inline refresh preserves
   existing draft schema validation, anchoring filters, and the committable
   single-line suggestion guard (R-07, #2281).
