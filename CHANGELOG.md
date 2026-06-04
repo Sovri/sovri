@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage proving GitHub Checks descriptor
+  mapping is deterministic for identical inputs and independent of wall-clock
+  time (R-03, #2321).
+
 - `feat(review-engine)`: map the `Sovri / review` GitHub Check conclusion
   from the validated review verdict (`approve`, `comment`,
   `request-changes`) (R-02, #2320).
