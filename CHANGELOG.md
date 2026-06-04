@@ -22,6 +22,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - `test(review-engine)`: add ATDD coverage proving refreshed inline finding
+  comments keep the reconcile marker as the final line and extract the final
+  fingerprint even when the body contains marker-like text (R-05, #2279).
+
+- `test(review-engine)`: add ATDD coverage proving refreshed inline finding
   comments preserve exact committable GitHub suggestion block rendering after
   the body and before the reconcile marker (R-04, #2278).
 

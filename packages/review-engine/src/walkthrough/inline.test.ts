@@ -4,6 +4,8 @@
 import type { Diff, Finding } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
+import { computeFindingFingerprint } from "../reconcile/fingerprint.js";
+import { extractFindingFingerprint } from "../reconcile/marker.js";
 import { categoryBadge, renderAuditReference, severityBadge } from "./badge.js";
 import { buildInlineComments } from "./inline.js";
 
@@ -305,7 +307,7 @@ describe("buildInlineComments — refreshed inline finding header", () => {
   });
 });
 
-describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)", () => {
+describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04, R-05)", () => {
   it("uses the shared audit-reference helper exactly once when present", () => {
     // Given a finding has audit reference "SOVRI-AC-AB12-CD34"
     const finding = makeFinding({
@@ -502,6 +504,47 @@ describe("buildInlineComments — audit reference line (R-01, R-02, R-03, R-04)"
       "\n\n🔍 Audit Reference: SOVRI-BU-1A2B-3C4D\n\n<!-- sovri-finding-id: ",
     );
     expect(at42?.body).toMatch(/\n\n<!-- sovri-finding-id: [0-9a-f]{16} -->$/u);
+  });
+});
+
+describe("buildInlineComments — finding marker reconciliation (R-05)", () => {
+  it("keeps the marker last and extracts only the final fingerprint", () => {
+    // Given the finding body contains marker-like text that is not the reconcile marker
+    const embeddedFingerprint = "deadbeefdeadbeef";
+    const embeddedMarker = `<!-- sovri-finding-id: ${embeddedFingerprint} -->`;
+    const suggestionCode = "const user = session.user ?? fail();";
+    const finding = makeFinding({
+      file: "src/session.ts",
+      lineStart: 18,
+      title: "Missing null guard",
+      body: ["`session.user` can be undefined.", embeddedMarker].join("\n"),
+      severity: "major",
+      category: "bug",
+      auditReference: "SOVRI-AC-AB12-CD34",
+      suggestion: { code: suggestionCode, committable: true },
+    });
+    const diff = makeDiff("src/session.ts", [18]);
+
+    // When Sovri formats the inline comment body
+    const comments = buildInlineComments([finding], diff);
+    const body = comments[0]?.body ?? "";
+    const expectedFingerprint = computeFindingFingerprint(finding, diff);
+    const expectedMarker = `<!-- sovri-finding-id: ${expectedFingerprint} -->`;
+    const auditIndex = body.indexOf("🔍 Audit Reference: SOVRI-AC-AB12-CD34");
+    const suggestionIndex = body.indexOf(["```suggestion", suggestionCode, "```"].join("\n"));
+    const markerIndex = body.indexOf(expectedMarker);
+
+    // Then audit reference and suggestion content remain before the final marker
+    expect(auditIndex).not.toBe(-1);
+    expect(suggestionIndex).not.toBe(-1);
+    expect(markerIndex).not.toBe(-1);
+    expect(auditIndex).toBeLessThan(suggestionIndex);
+    expect(suggestionIndex).toBeLessThan(markerIndex);
+    // And marker-like body text does not override the final reconcile marker
+    expect(body).toContain(embeddedMarker);
+    expect(expectedFingerprint).not.toBe(embeddedFingerprint);
+    expect(lastLine(body)).toBe(expectedMarker);
+    expect(extractFindingFingerprint(body)).toBe(expectedFingerprint);
   });
 });
 
@@ -734,13 +777,15 @@ function makeFinding(options: {
   readonly lineEnd?: number;
   readonly title: string;
   readonly body: string;
+  readonly severity?: Finding["severity"];
+  readonly category?: Finding["category"];
   readonly suggestion?: Finding["suggestion"];
 }): Finding {
   return {
     id: options.id ?? "44444444-4444-4444-8444-444444444444",
     ...(options.auditReference === undefined ? {} : { audit_reference: options.auditReference }),
-    severity: "minor",
-    category: "maintainability",
+    severity: options.severity ?? "minor",
+    category: options.category ?? "maintainability",
     file: options.file,
     line_start: options.lineStart,
     line_end: options.lineEnd ?? options.lineStart,
