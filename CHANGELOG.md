@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(review-engine)`: clarify assessment effort-score heuristic thresholds in
+  public documentation and keep walkthrough type exports alphabetized after PR
+  review feedback (#2272).
+
 - `test(review-engine)`: add ATDD coverage for the review assessment module
   quality contract, including public header and ESM import checks, forbidden
   TypeScript escape-hatch guards, no I/O/log/env or secret-bearing helper output,

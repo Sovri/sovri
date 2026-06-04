@@ -25,7 +25,8 @@ type SeverityCount = {
 /**
  * Computes a deterministic review effort score from findings only.
  * Empty reviews score 1; otherwise the score is highest severity rank plus
- * volume and confidence bonuses, clamped to the visible 1..5 meter.
+ * a volume bonus at 4+ findings and a confidence bonus at 0.85+ average
+ * confidence, clamped to the visible 1..5 meter.
  */
 export function computeEffortScore(findings: readonly Finding[]): EffortScore {
   if (findings.length === 0) {

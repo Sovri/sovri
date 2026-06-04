@@ -58,8 +58,8 @@ export {
   WalkthroughInputSchema,
 } from "./walkthrough/index.js";
 export type {
-  InlineCommentDraft,
   EffortScore,
+  InlineCommentDraft,
   ModelPricing,
   PricingProvider,
   Verdict,
