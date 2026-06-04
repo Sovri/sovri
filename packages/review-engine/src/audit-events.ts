@@ -61,15 +61,14 @@ export function reviewStartedEvent(
 }
 
 export function llmCalledEvent(
-  systemPrompt: string,
-  userPrompt: string,
+  promptSha256: string,
   tokensIn: number,
   tokensOut: number,
 ): AuditTrailLogicalEvent {
   return {
     ts: new Date().toISOString(),
     event: "llm.called",
-    prompt_hash: `sha256:${computePromptSha256(systemPrompt, userPrompt)}`,
+    prompt_hash: `sha256:${promptSha256}`,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
   };
