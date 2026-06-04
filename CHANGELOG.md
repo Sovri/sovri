@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for walkthrough provenance payload
+  validation, including malformed prompt digests, empty hosting/residency values,
+  a complete valid payload, and field-specific failure paths preserved at the
+  walkthrough boundary (R-07, #2300).
+
 - `test(review-engine)`: add ATDD coverage for signed audit-entry provenance
   rendering and the Community default when no signed trail is attached (R-06,
   #2299).
