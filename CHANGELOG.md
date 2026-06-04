@@ -252,6 +252,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   unreconciled review findings so already-posted blocking findings cannot be
   hidden by reconciliation before check mapping (#2324).
 
+- `test(bot)`: widen the repeated synchronize e2e fixture timeout to absorb CI
+  variance after GitHub Check run posting was added (#2324).
+
 - `fix(review-engine)`: trim optional free-text provenance fields before
   rendering and compute prompt SHA-256 digests from an unambiguous
   length-delimited prompt pair encoding (#2316).

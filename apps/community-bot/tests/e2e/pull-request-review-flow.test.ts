@@ -630,7 +630,7 @@ describe("community bot pull request review E2E ATDD", () => {
     expect(repeatedSecond.reviewRequests[0]?.commit_id).not.toBe(OpenedHeadSha);
     // And the unhandled-request listener records 0 unhandled network requests
     expect(unhandledRequests).toEqual([]);
-  }, 20_000);
+  }, 30_000);
 
   it("re-review reaches the same review collaborators as synchronize", async () => {
     // Given issue comment delivery "delivery-re-review-001" targets repository "octo-org/sovri-target"
