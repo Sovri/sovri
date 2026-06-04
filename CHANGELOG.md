@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: map the `Sovri / provenance` GitHub Check
+  conclusion to `success` when a signed audit entry is attached while keeping
+  missing audit evidence neutral (R-04, #2322).
+
 - `test(review-engine)`: add ATDD coverage for the GitHub Checks provenance
   conclusion, including successful signed audit evidence and the neutral
   missing-audit case (R-04, #2322).
