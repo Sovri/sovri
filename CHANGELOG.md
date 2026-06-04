@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: add the initial pure GitHub Checks descriptor mapper
+  returning the three stable completed Sovri status rows (R-01, #2319).
+
 - `test(review-engine)`: add ATDD coverage and the initial helper surface for
   the three stable Sovri GitHub Checks status rows (R-01, #2319).
 

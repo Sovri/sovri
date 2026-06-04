@@ -24,6 +24,27 @@ export interface MapChecksInput {
 }
 
 export function mapChecks(input: MapChecksInput): readonly CheckRunDescriptor[] {
-  void input;
-  return [];
+  return [
+    {
+      name: "Sovri / review",
+      status: "completed",
+      conclusion: "neutral",
+      title: "Sovri review completed",
+      summary: `${String(input.findingCount)} findings found.`,
+    },
+    {
+      name: "Sovri / provenance",
+      status: "completed",
+      conclusion: "neutral",
+      title: "Sovri provenance unavailable",
+      summary: "No signed audit trail is attached.",
+    },
+    {
+      name: "Sovri / license-scan",
+      status: "completed",
+      conclusion: "neutral",
+      title: "Sovri license scan pending",
+      summary: "License scan available in v1.0",
+    },
+  ];
 }
