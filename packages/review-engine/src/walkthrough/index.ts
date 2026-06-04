@@ -3,6 +3,7 @@
 
 import { ReviewSchema, z, type Review } from "@sovri/core";
 
+import { renderAssessmentBlock } from "./assessment.js";
 import { renderComplianceSection } from "./compliance.js";
 import { renderCostFooter } from "./cost.js";
 import { renderPipelineFlow } from "./flow.js";
@@ -58,6 +59,14 @@ export { buildInlineComments, InlineCommentDraftSchema } from "./inline.js";
 export type { InlineCommentDraft } from "./inline.js";
 export { estimateCostUsd, PROVIDER_PRICING, renderCostFooter } from "./cost.js";
 export type { ModelPricing, PricingProvider } from "./cost.js";
+export {
+  computeEffortScore,
+  renderAssessmentBlock,
+  renderEffortMeter,
+  renderMetricChips,
+  renderSeverityDistribution,
+} from "./assessment.js";
+export type { EffortScore } from "./assessment.js";
 
 export function composeWalkthrough(
   input: unknown,
@@ -75,6 +84,8 @@ export function composeWalkthrough(
   const verdict = computeVerdict(findings);
 
   const sections = [...renderVerdictHeader(verdict, findings)];
+
+  sections.push("", "### Review assessment", "", ...renderAssessmentBlock(findings));
 
   if (options.pipelineFlow === true) {
     sections.push("", ...renderPipelineFlow());

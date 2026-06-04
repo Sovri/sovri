@@ -2,6 +2,18 @@
 
 3 findings — 1 blocker, 1 major, 1 minor
 
+### Review assessment
+
+Effort: ●●●●● 5/5
+Metrics: `3 findings` · `2 files touched` · `2 blocker plus major findings`
+
+Severity distribution:
+Total: 3 findings
+Bar: ███
+- ⛔ blocker: 1 finding
+- 🔴 major: 1 finding
+- 🟡 minor: 1 finding
+
 ### TL;DR
 
 Three review findings need attention.

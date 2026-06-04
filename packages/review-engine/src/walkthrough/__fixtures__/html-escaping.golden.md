@@ -2,6 +2,16 @@
 
 1 finding — 1 major
 
+### Review assessment
+
+Effort: ●●●●● 5/5
+Metrics: `1 finding` · `1 file touched` · `1 blocker plus major finding`
+
+Severity distribution:
+Total: 1 finding
+Bar: █
+- 🔴 major: 1 finding
+
 ### TL;DR
 
 Found &lt;script&gt;alert(1)&lt;/script&gt; &amp; comments

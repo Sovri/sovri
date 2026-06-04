@@ -21,6 +21,61 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(review-engine)`: clarify assessment effort-score heuristic thresholds in
+  public documentation and keep walkthrough type exports alphabetized after PR
+  review feedback (#2272).
+
+- `test(review-engine)`: add ATDD coverage for the review assessment module
+  quality contract, including public header and ESM import checks, forbidden
+  TypeScript escape-hatch guards, no I/O/log/env or secret-bearing helper output,
+  and rejection of invalid external review input before assessment rendering
+  (R-09, #2262).
+
+- `test(review-engine)`: add ATDD coverage for GitHub-safe review assessment
+  markdown, including canonical walkthrough placement after the verdict header
+  and guards against CSS, stripped attributes, external stylesheets, and local
+  preview vocabulary, with a regression guard for multi-character HTML tags
+  (R-08, #2261).
+
+- `feat(review-engine)`: add ATDD coverage for the review assessment block,
+  including severity legend filtering and ordering plus an explicit empty-state
+  line without distribution markup, exported from the walkthrough barrel and
+  package root, documented as a public helper, and inserted into composed
+  walkthrough markdown (#2260).
+
+- `feat(review-engine)`: add ATDD coverage for the assessment severity
+  distribution renderer, including total count, per-severity counts, and a
+  GitHub-safe unicode block bar whose legend keeps raw integer counts visible
+  while exporting the helper from the walkthrough barrel and package root (#2259).
+
+- `feat(review-engine)`: add ATDD coverage for assessment metric chips that
+  summarize finding count, distinct touched files, and blocker plus major findings
+  without rereading the findings table, exported from the walkthrough barrel and
+  package root (#2258).
+
+- `feat(review-engine)`: add ATDD coverage for the GitHub-safe effort meter
+  renderer that maps effort scores `1..5` to exactly five text dot glyphs
+  (`●`/`○`) without HTML or CSS, exported from the walkthrough barrel and
+  package root (#2257).
+
+- `test(review-engine)`: add ATDD endpoint-case coverage for the review
+  assessment effort score: zero findings stay at score `1`, and any blocker
+  finding keeps the score fixed at `5` even with volume or confidence bonuses
+  present (#2256).
+
+- `feat(review-engine)`: extend the review assessment effort-score contract with
+  ATDD coverage for the resolved severity, volume, confidence, and clamp
+  heuristic. The score remains deterministic and closed over `1..5`, with
+  confidence bonus inclusion at `0.85`; the implementation now applies the
+  matching pure helper logic in `review-engine` and preserves the inclusive
+  boundary for mixed confidences whose mathematical average is `0.85` (#2255).
+
+- `feat(review-engine)`: add the deterministic review assessment effort-score
+  helper with ATDD coverage for repeated-call purity, independence from
+  clock/env/random changes, and the closed `1..5` score range. The helper is
+  exported from both the walkthrough barrel and the package root, and documents
+  its current R-01 severity-rank behavior (#2254).
+
 - `chore(tooling)`: add `.fallowrc.jsonc` resolving the remaining Fallow false
   positives (#2246) — declare the two CLI entry-point scripts
   (`scripts/check-licenses.mjs`, `scripts/validate-v0-1-soak.mjs`), which are run

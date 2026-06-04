@@ -54,12 +54,13 @@ describe("walkthrough verdict — clean review (R-01)", () => {
     const countIndex = lines.findIndex((line) => line.includes("0 findings"));
     expect(countIndex).toBeGreaterThan(0);
 
-    // And the "### TL;DR" section appears immediately after the verdict header
+    // And the review assessment section appears after the verdict header
+    const assessmentIndex = lines.findIndex((line) => line === "### Review assessment");
+    expect(assessmentIndex).toBeGreaterThan(countIndex);
+    expect(lines).toContain("No findings — nothing to assess.");
+
+    // And the "### TL;DR" section appears after the review assessment
     const tldrIndex = lines.findIndex((line) => line === "### TL;DR");
-    expect(tldrIndex).toBeGreaterThan(countIndex);
-    const headingsBetween = lines
-      .slice(1, tldrIndex)
-      .filter((line) => line.startsWith("## ") || line.startsWith("### "));
-    expect(headingsBetween).toHaveLength(0);
+    expect(tldrIndex).toBeGreaterThan(assessmentIndex);
   });
 });
