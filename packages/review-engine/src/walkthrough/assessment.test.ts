@@ -206,3 +206,52 @@ describe("assessment effort score heuristic and clamp (R-02)", () => {
     expect(result).toBe(3);
   });
 });
+
+describe("assessment effort score endpoint cases (R-03)", () => {
+  it("scores zero findings exactly 1", () => {
+    // Given there are no findings
+    const findings: readonly Finding[] = [];
+
+    // When computeEffortScore is called
+    const result = computeEffortScore()(findings);
+
+    // Then the score is exactly 1
+    expect(result).toBe(1);
+  });
+
+  it.each([
+    [1, 0.1],
+    [1, 0.9],
+    [4, 0.1],
+  ] satisfies ReadonlyArray<readonly [number, number]>)(
+    "scores %i blocker finding(s) with confidence %f exactly 5",
+    (count, confidence) => {
+      // Given these findings:
+      // | count | severity | confidence |
+      // | count | blocker  | confidence |
+      const findings = makeFindings(count, "blocker", confidence);
+
+      // When computeEffortScore is called
+      const result = computeEffortScore()(findings);
+
+      // Then the score is exactly 5
+      expect(result).toBe(5);
+    },
+  );
+
+  it("keeps blocker findings at score 5 when lower-severity findings are also present", () => {
+    // Given a blocker mixed with lower-severity high-confidence findings
+    const findings = [
+      makeFinding("blocker", 0.2, "src/a.ts"),
+      makeFinding("nitpick", 0.95, "src/b.ts"),
+      makeFinding("info", 0.95, "src/c.ts"),
+      makeFinding("minor", 0.95, "src/d.ts"),
+    ];
+
+    // When computeEffortScore is called
+    const result = computeEffortScore()(findings);
+
+    // Then the score is exactly 5
+    expect(result).toBe(5);
+  });
+});
