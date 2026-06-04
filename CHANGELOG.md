@@ -21,6 +21,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD coverage for signed audit-entry provenance
+  rendering and the Community default when no signed trail is attached (R-06,
+  #2299).
+
 - `test(review-engine)`: add ATDD coverage for hosting and data-residency
   provenance lines, including omission when provenance is absent (R-05, #2298).
 
