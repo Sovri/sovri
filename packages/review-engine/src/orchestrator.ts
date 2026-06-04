@@ -488,11 +488,12 @@ async function generateParsedProviderReview(
   const retryAttempt = await generateProviderReviewAttempt(provider, retryParams);
   const retryResponseReturned = attemptReturnedResponse(retryAttempt);
   const responseReturned = firstAttempt.responseReturned || retryResponseReturned;
-  const promptSha256 = retryResponseReturned
-    ? retryPromptSha256
-    : firstAttempt.responseReturned
-      ? firstPromptSha256
-      : undefined;
+  const promptSha256 = selectReturnedPromptSha256({
+    firstPromptSha256,
+    firstResponseReturned: firstAttempt.responseReturned,
+    retryPromptSha256,
+    retryResponseReturned,
+  });
 
   if (!retryAttempt.success) {
     if (!isRetryableSchemaFailure(retryAttempt.error)) {
@@ -530,6 +531,23 @@ async function generateParsedProviderReview(
     responseReturned: true,
     status: "partial",
   };
+}
+
+function selectReturnedPromptSha256(params: {
+  readonly firstPromptSha256: string;
+  readonly firstResponseReturned: boolean;
+  readonly retryPromptSha256: string;
+  readonly retryResponseReturned: boolean;
+}): string | undefined {
+  if (params.retryResponseReturned) {
+    return params.retryPromptSha256;
+  }
+
+  if (params.firstResponseReturned) {
+    return params.firstPromptSha256;
+  }
+
+  return undefined;
 }
 
 // A successful attempt always carried a response; a failed one only if it failed

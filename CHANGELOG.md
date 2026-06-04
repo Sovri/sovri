@@ -226,6 +226,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(review-engine)`: assert token-bearing retryable schema failures render
   the audited prompt SHA-256 in failed walkthrough provenance (#2316).
 
+- `fix(review-engine)`: remove the explicit crypto `Hash` import from prompt
+  digest helpers and replace nested retry prompt digest selection with a named
+  selector (#2316).
+
 ### Changed
 
 - `feat(review-engine)`: refresh inline finding comment headers so the body

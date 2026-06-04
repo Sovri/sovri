@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { createHash, type Hash } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import type { AuditTrailLogicalEvent, AuditTrailSink } from "@sovri/compliance";
 import type { Finding, PullRequest } from "@sovri/core";
@@ -121,7 +121,7 @@ export function computePromptSha256(systemPrompt: string, userPrompt: string): s
   return hash.digest("hex");
 }
 
-function updateLengthDelimitedHashPart(hash: Hash, value: string): void {
+function updateLengthDelimitedHashPart(hash: ReturnType<typeof createHash>, value: string): void {
   hash.update(`${Buffer.byteLength(value, "utf8")}:`, "utf8");
   hash.update(value, "utf8");
   hash.update(";", "utf8");
