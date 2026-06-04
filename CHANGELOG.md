@@ -258,6 +258,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot)`: request GitHub App `checks: write` permission for the
+  Community bot manifest without broadening existing repository scopes (R-09,
+  #2327).
+
 - `fix(bot, review-engine)`: attach GitHub Check descriptors to review-engine
   results and keep the bot adapter as a descriptor-posting pass-through (R-08,
   #2326).
