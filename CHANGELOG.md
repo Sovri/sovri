@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(review-engine)`: add ATDD endpoint-case coverage for the review
+  assessment effort score: zero findings stay at score `1`, and any blocker
+  finding keeps the score fixed at `5` even with volume or confidence bonuses
+  present (#2256).
+
 - `feat(review-engine)`: extend the review assessment effort-score contract with
   ATDD coverage for the resolved severity, volume, confidence, and clamp
   heuristic. The score remains deterministic and closed over `1..5`, with
