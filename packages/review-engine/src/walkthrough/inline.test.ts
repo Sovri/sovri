@@ -526,11 +526,15 @@ describe("buildInlineComments — committable suggestion blocks", () => {
     const body = comments[0]?.body ?? "";
 
     // Then the suggestion block is byte-identical and follows the body text
-    expect(body).toContain(suggestionBlock);
-    expect(body.indexOf("The total can be undefined before formatting.")).toBeLessThan(
-      body.indexOf(suggestionBlock),
-    );
-    expect(body.indexOf(suggestionBlock)).toBeLessThan(body.indexOf("<!-- sovri-finding-id:"));
+    const bodyTextIndex = body.indexOf("The total can be undefined before formatting.");
+    const suggestionIndex = body.indexOf(suggestionBlock);
+    const markerIndex = body.indexOf("<!-- sovri-finding-id:");
+
+    expect(suggestionIndex).not.toBe(-1);
+    expect(bodyTextIndex).not.toBe(-1);
+    expect(markerIndex).not.toBe(-1);
+    expect(bodyTextIndex).toBeLessThan(suggestionIndex);
+    expect(suggestionIndex).toBeLessThan(markerIndex);
   });
 
   it("renders committable suggestion code exactly inside a GitHub suggestion fence", () => {
