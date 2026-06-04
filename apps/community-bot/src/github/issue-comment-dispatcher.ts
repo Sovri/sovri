@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { z } from "@sovri/core";
 import { createLogger } from "@sovri/observability";
 
 import {
@@ -12,13 +11,19 @@ import {
 import { handleResolveCommand } from "../commands/handlers/resolve.js";
 import { parseCommand } from "../commands/parser.js";
 import {
-  FindingMarkerPattern,
   githubStatusFrom,
   isGithubAlreadyExistsError,
   readBotLogin,
   splitRepoFullName,
   type RepoRef,
 } from "../commands/shared-utilities.js";
+import {
+  extractFindingId,
+  hasFindingMarker,
+  listReviewCommentsOnAllPages,
+  resolvePullRequestAuthorLogin,
+  type PullRequestReviewComment,
+} from "./review-comments.js";
 import type {
   IssueCommentDismissCommandContext,
   IssueCommentHandlerDependencies,
@@ -130,15 +135,6 @@ type PullRequestReviewCommentListParameters = {
   readonly repo: string;
 };
 
-type PullRequestReviewComment = {
-  readonly body?: string | null;
-  readonly id: number;
-  readonly node_id?: string;
-  readonly user?: {
-    readonly login?: string;
-  } | null;
-};
-
 type PullRequestReview = {
   readonly body?: string | null;
   readonly id: number;
@@ -154,23 +150,12 @@ type IssueCommentDispatchLogger = {
   info(bindings: Readonly<Record<string, unknown>>, message: string): void;
 };
 
-const REVIEW_COMMENT_PAGE_SIZE = 100;
 const WALKTHROUGH_PAGE_SIZE = 100;
 const REACTION_PAGE_SIZE = 100;
 const DISMISSED_FINDING_LABEL = "sovri:dismissed-finding";
 const DISMISS_FAILURE_BODY = "Dismiss command could not be completed. Please retry later.";
 const NO_FINDINGS_LINE = "No findings.";
 const UNAUTHORIZED_DISMISS_BODY = "Only the pull request author can dismiss findings.";
-
-const PullRequestAuthorSchema = z
-  .object({
-    user: z
-      .object({
-        login: z.string().min(1),
-      })
-      .nullable(),
-  })
-  .passthrough();
 
 export type IssueCommentDispatchContext = {
   readonly id: string;
@@ -225,7 +210,12 @@ async function handleDismissCommand(
   dispatchLogger.info(logContext, "Dismiss command started");
   const repo = splitRepoFullName(command.repoFullName, createIssueCommentDispatcherAdapterError);
   try {
-    const pullRequestAuthorLogin = await resolvePullRequestAuthorLogin(context, command, repo);
+    const pullRequestAuthorLogin = await resolvePullRequestAuthorLogin(
+      context.octokit,
+      repo,
+      command.pullRequestNumber,
+      createIssueCommentDispatcherAdapterError,
+    );
 
     if (command.commentAuthorLogin !== pullRequestAuthorLogin) {
       await context.octokit.rest.issues.createComment({
@@ -237,7 +227,11 @@ async function handleDismissCommand(
       return;
     }
 
-    const reviewComments = await listReviewCommentsOnAllPages(context, command, repo);
+    const reviewComments = await listReviewCommentsOnAllPages(
+      context.octokit,
+      repo,
+      command.pullRequestNumber,
+    );
     const botReviewComments = reviewComments.filter((comment) => comment.user?.login === botLogin);
     const findingComment = botReviewComments.find((comment) =>
       hasFindingMarker(comment, command.findingId),
@@ -332,58 +326,6 @@ async function createDismissReaction(
 
     throw error;
   }
-}
-
-async function resolvePullRequestAuthorLogin(
-  context: IssueCommentDispatchContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-): Promise<string> {
-  const response = await context.octokit.rest.pulls.get({
-    owner: repo.owner,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
-  const pullRequest = PullRequestAuthorSchema.parse(response.data);
-
-  if (pullRequest.user === null) {
-    throw new IssueCommentDispatcherAdapterError("Pull request author is missing");
-  }
-
-  return pullRequest.user.login;
-}
-
-async function listReviewCommentsOnAllPages(
-  context: IssueCommentDispatchContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-): Promise<PullRequestReviewComment[]> {
-  return listReviewCommentsPage(context, command, repo, 1);
-}
-
-async function listReviewCommentsPage(
-  context: IssueCommentDispatchContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-  page: number,
-): Promise<PullRequestReviewComment[]> {
-  const comments = await context.octokit.rest.pulls.listReviewComments({
-    owner: repo.owner,
-    page,
-    per_page: REVIEW_COMMENT_PAGE_SIZE,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
-
-  if (comments.data.length < REVIEW_COMMENT_PAGE_SIZE) {
-    return [...comments.data];
-  }
-
-  return [...comments.data, ...(await listReviewCommentsPage(context, command, repo, page + 1))];
-}
-
-function hasFindingMarker(comment: PullRequestReviewComment, findingId: string): boolean {
-  return extractFindingId(comment.body) === findingId;
 }
 
 async function collectBotDismissedFindingIds(
@@ -620,14 +562,6 @@ function renderWalkthroughWithoutDismissedFindings(
   }
 
   return insertNoFindingsLine(lines).join("\n");
-}
-
-function extractFindingId(value: string | null | undefined): string | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-
-  return FindingMarkerPattern.exec(value)?.[1];
 }
 
 function hasVisibleFinding(lines: readonly string[]): boolean {

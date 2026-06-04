@@ -66,6 +66,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `refactor(bot)`: extract the review-comment helpers shared by the resolve
+  handler and the issue-comment dispatcher into
+  `apps/community-bot/src/github/review-comments.ts` —
+  `listReviewCommentsOnAllPages` (raw paginated list, bot-login filtering left
+  to callers), `hasFindingMarker` / `extractFindingId`, and
+  `resolvePullRequestAuthorLogin` (throws via an injected `createError` factory
+  so each caller keeps its own typed adapter error). Removes the duplicated
+  pagination, author-lookup and finding-marker blocks
+  (`dup:d9d97218` / `eb4bec7e` / `a5bd2842`). Behaviour-preserving (#2247).
+
 - `refactor(llm-providers)`: hoist the identical `errorOptions(cause)` builder
   (repeated at the tail of `errors.ts`, `providers/OpenAIProvider.errors.ts`,
   `providers/MistralProvider.errors.ts`) into a shared internal

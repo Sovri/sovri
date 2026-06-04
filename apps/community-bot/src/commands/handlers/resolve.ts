@@ -5,26 +5,22 @@ import { z } from "@sovri/core";
 
 import type { IssueCommentDismissCommandContext } from "../../handlers/issue-comment.js";
 import {
-  FindingMarkerPattern,
+  extractFindingId,
+  hasFindingMarker,
+  listReviewCommentsOnAllPages,
+  resolvePullRequestAuthorLogin,
+  type PullRequestReviewComment,
+} from "../../github/review-comments.js";
+import {
   githubStatusFrom,
   isGithubAlreadyExistsError,
   splitRepoFullName,
   type RepoRef,
 } from "../shared-utilities.js";
 
-const REVIEW_COMMENT_PAGE_SIZE = 100;
 const REACTION_PAGE_SIZE = 100;
 const RESOLVE_FAILURE_BODY = "Resolve command could not be completed. Please retry later.";
 const UNAUTHORIZED_RESOLVE_BODY = "Only the pull request author can resolve findings.";
-const PullRequestAuthorSchema = z
-  .object({
-    user: z
-      .object({
-        login: z.string().min(1),
-      })
-      .nullable(),
-  })
-  .passthrough();
 const ResolveReviewThreadsResponseSchema = z.object({
   repository: z
     .object({
@@ -168,15 +164,6 @@ type IssueCommentReaction = {
   } | null;
 };
 
-type PullRequestReviewComment = {
-  readonly body?: string | null;
-  readonly id: number;
-  readonly node_id?: string;
-  readonly user?: {
-    readonly login?: string;
-  } | null;
-};
-
 type ResolveReviewThread = {
   readonly id: string;
   readonly isResolved: boolean;
@@ -206,7 +193,12 @@ export async function handleResolveCommand(
   dispatchLogger.info(logContext, "Resolve command started");
   const repo = splitRepoFullName(command.repoFullName, createResolveCommandAdapterError);
   try {
-    const pullRequestAuthorLogin = await resolvePullRequestAuthorLogin(context, command, repo);
+    const pullRequestAuthorLogin = await resolvePullRequestAuthorLogin(
+      context.octokit,
+      repo,
+      command.pullRequestNumber,
+      createResolveCommandAdapterError,
+    );
 
     if (command.commentAuthorLogin !== pullRequestAuthorLogin) {
       await context.octokit.rest.issues.createComment({
@@ -218,7 +210,11 @@ export async function handleResolveCommand(
       return;
     }
 
-    const reviewComments = await listReviewCommentsOnAllPages(context, command, repo);
+    const reviewComments = await listReviewCommentsOnAllPages(
+      context.octokit,
+      repo,
+      command.pullRequestNumber,
+    );
     const botReviewComments = reviewComments.filter((comment) => comment.user?.login === botLogin);
     const findingComment = botReviewComments.find((comment) =>
       hasFindingMarker(comment, command.findingId),
@@ -278,56 +274,6 @@ function buildResolveErrorLogContext(
 ): Readonly<Record<string, unknown>> {
   const status = githubStatusFrom(error);
   return status === undefined ? logContext : { ...logContext, github_status: status };
-}
-
-async function resolvePullRequestAuthorLogin(
-  context: ResolveCommandContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-): Promise<string> {
-  const response = await context.octokit.rest.pulls.get({
-    owner: repo.owner,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
-  const pullRequest = PullRequestAuthorSchema.parse(response.data);
-  if (pullRequest.user === null) {
-    throw new ResolveCommandAdapterError("Pull request author is missing");
-  }
-
-  return pullRequest.user.login;
-}
-
-async function listReviewCommentsOnAllPages(
-  context: ResolveCommandContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-): Promise<PullRequestReviewComment[]> {
-  return listReviewCommentsPage(context, command, repo, 1);
-}
-
-async function listReviewCommentsPage(
-  context: ResolveCommandContext,
-  command: IssueCommentDismissCommandContext,
-  repo: RepoRef,
-  page: number,
-): Promise<PullRequestReviewComment[]> {
-  const comments = await context.octokit.rest.pulls.listReviewComments({
-    owner: repo.owner,
-    page,
-    per_page: REVIEW_COMMENT_PAGE_SIZE,
-    pull_number: command.pullRequestNumber,
-    repo: repo.repo,
-  });
-  if (comments.data.length < REVIEW_COMMENT_PAGE_SIZE) {
-    return [...comments.data];
-  }
-
-  return [...comments.data, ...(await listReviewCommentsPage(context, command, repo, page + 1))];
-}
-
-function hasFindingMarker(comment: PullRequestReviewComment, findingId: string): boolean {
-  return extractFindingId(comment.body) === findingId;
 }
 
 async function findResolveReviewThread(
@@ -498,14 +444,6 @@ async function hasAcceptedIssueReactionPage(
   }
 
   return hasAcceptedIssueReactionPage(context, repo, commentId, botLogin, page + 1);
-}
-
-function extractFindingId(value: string | null | undefined): string | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-
-  return FindingMarkerPattern.exec(value)?.[1];
 }
 
 class ResolveCommandAdapterError extends Error {
