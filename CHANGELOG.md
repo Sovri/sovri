@@ -33,6 +33,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   suggestion fenced blocks, audit references, and byte-for-byte golden matching
   (R-01, #2344).
 
+- `test(review-engine)`: add RED coverage requiring the preview HTML root to
+  carry the shared wrapper class plus exactly one requested GitHub chrome theme
+  class (R-02, #2345).
+
 - `feat(review-engine)`: add the initial dev-only preview markdown fixture
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).
