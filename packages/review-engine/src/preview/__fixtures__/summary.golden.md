@@ -22,7 +22,7 @@ Preview summary fixture for example/review-target#42.
 
 | Severity | Location              | Title                             | Details                                                                                              |
 | -------- | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 🔴       | src/render.ts:18      | Escape user-supplied HTML         | The renderer must keep user-controlled HTML inert before posting review output.                      |
+| 🔴       | src/render.ts:18      | Escape user-supplied HTML         | &lt;style&gt;.ghc{display:none}&lt;/style&gt;                                                        |
 | 🟡       | src/render.test.ts:22 | Cover empty findings in snapshots | The preview catalog needs an assertion for empty review output before changing the summary template. |
 | 🟡       | src/render.ts:33-36   | Extract markdown section builder  | The summary renderer repeats section assembly logic that should stay centralized.                    |
 | ℹ️       | README.md:12          | Document preview harness usage    | The local-only preview workflow should be discoverable for maintainers.                              |

@@ -146,9 +146,9 @@ export const PreviewMarkdownForbiddenFragments: readonly string[] = [
   "class=",
   "style=",
   "<style>",
-  ".ghc",
-  ".gh-light",
-  ".gh-dark",
+  ".ghc { display: block; }",
+  ".gh-light { color-scheme: light; }",
+  ".gh-dark { color-scheme: dark; }",
   "gh-chrome",
 ];
 

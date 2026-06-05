@@ -175,9 +175,13 @@ describe("preview markdown golden fixtures", () => {
     // When the preview harness validates the markdown payload
     const result = validatePreviewMarkdownPayload(markdown);
 
-    // Then validation fails and reports the wrapper selectors
+    // Then validation fails and reports the wrapper stylesheet fragments
     expect(result.ok).toBe(false);
-    expect(result.forbiddenFragments).toEqual([".ghc", ".gh-light", ".gh-dark"]);
+    expect(result.forbiddenFragments).toEqual([
+      ".ghc { display: block; }",
+      ".gh-light { color-scheme: light; }",
+      ".gh-dark { color-scheme: dark; }",
+    ]);
   });
 
   it("keeps user-authored style tags inert in rendered summary markdown", () => {
