@@ -766,6 +766,11 @@ describe("preview HTML theme wrapper", () => {
 
   it.each([
     { output: "token ghp_1234567890abcdef", fragment: "ghp_" },
+    { output: "token gho_1234567890abcdef", fragment: "gho_" },
+    { output: "token ghu_1234567890abcdef", fragment: "ghu_" },
+    { output: "token ghs_1234567890abcdef", fragment: "ghs_" },
+    { output: "token ghr_1234567890abcdef", fragment: "ghr_" },
+    { output: "token github_pat_1234567890abcdef", fragment: "github_pat_" },
     { output: "key sk-ant-api03-test", fragment: "sk-ant-" },
     { output: "header x-hub-signature-256=sha256:test", fragment: "x-hub-signature-256" },
     {

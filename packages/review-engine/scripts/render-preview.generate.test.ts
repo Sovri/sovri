@@ -70,15 +70,15 @@ describe("preview comments HTML generator", () => {
     for (const { fileName, theme } of PreviewThemeOutputs) {
       const outputPath = join(PreviewOutputDirectory, fileName);
       const html = renderPreviewHtml({ sections, theme });
+      const outputValidation = validatePreviewRenderedOutput(html);
 
+      expect(outputValidation.ok).toBe(true);
+      expect(outputValidation.forbiddenFragments).toEqual([]);
       writeFileSync(outputPath, ensureFinalNewline(html), "utf8");
 
       const writtenHtml = readFileSync(outputPath, "utf8");
-      const outputValidation = validatePreviewRenderedOutput(writtenHtml);
       expect(writtenHtml).toContain(`gh-${theme}`);
       expect(writtenHtml).toContain("<section>");
-      expect(outputValidation.ok).toBe(true);
-      expect(outputValidation.forbiddenFragments).toEqual([]);
     }
   });
 });

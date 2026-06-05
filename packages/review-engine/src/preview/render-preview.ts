@@ -206,6 +206,26 @@ const PreviewRenderedOutputForbiddenExpressions: readonly PreviewRenderedOutputF
       pattern: /ghp_/u,
     },
     {
+      label: "gho_",
+      pattern: /gho_/u,
+    },
+    {
+      label: "ghu_",
+      pattern: /ghu_/u,
+    },
+    {
+      label: "ghs_",
+      pattern: /ghs_/u,
+    },
+    {
+      label: "ghr_",
+      pattern: /ghr_/u,
+    },
+    {
+      label: "github_pat_",
+      pattern: /github_pat_/u,
+    },
+    {
       label: "sk-ant-",
       pattern: /sk-ant-/u,
     },
