@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as RenderPreviewModule from "./render-preview.js";
 import {
   type AssertPreviewGoldenMarkdownSnapshots,
+  type AssertPreviewThemeRoot,
   PreviewMarkdownForbiddenFragments,
   type MatchesPreviewGoldenSnapshotBytes,
   type PreviewGoldenMarkdownSnapshotSource,
@@ -604,6 +605,8 @@ describe("preview HTML theme wrapper", () => {
       expect(rootClasses.has(themeClass)).toBe(true);
       // And the HTML root element does not have class "<otherThemeClass>"
       expect(rootClasses.has(otherThemeClass)).toBe(false);
+      // And the wrapper assertion accepts the rendered root for "<theme>"
+      expect(() => getAssertPreviewThemeRoot()(theme, [...rootClasses].join(" "))).not.toThrow();
     },
   );
 
@@ -637,6 +640,21 @@ describe("preview HTML theme wrapper", () => {
     expect(result.ok).toBe(false);
     // And the failure names "theme root"
     expect(result.error).toContain("theme root");
+  });
+
+  it("fails dark wrapper theme drift with the affected theme name", () => {
+    // Given renderPreviewHtml renders a dark preview root without class "gh-dark"
+    const html = getRenderPreviewHtml()({ sections: PreviewHtmlSections, theme: "dark" });
+    const rootClasses = [...extractRootClasses(html)]
+      .filter((className) => className !== "gh-dark")
+      .join(" ");
+
+    // When the wrapper assertion runs
+    const assertWrapperTheme = (): void => getAssertPreviewThemeRoot()("dark", rootClasses);
+
+    // Then the test suite fails
+    // And the thrown error message contains "dark"
+    expect(assertWrapperTheme).toThrow("dark");
   });
 
   it("inlines the local preview stylesheet without changing markdown payload sections", () => {
@@ -837,6 +855,23 @@ function hasValidatePreviewThemeRoot(
   );
 }
 
+function getAssertPreviewThemeRoot(): AssertPreviewThemeRoot {
+  if (!hasAssertPreviewThemeRoot(RenderPreviewModule)) {
+    throw missingPreviewRendererExportError(
+      "MissingPreviewThemeRootAssertionExportError",
+      "assertPreviewThemeRoot",
+    );
+  }
+
+  return RenderPreviewModule.assertPreviewThemeRoot;
+}
+
+function hasAssertPreviewThemeRoot(
+  module: object,
+): module is { readonly assertPreviewThemeRoot: AssertPreviewThemeRoot } {
+  return "assertPreviewThemeRoot" in module && typeof module.assertPreviewThemeRoot === "function";
+}
+
 function buildPreviewPayloadSections(): readonly PreviewHtmlSection[] {
   return PreviewGoldenCases.map(({ shape, fixture }) => ({
     title: shape,
@@ -928,7 +963,8 @@ type MissingPreviewRendererExportErrorName =
   | "MissingPreviewFixtureSectionBuilderError"
   | "MissingPreviewDeterminismValidatorError"
   | "MissingPreviewFixtureAnonymizationValidatorError"
-  | "MissingPreviewThemeRootValidatorError";
+  | "MissingPreviewThemeRootValidatorError"
+  | "MissingPreviewThemeRootAssertionExportError";
 
 interface MissingPreviewRendererExportErrorDetails {
   readonly errorName: MissingPreviewRendererExportErrorName;

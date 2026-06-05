@@ -210,6 +210,14 @@ export class PreviewGoldenMarkdownSnapshotDriftError extends Error {
   }
 }
 
+export class PreviewThemeRootDriftError extends Error {
+  public override readonly name = "PreviewThemeRootDriftError";
+
+  public constructor(theme: PreviewHtmlTheme, error: string) {
+    super(`preview ${theme} theme root drift: ${error}`);
+  }
+}
+
 const PreviewGoldenMarkdownFileSource: PreviewGoldenMarkdownSnapshotSource = {
   renderFixtureMarkdown: renderPreviewFixtureMarkdown,
   loadGoldenMarkdown: loadTextFixture,
@@ -323,8 +331,22 @@ export function renderPreviewHtml(request: RenderPreviewHtmlRequest): string {
   return `<div class="ghc ${themeClass}">${renderPreviewStylesheet()}${sections}</div>`;
 }
 
-export function validatePreviewThemeRoot(rootClasses: string): PreviewThemeRootValidationResult {
+export function validatePreviewThemeRoot(
+  rootClasses: string,
+  expectedTheme?: PreviewHtmlTheme,
+): PreviewThemeRootValidationResult {
   const classNames = new Set(rootClasses.split(/\s+/u).filter((className) => className.length > 0));
+
+  if (expectedTheme !== undefined) {
+    const expectedThemeClass = getPreviewThemeClass(expectedTheme);
+
+    if (!classNames.has(expectedThemeClass)) {
+      return {
+        ok: false,
+        error: `theme root for ${expectedTheme} preview must include "${expectedThemeClass}"`,
+      };
+    }
+  }
 
   if (classNames.has("gh-light") && classNames.has("gh-dark")) {
     return {
@@ -335,6 +357,18 @@ export function validatePreviewThemeRoot(rootClasses: string): PreviewThemeRootV
 
   return { ok: true };
 }
+
+export function assertPreviewThemeRoot(theme: PreviewHtmlTheme, rootClasses: string): void {
+  const result = validatePreviewThemeRoot(rootClasses, theme);
+
+  if (result.ok) {
+    return;
+  }
+
+  throw new PreviewThemeRootDriftError(theme, result.error ?? "theme root is invalid");
+}
+
+export type AssertPreviewThemeRoot = typeof assertPreviewThemeRoot;
 
 export function validatePreviewDeterminism(
   renderedPreview: string,
