@@ -118,6 +118,11 @@ export interface RenderPreviewHtmlRequest {
   readonly theme: PreviewHtmlTheme;
 }
 
+export interface PreviewThemeRootValidationResult {
+  readonly ok: boolean;
+  readonly error?: string;
+}
+
 const HtmlEscapes: Readonly<Record<string, string>> = {
   "&": "&amp;",
   "<": "&lt;",
@@ -164,6 +169,19 @@ export function renderPreviewHtml(request: RenderPreviewHtmlRequest): string {
   const sections = request.sections.map(renderPreviewHtmlSection).join("");
 
   return `<div class="ghc ${themeClass}">${sections}</div>`;
+}
+
+export function validatePreviewThemeRoot(rootClasses: string): PreviewThemeRootValidationResult {
+  const classNames = new Set(rootClasses.split(/\s+/u).filter((className) => className.length > 0));
+
+  if (classNames.has("gh-light") && classNames.has("gh-dark")) {
+    return {
+      ok: false,
+      error: 'theme root must not include both "gh-light" and "gh-dark"',
+    };
+  }
+
+  return { ok: true };
 }
 
 function renderPreviewFixture(fixture: PreviewFixture): string {

@@ -53,6 +53,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(review-engine)`: add the initial preview HTML wrapper renderer with
   deterministic light and dark GitHub chrome root classes (R-02, #2345).
 
+- `feat(review-engine)`: add preview theme-root validation that rejects wrappers
+  carrying both GitHub chrome theme classes (R-02, #2347).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
