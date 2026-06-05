@@ -19,6 +19,12 @@ interface PreviewFixtureAnonymizationFields {
   readonly repositoryNames: string[];
   readonly authorLogins: string[];
   readonly providerKeyValues: string[];
+  readonly stringValues: string[];
+}
+
+interface PreviewForbiddenIdentityPattern {
+  readonly reason: string;
+  readonly expression: RegExp;
 }
 
 const PreviewPlaceholderRepositoryName = "example/review-target";
@@ -26,6 +32,20 @@ const PreviewPlaceholderAuthorLoginPrefix = "test-";
 const PreviewPlaceholderProviderKey = "test-key";
 const PreviewRepositoryNameKeys = new Set(["repo_full_name", "repoFullName", "repositoryName"]);
 const PreviewAuthorLoginKeys = new Set(["author", "author_login", "authorLogin", "login"]);
+const PreviewForbiddenIdentityPatterns: readonly PreviewForbiddenIdentityPattern[] = [
+  {
+    reason: "github token shape",
+    expression: /\bghp_[A-Za-z0-9_]{20,}\b/u,
+  },
+  {
+    reason: "llm key shape",
+    expression: /\bsk-ant-api03-[A-Za-z0-9_-]+\b/u,
+  },
+  {
+    reason: "real repo shape",
+    expression: /\b(?!example\/review-target\b)[a-z0-9]+-[a-z0-9-]+\/[a-z0-9]+-[a-z0-9-]+\b/u,
+  },
+];
 
 export function validatePreviewFixtureAnonymization(
   fixtureName: string,
@@ -42,6 +62,7 @@ export function validatePreviewFixtureAnonymization(
     ...fields.providerKeyValues
       .filter((value) => value !== PreviewPlaceholderProviderKey)
       .map((value) => createFixtureAnonymizationViolation(fixtureName, "provider key", value)),
+    ...collectForbiddenIdentityViolations(fixtureName, fields.stringValues),
   ];
 
   return {
@@ -60,6 +81,7 @@ function collectPreviewFixtureAnonymizationFields(
     repositoryNames: [],
     authorLogins: [],
     providerKeyValues: [],
+    stringValues: [],
   };
 
   collectPreviewFixtureAnonymizationFieldsInto(value, fields);
@@ -98,6 +120,8 @@ function collectPreviewFixtureAnonymizationField(
     return;
   }
 
+  fields.stringValues.push(value);
+
   if (PreviewRepositoryNameKeys.has(key)) {
     fields.repositoryNames.push(value);
   }
@@ -123,6 +147,23 @@ function isProviderKeyName(key: string): boolean {
     normalizedKey === "llmproviderkey" ||
     normalizedKey === "apikey"
   );
+}
+
+function collectForbiddenIdentityViolations(
+  fixtureName: string,
+  values: readonly string[],
+): readonly PreviewFixtureAnonymizationViolation[] {
+  const violations: PreviewFixtureAnonymizationViolation[] = [];
+
+  for (const value of values) {
+    for (const pattern of PreviewForbiddenIdentityPatterns) {
+      if (pattern.expression.test(value)) {
+        violations.push(createFixtureAnonymizationViolation(fixtureName, pattern.reason, value));
+      }
+    }
+  }
+
+  return violations;
 }
 
 function createFixtureAnonymizationViolation(

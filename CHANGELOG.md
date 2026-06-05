@@ -108,8 +108,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   placeholder repository names, author logins, and provider key values (R-05,
   #2354).
 
-- `feat(review-engine)`: detect secret-shaped and real identity values in
-  preview fixture anonymization validation (R-05, #2355).
+- `feat(review-engine)`: detect and report secret-shaped and real identity
+  values in preview fixture anonymization validation (R-05, #2355).
 
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
