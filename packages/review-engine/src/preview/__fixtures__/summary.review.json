@@ -24,7 +24,7 @@
         "line_start": 18,
         "line_end": 18,
         "title": "Escape user-supplied HTML",
-        "body": "The renderer must keep user-controlled HTML inert before posting review output.",
+        "body": "<style>.ghc{display:none}</style>",
         "suggestion": {
           "code": "const safeHtml = escapeHtml(input);",
           "committable": true
