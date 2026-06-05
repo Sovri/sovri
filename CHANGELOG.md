@@ -82,6 +82,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   user-authored `<style>` tags stay escaped in markdown while the HTML wrapper
   keeps the only trusted style element (R-03, #2350).
 
+- `feat(review-engine)`: add a deterministic fixture render helper that loads
+  each preview fixture once and renders it twice for byte-for-byte comparison
+  (R-04, #2351).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
