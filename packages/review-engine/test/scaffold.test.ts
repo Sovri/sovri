@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,11 @@ import {
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const sourceRoot = join(packageRoot, "src");
+const workspaceRoot = join(packageRoot, "../..");
+const PreviewHtmlOutputRelativePaths: readonly string[] = [
+  "packages/review-engine/.preview/comments-light.html",
+  "packages/review-engine/.preview/comments-dark.html",
+];
 const PreviewOnlyRuntimePackages: readonly string[] = [
   "@playwright/test",
   "happy-dom",
@@ -33,6 +39,7 @@ const PreviewOnlyRuntimePackages: readonly string[] = [
 
 interface ReviewEnginePackageManifest {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly exports?: unknown;
   readonly scripts: Readonly<Record<string, string>>;
 }
 
@@ -47,7 +54,7 @@ function readReviewEnginePackageManifest(): ReviewEnginePackageManifest {
     throw new TypeError("Expected review-engine package manifest to be a JSON object.");
   }
 
-  const { dependencies, scripts } = manifest;
+  const { dependencies, exports: packageExports, scripts } = manifest;
 
   if (!isStringRecord(scripts)) {
     throw new TypeError("Expected review-engine package manifest scripts to be string entries.");
@@ -59,7 +66,11 @@ function readReviewEnginePackageManifest(): ReviewEnginePackageManifest {
     );
   }
 
-  return dependencies === undefined ? { scripts } : { dependencies, scripts };
+  const validatedManifest = dependencies === undefined ? { scripts } : { dependencies, scripts };
+
+  return packageExports === undefined
+    ? validatedManifest
+    : { ...validatedManifest, exports: packageExports };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -115,6 +126,48 @@ describe("@sovri/review-engine scaffold", () => {
     expect(manifest.scripts.build ?? "").not.toContain("preview:comments");
   });
 
+  it("generates ignored comments preview HTML outside the shipped source surface", () => {
+    // Given the preview script writes light and dark HTML files
+    const manifest = readReviewEnginePackageManifest();
+    removePreviewHtmlOutputs();
+
+    const result = spawnSync("pnpm", ["--filter", "@sovri/review-engine", "preview:comments"], {
+      cwd: workspaceRoot,
+      encoding: "utf8",
+    });
+
+    expect(result.status, formatProcessOutput(result)).toBe(0);
+
+    for (const outputRelativePath of PreviewHtmlOutputRelativePaths) {
+      const outputPath = join(workspaceRoot, outputRelativePath);
+
+      expect(existsSync(outputPath), `${outputRelativePath} must be generated`).toBe(true);
+
+      // When the repository status is inspected after generation
+      const ignoreResult = spawnSync("git", ["check-ignore", "--quiet", outputRelativePath], {
+        cwd: workspaceRoot,
+        encoding: "utf8",
+      });
+
+      // Then the generated HTML files are ignored by Git
+      expect(ignoreResult.status, `${outputRelativePath} must be ignored by Git`).toBe(0);
+    }
+
+    const packageExports = JSON.stringify(manifest.exports ?? {});
+    const rootBarrel = readFileSync(join(sourceRoot, "index.ts"), "utf8");
+
+    // And no generated HTML file is listed in the package exports
+    // And no generated HTML file is included by the package root barrel
+    for (const outputRelativePath of PreviewHtmlOutputRelativePaths) {
+      expect(packageExports).not.toContain(outputRelativePath);
+      expect(rootBarrel).not.toContain(outputRelativePath);
+    }
+    expect(packageExports).not.toContain(".preview");
+    expect(packageExports).not.toContain(".html");
+    expect(rootBarrel).not.toContain(".preview");
+    expect(rootBarrel).not.toContain(".html");
+  });
+
   it("keeps the deferred ingestion format out of production source", () => {
     const deferredToken = ["sa", "rif"].join("");
     const deferredPattern = new RegExp(deferredToken, "iu");
@@ -148,3 +201,15 @@ describe("@sovri/review-engine scaffold", () => {
     expect(typeof parseUnifiedDiff).toBe("function");
   });
 });
+
+function removePreviewHtmlOutputs(): void {
+  for (const outputRelativePath of PreviewHtmlOutputRelativePaths) {
+    rmSync(join(workspaceRoot, outputRelativePath), { force: true });
+  }
+}
+
+function formatProcessOutput(result: SpawnSyncReturns<string>): string {
+  return [result.stdout.trim(), result.stderr.trim()]
+    .filter((output) => output.length > 0)
+    .join("\n");
+}
