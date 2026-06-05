@@ -464,6 +464,24 @@ describe("preview fixture anonymization", () => {
     expect(result.ok).toBe(true);
     expect(result.violations).toEqual([]);
   });
+
+  it("accepts placeholder provider keys without rendering them", () => {
+    // Given the provenance fixture contains provider key "test-key"
+    const fixture = "provenance.review.json";
+    const fixtureJson: unknown = JSON.parse(loadTextFixture(fixture));
+    const validateAnonymization = getValidatePreviewFixtureAnonymization();
+
+    // When the preview harness renders the provenance markdown
+    const markdown = renderPreviewFixtureMarkdown(fixture);
+    const result = validateAnonymization(fixture, fixtureJson);
+
+    // Then the rendered markdown does not contain "test-key"
+    expect(markdown).not.toContain("test-key");
+    // And the fixture scan treats "test-key" as an allowed placeholder
+    expect(result.providerKeyValues).toContain("test-key");
+    expect(result.ok).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
 });
 
 describe("preview HTML theme wrapper", () => {
