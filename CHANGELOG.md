@@ -153,6 +153,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   generate ignored light and dark HTML files outside package exports and the
   review-engine root barrel (R-07, #2361).
 
+- `feat(review-engine)`: make `preview:comments` generate light and dark HTML
+  previews under an ignored package-local preview directory without exporting
+  generated artifacts (R-07, #2361).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
