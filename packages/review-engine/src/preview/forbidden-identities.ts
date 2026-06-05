@@ -26,6 +26,7 @@ const PreviewSourcePathOwners = new Set([
 ]);
 const PreviewGithubTokenExpression = /\bghp_[A-Za-z0-9_]{20,}\b/u;
 const PreviewLlmKeyExpression = /\bsk-ant-api03-[A-Za-z0-9_-]+\b/u;
+const PreviewUrlExpression = /\bhttps?:\/\/[^\s"'<>`]+/giu;
 const PreviewRepositoryIdentityCandidateExpression =
   /(?:^|[^A-Za-z0-9._-])([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?)(?=$|[^A-Za-z0-9._-])/gu;
 const PreviewForbiddenIdentityPatterns: readonly PreviewForbiddenIdentityPattern[] = [
@@ -56,11 +57,9 @@ export function collectPreviewForbiddenIdentityReasons(value: string): readonly 
 }
 
 function hasRealRepositoryShape(value: string): boolean {
-  if (value.includes("://") && !value.includes("github.com/")) {
-    return false;
-  }
+  const searchableValue = removeNonGithubUrls(value);
 
-  for (const match of value.matchAll(PreviewRepositoryIdentityCandidateExpression)) {
+  for (const match of searchableValue.matchAll(PreviewRepositoryIdentityCandidateExpression)) {
     const candidate = match[1];
 
     if (candidate === undefined || candidate === PreviewPlaceholderRepositoryName) {
@@ -82,4 +81,38 @@ function hasRealRepositoryShape(value: string): boolean {
   }
 
   return false;
+}
+
+function removeNonGithubUrls(value: string): string {
+  let searchableValue = value;
+
+  for (const url of collectUrls(value)) {
+    if (!hasGithubHostname(url)) {
+      searchableValue = searchableValue.replace(url, " ");
+    }
+  }
+
+  return searchableValue;
+}
+
+function collectUrls(value: string): readonly string[] {
+  const urls: string[] = [];
+
+  for (const match of value.matchAll(PreviewUrlExpression)) {
+    const url = match[0];
+
+    if (url !== undefined) {
+      urls.push(url);
+    }
+  }
+
+  return urls;
+}
+
+function hasGithubHostname(value: string): boolean {
+  try {
+    return new URL(value).hostname.toLowerCase() === "github.com";
+  } catch {
+    return false;
+  }
 }

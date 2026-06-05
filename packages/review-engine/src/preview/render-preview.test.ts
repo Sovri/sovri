@@ -129,6 +129,11 @@ const PreviewForbiddenIdentityCases: readonly PreviewForbiddenIdentityCase[] = [
     forbiddenValue: "Review for mpiton/sovri",
     reason: "real repo shape",
   },
+  {
+    fixture: "inline-finding.json",
+    forbiddenValue: "https://github.com/mpiton/sovri",
+    reason: "real repo shape",
+  },
 ];
 
 const PreviewHtmlSections: readonly PreviewHtmlSection[] = [
@@ -366,6 +371,20 @@ describe("preview fixture anonymization", () => {
       expect(result.violations).toContainEqual({ fixture, reason, value: forbiddenValue });
     },
   );
+
+  it("ignores repository-looking paths inside non-GitHub URLs", () => {
+    const fixture = "summary.review.json";
+    const fixtureJson: unknown = JSON.parse(loadTextFixture(fixture));
+    const fixtureWithNonGithubUrl = injectFixtureString(
+      fixtureJson,
+      "https://evil.example/github.com/mpiton/sovri",
+    );
+
+    const result = getValidatePreviewFixtureAnonymization()(fixture, fixtureWithNonGithubUrl);
+
+    expect(result.ok).toBe(true);
+    expect(result.violations).toEqual([]);
+  });
 });
 
 describe("preview HTML theme wrapper", () => {
