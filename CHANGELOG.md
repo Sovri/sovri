@@ -104,6 +104,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(review-engine)`: add determinism validation that reports `generated_at`
   as a volatile preview fragment (R-04, #2353).
 
+- `feat(review-engine)`: add preview fixture anonymization validation for
+  placeholder repository names, author logins, and provider key values (R-05,
+  #2354).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
