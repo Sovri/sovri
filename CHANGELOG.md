@@ -149,6 +149,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   that runs the existing local preview comment harness without adding runtime
   preview rendering dependencies or coupling it to `build` (R-07, #2360).
 
+- `test(review-engine)`: add RED coverage requiring `preview:comments` to
+  generate ignored light and dark HTML files outside package exports and the
+  review-engine root barrel (R-07, #2361).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
