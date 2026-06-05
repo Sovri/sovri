@@ -52,11 +52,13 @@ interface ForbiddenCommonJsExpression {
   readonly pattern: RegExp;
 }
 
+/** Forbidden TypeScript fragment tracked by the preview scaffold gate. */
 interface ForbiddenTypeScriptEscapeHatchExpression {
   readonly label: string;
   readonly pattern: RegExp;
 }
 
+/** Regression case for a forbidden TypeScript escape-hatch fragment. */
 interface ForbiddenTypeScriptEscapeHatchCase {
   readonly forbiddenFragment: string;
   readonly source: string;
@@ -79,13 +81,13 @@ const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
 
 const ExplicitAnyTypePositionPatternFragments: readonly string[] = [
   // Type annotations: const value: any
-  String.raw`:\s*any\b`,
+  String.raw`(?<typeAnnotation>:\s*any\b)`,
   // Type assertions: value as any
-  String.raw`\bas\s+any\b`,
+  String.raw`(?<typeAssertion>\bas\s+any\b)`,
   // Alias, generic, union, intersection, and tuple positions.
-  String.raw`(?:[=<,|&]|\[)\s*any\b`,
+  String.raw`(?<structuredTypePosition>(?:[=<,|&]|\[)\s*any\b)`,
   // Array types: any[]
-  String.raw`\bany\s*\[\]`,
+  String.raw`(?<arrayType>\bany\s*\[\])`,
 ];
 
 const ExplicitAnyTypePositionPattern = new RegExp(
