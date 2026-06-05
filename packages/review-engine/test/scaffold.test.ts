@@ -23,7 +23,7 @@ const previewScriptRoot = join(packageRoot, "scripts");
 const sourceRoot = join(packageRoot, "src");
 const workspaceRoot = join(packageRoot, "../..");
 const RelativeTypeScriptImportExpression =
-  /\bfrom\s+["'](?<fromSpecifier>\.{1,2}\/[^"']+)["']|^\s*import\s+["'](?<sideEffectSpecifier>\.{1,2}\/[^"']+)["']/gmu;
+  /\bfrom\s+["'](?<fromSpecifier>\.{1,2}\/[^"']+)["']|^\s*import\s+["'](?<sideEffectSpecifier>\.{1,2}\/[^"']+)["']|\bimport\s*\(\s*["'](?<dynamicSpecifier>\.{1,2}\/[^"']+)["']\s*\)/gmu;
 const PreviewHtmlOutputRelativePaths: readonly string[] = [
   "packages/review-engine/.preview/comments-light.html",
   "packages/review-engine/.preview/comments-dark.html",
@@ -216,8 +216,10 @@ describe("@sovri/review-engine scaffold", () => {
       collectRelativeImportSpecifiers(`
         import "./setup";
         import { value } from "../value";
+        export { exported } from "../exported";
+        const lazy = await import("./lazy");
       `),
-    ).toEqual(["./setup", "../value"]);
+    ).toEqual(["./setup", "../value", "../exported", "./lazy"]);
   });
 
   it("keeps the deferred ingestion format out of production source", () => {
@@ -268,7 +270,8 @@ function collectRelativeImportSpecifiers(content: string): readonly string[] {
   return [...content.matchAll(RelativeTypeScriptImportExpression)].flatMap((match) => {
     const fromSpecifier = match.groups?.fromSpecifier;
     const sideEffectSpecifier = match.groups?.sideEffectSpecifier;
-    return [fromSpecifier, sideEffectSpecifier].filter(isDefinedString);
+    const dynamicSpecifier = match.groups?.dynamicSpecifier;
+    return [fromSpecifier, sideEffectSpecifier, dynamicSpecifier].filter(isDefinedString);
   });
 }
 

@@ -69,8 +69,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   placeholder repository, author, and provider key identity values (R-05, #2354).
 
 - `test(review-engine)`: add RED scaffold coverage requiring preview TypeScript
-  sources and the preview script to keep required headers, explicit ESM import
-  extensions including side-effect imports, and no CommonJS usage (R-08, #2363).
+  sources and the preview script to keep SPDX/Sovri headers, explicit `.js` ESM
+  import extensions including side-effect and dynamic imports, and no CommonJS
+  usage (R-08, #2363).
 
 - `chore(review-engine)`: move the preview comments generator under the package
   `scripts/` source contract while preserving package-local `.preview/` output
