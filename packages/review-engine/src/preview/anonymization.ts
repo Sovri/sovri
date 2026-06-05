@@ -93,6 +93,12 @@ function collectPreviewFixtureAnonymizationFieldsInto(
   value: unknown,
   fields: PreviewFixtureAnonymizationFields,
 ): void {
+  if (typeof value === "string") {
+    fields.stringValues.push(value);
+
+    return;
+  }
+
   if (Array.isArray(value)) {
     for (const item of value) {
       collectPreviewFixtureAnonymizationFieldsInto(item, fields);
@@ -119,8 +125,6 @@ function collectPreviewFixtureAnonymizationField(
   if (typeof value !== "string") {
     return;
   }
-
-  fields.stringValues.push(value);
 
   if (PreviewRepositoryNameKeys.has(key)) {
     fields.repositoryNames.push(value);

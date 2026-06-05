@@ -548,7 +548,7 @@ function serializeMarkdownPayload(sections: readonly PreviewHtmlSection[]): stri
 function injectFixtureString(fixture: unknown, value: string): unknown {
   return {
     fixture,
-    injected_fixture_value: value,
+    injected_fixture_values: [value],
   };
 }
 
