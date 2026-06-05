@@ -74,6 +74,12 @@ interface PreviewThemeCase {
   readonly otherThemeClass: string;
 }
 
+interface PreviewForbiddenIdentityCase {
+  readonly fixture: string;
+  readonly forbiddenValue: string;
+  readonly reason: string;
+}
+
 const PreviewGoldenCases: readonly PreviewGoldenCase[] = [
   {
     shape: "summary",
@@ -94,6 +100,24 @@ const PreviewGoldenCases: readonly PreviewGoldenCase[] = [
     shape: "compliance provenance",
     fixture: "provenance.review.json",
     golden: "provenance.golden.md",
+  },
+];
+
+const PreviewForbiddenIdentityCases: readonly PreviewForbiddenIdentityCase[] = [
+  {
+    fixture: "summary.review.json",
+    forbiddenValue: "ghp_1234567890abcdef1234567890abc",
+    reason: "github token shape",
+  },
+  {
+    fixture: "assessment.review.json",
+    forbiddenValue: "sk-ant-api03-test",
+    reason: "llm key shape",
+  },
+  {
+    fixture: "inline-finding.json",
+    forbiddenValue: "real-bank/payments-api",
+    reason: "real repo shape",
   },
 ];
 
@@ -312,6 +336,26 @@ describe("preview fixture anonymization", () => {
       expect(result.violations).toEqual([]);
     },
   );
+
+  it.each(PreviewForbiddenIdentityCases)(
+    "rejects $reason in $fixture",
+    ({ fixture, forbiddenValue, reason }) => {
+      // Given the "<fixture>" fixture contains "<forbiddenValue>"
+      const fixtureJson: unknown = JSON.parse(loadTextFixture(fixture));
+      const fixtureWithForbiddenValue = injectFixtureString(fixtureJson, forbiddenValue);
+      const validateAnonymization = getValidatePreviewFixtureAnonymization();
+
+      // When the anonymization assertion inspects the fixture
+      const result = validateAnonymization(fixture, fixtureWithForbiddenValue);
+
+      // Then validation fails
+      expect(result.ok).toBe(false);
+      // And the failure names "<fixture>"
+      expect(result.violations.some((violation) => violation.fixture === fixture)).toBe(true);
+      // And the failure reports "<reason>"
+      expect(result.violations).toContainEqual({ fixture, reason, value: forbiddenValue });
+    },
+  );
 });
 
 describe("preview HTML theme wrapper", () => {
@@ -499,6 +543,13 @@ function buildPreviewPayloadSections(): readonly PreviewHtmlSection[] {
 
 function serializeMarkdownPayload(sections: readonly PreviewHtmlSection[]): string {
   return sections.map((section) => section.markdown).join("\n\n---\n\n");
+}
+
+function injectFixtureString(fixture: unknown, value: string): unknown {
+  return {
+    fixture,
+    injected_fixture_value: value,
+  };
 }
 
 function countOccurrences(value: string, needle: string): number {
