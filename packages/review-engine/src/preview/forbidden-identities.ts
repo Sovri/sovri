@@ -39,7 +39,7 @@ const PreviewGithubTokenExpression = /\bghp_[A-Za-z0-9_]{20,}\b/u;
 const PreviewLlmKeyExpression = /\bsk-ant-api03-[A-Za-z0-9_-]+\b/u;
 const PreviewUrlExpression = /\bhttps?:\/\/[^\s"'<>`]+/giu;
 const PreviewRepositoryIdentityCandidateExpression =
-  /(?:^|[^A-Za-z0-9._-])([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?)(?=$|[^A-Za-z0-9._-])/gu;
+  /(?:^|[^A-Za-z0-9._-])([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?)(?=$|[^A-Za-z0-9_-])/gu;
 const PreviewForbiddenIdentityPatterns: readonly PreviewForbiddenIdentityPattern[] = [
   {
     reason: "github token shape",
