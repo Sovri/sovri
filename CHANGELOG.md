@@ -33,6 +33,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).
 
+- `feat(review-engine)`: add preview fixture catalog validation that reports
+  missing markdown golden snapshots by filename (R-01, #2343).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).

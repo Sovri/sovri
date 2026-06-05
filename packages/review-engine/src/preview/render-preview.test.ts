@@ -4,21 +4,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { renderPreviewFixtureMarkdown, validatePreviewFixtureCatalog } from "./render-preview.js";
+
 interface PreviewGoldenCase {
   readonly shape: string;
   readonly fixture: string;
   readonly golden: string;
 }
-
-interface PreviewCatalogValidationResult {
-  readonly ok: boolean;
-  readonly missingGoldenFiles: readonly string[];
-}
-
-type PreviewFixtureCatalogValidator = (
-  catalog: readonly PreviewGoldenCase[],
-  availableGoldenFiles: readonly string[],
-) => PreviewCatalogValidationResult;
 
 const PreviewGoldenCases: readonly PreviewGoldenCase[] = [
   {
@@ -46,10 +38,7 @@ const PreviewGoldenCases: readonly PreviewGoldenCase[] = [
 describe("preview markdown golden fixtures", () => {
   it.each(PreviewGoldenCases)(
     "renders $shape markdown byte-for-byte from $fixture",
-    async ({ fixture, golden }) => {
-      // Given the "<shape>" fixture is loaded from "<fixture>"
-      const { renderPreviewFixtureMarkdown } = await import("./render-preview.js");
-
+    ({ fixture, golden }) => {
       // And the stored markdown snapshot is "<golden>"
       const expectedMarkdown = loadTextFixture(golden);
 
@@ -63,10 +52,8 @@ describe("preview markdown golden fixtures", () => {
     },
   );
 
-  it("rejects a fixture catalog when a stored markdown snapshot is missing", async () => {
+  it("rejects a fixture catalog when a stored markdown snapshot is missing", () => {
     // Given the fixture catalog contains the four required review comment shapes
-    const validatePreviewFixtureCatalog = await loadPreviewFixtureCatalogValidator();
-
     // And the stored markdown snapshots omit "assessment.golden.md"
     const availableGoldenFiles = PreviewGoldenCases.map(({ golden }) => golden).filter(
       (golden) => golden !== "assessment.golden.md",
@@ -84,20 +71,4 @@ describe("preview markdown golden fixtures", () => {
 
 function loadTextFixture(name: string): string {
   return readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8").trimEnd();
-}
-
-async function loadPreviewFixtureCatalogValidator(): Promise<PreviewFixtureCatalogValidator> {
-  const previewModule = await import("./render-preview.js");
-  const candidate: unknown = Reflect.get(previewModule, "validatePreviewFixtureCatalog");
-
-  expect(candidate).toBeTypeOf("function");
-  if (!isPreviewFixtureCatalogValidator(candidate)) {
-    throw new TypeError("validatePreviewFixtureCatalog must be a function");
-  }
-
-  return candidate;
-}
-
-function isPreviewFixtureCatalogValidator(value: unknown): value is PreviewFixtureCatalogValidator {
-  return typeof value === "function";
 }
