@@ -266,6 +266,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(bot, review-engine)`: address review feedback so failed reviews publish
+  failing check conclusions, signed audit provenance feeds the provenance check,
+  and missing descriptors skip best-effort checks without aborting review
+  posting (#2339).
+
 - `fix(bot)`: request GitHub App `checks: write` permission for the
   Community bot manifest without broadening existing repository scopes (R-09,
   #2327).

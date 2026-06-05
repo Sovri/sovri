@@ -23,6 +23,8 @@ export type ReviewWithCheckRunDescriptors = Review & {
   readonly check_run_descriptors: readonly CheckRunDescriptor[];
 };
 
+type ReviewCheckDescriptorInput = Pick<Review, "findings" | "status">;
+
 export const MapChecksInputSchema = z
   .object({
     verdict: z
@@ -92,12 +94,12 @@ export function mapChecks(input: unknown): readonly CheckRunDescriptor[] {
 }
 
 export function buildReviewCheckDescriptors(
-  review: Pick<Review, "findings">,
+  review: ReviewCheckDescriptorInput,
 ): readonly CheckRunDescriptor[] {
   return mapChecks({
-    verdict: computeVerdict(review.findings),
+    verdict: computeReviewVerdict(review),
     findingCount: review.findings.length,
-    hasSignedAuditEntry: false,
+    hasSignedAuditEntry: reviewHasSignedAuditEntry(review),
   });
 }
 
@@ -106,4 +108,26 @@ export function attachCheckRunDescriptors(review: Review): ReviewWithCheckRunDes
     ...review,
     check_run_descriptors: buildReviewCheckDescriptors(review),
   };
+}
+
+function computeReviewVerdict(review: ReviewCheckDescriptorInput): MapChecksInput["verdict"] {
+  if (review.status === "failed") {
+    return { kind: "request-changes", label: "Review failed" };
+  }
+
+  return computeVerdict(review.findings);
+}
+
+function reviewHasSignedAuditEntry(review: ReviewCheckDescriptorInput): boolean {
+  const provenance = Reflect.get(review, "provenance");
+  if (!isJsonObject(provenance)) {
+    return false;
+  }
+
+  const signedAuditEntry = Reflect.get(provenance, "signed_audit_entry");
+  return typeof signedAuditEntry === "string" && signedAuditEntry.trim().length > 0;
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

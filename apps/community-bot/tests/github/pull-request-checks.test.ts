@@ -244,6 +244,31 @@ describe("pull request GitHub checks adapter (R-06)", () => {
       status: 500,
     });
   });
+
+  it("skips missing check descriptors without failing review posting", async () => {
+    // Given a pull request review completed for repository "mpiton/sovri"
+    // And the GitHub delivery id is "delivery-126"
+    // And the review has no check descriptors
+    const runtime = buildRuntime({
+      deliveryId: "delivery-126",
+      failingCheckStatuses: new Map(),
+    });
+    const dependencies = createPullRequestHandlerDependencies(runtime.context);
+
+    // When the bot posts the PR review
+    const result = dependencies.postReview(
+      buildTarget(),
+      buildReviewWithoutCheckRunDescriptors(),
+      buildDiff(),
+    );
+
+    // Then the webhook handler resolves successfully
+    await expect(result).resolves.toBeUndefined();
+    // And the visible PR review is still posted
+    expect(runtime.reviewRequests).toHaveLength(1);
+    // And no GitHub Check run is posted
+    expect(runtime.checkRequests).toEqual([]);
+  });
 });
 
 function checkFailureLogs(): readonly LoggerCall[] {
@@ -375,7 +400,18 @@ function buildTarget() {
 function buildReview(
   values: { readonly findings?: Review["findings"] } = {},
 ): ReviewWithCheckRunDescriptors {
-  const review: Review = {
+  const review = buildReviewWithoutCheckRunDescriptors(values);
+
+  return {
+    ...review,
+    check_run_descriptors: buildReviewCheckDescriptors(review),
+  };
+}
+
+function buildReviewWithoutCheckRunDescriptors(
+  values: { readonly findings?: Review["findings"] } = {},
+): Review {
+  return {
     completed_at: new Date("2026-06-04T10:00:01.000Z"),
     commit_sha: ReviewedHeadSha,
     findings: values.findings ?? [],
@@ -392,11 +428,6 @@ function buildReview(
       prompt: 100,
     },
     walkthrough_markdown: "Review complete",
-  };
-
-  return {
-    ...review,
-    check_run_descriptors: buildReviewCheckDescriptors(review),
   };
 }
 

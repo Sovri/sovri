@@ -24,23 +24,16 @@ export async function postCheckRuns(
     return;
   }
 
-  const descriptors = requireCheckRunDescriptors(review);
+  const descriptors = review.check_run_descriptors;
+  if (descriptors === undefined) {
+    return;
+  }
+
   const repo = splitRepoFullName(target.repoFullName, createPullRequestChecksAdapterError);
 
   await Promise.all(
     descriptors.map((descriptor) => postCheckRun(context, target, repo, descriptor)),
   );
-}
-
-function requireCheckRunDescriptors(
-  review: ReviewWithOptionalCheckRunDescriptors,
-): readonly CheckRunDescriptor[] {
-  const descriptors = review.check_run_descriptors;
-  if (descriptors === undefined) {
-    throw new PullRequestChecksAdapterError("Review check descriptors are unavailable");
-  }
-
-  return descriptors;
 }
 
 async function postCheckRun(

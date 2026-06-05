@@ -262,9 +262,13 @@ export async function reviewPullRequest(
     if (limitError !== undefined) {
       await emitAuditEvent(sink, reviewFailedEvent("limit_exceeded"), logger);
 
-      return attachCheckRunDescriptors(
-        buildFailedReview(reviewInput.pullRequest, provider, startedAt, limitError),
+      const failedReview = buildFailedReview(
+        reviewInput.pullRequest,
+        provider,
+        startedAt,
+        limitError,
       );
+      return attachCheckRunDescriptors(failedReview);
     }
 
     const filteredDiff = filterDiffByIgnores(reviewInput.diff, reviewInput.config.ignores);
@@ -330,16 +334,21 @@ export async function reviewPullRequest(
           ? [buildReviewFailedFinding(filteredDiff, generation.error)]
           : [];
 
-      return attachCheckRunDescriptors(
-        buildFailedReview(reviewInput.pullRequest, provider, startedAt, generation.error, {
+      const failedReview = buildFailedReview(
+        reviewInput.pullRequest,
+        provider,
+        startedAt,
+        generation.error,
+        {
           findings,
           ...(generation.promptSha256 === undefined
             ? {}
             : { promptSha256: generation.promptSha256 }),
           tokenUsage: generation.tokenUsage,
           tokenUsageReported: generation.tokenUsageReported,
-        }),
+        },
       );
+      return attachCheckRunDescriptors(failedReview);
     }
 
     const findings = applyReviewFilters(
