@@ -90,10 +90,17 @@ const PreviewFixtureSchema = z.discriminatedUnion("kind", [
 
 type PreviewFixture = z.infer<typeof PreviewFixtureSchema>;
 
-class PreviewFixtureRenderError extends Error {
-  public override readonly name = "PreviewFixtureRenderError";
+class UnexpectedInlinePreviewCountError extends Error {
+  public override readonly name = "UnexpectedInlinePreviewCountError";
+
+  public constructor(renderedCount: number) {
+    super(`inline preview fixture must render exactly one comment, rendered ${renderedCount}`);
+  }
 }
 
+/**
+ * Render a source fixture through the matching review-comment markdown path.
+ */
 export function renderPreviewFixtureMarkdown(fixtureName: string): string {
   const fixture = loadPreviewFixture(fixtureName);
 
@@ -120,9 +127,7 @@ function renderInlinePreview(
   const [comment] = comments;
 
   if (comment === undefined || comments.length !== 1) {
-    throw new PreviewFixtureRenderError(
-      `inline preview fixture must render exactly one comment, rendered ${comments.length}`,
-    );
+    throw new UnexpectedInlinePreviewCountError(comments.length);
   }
 
   return comment.body;
