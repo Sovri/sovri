@@ -67,6 +67,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   dev-only HTML wrapper while keeping markdown payload data unchanged (R-03,
   #2348).
 
+- `feat(review-engine)`: add preview markdown payload validation that reports
+  CSS-only wrapper fragments before posted markdown snapshot checks (R-03,
+  #2349).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
