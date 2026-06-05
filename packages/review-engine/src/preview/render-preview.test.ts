@@ -71,6 +71,7 @@ interface PreviewThemeRootValidationResult {
 }
 
 type ValidatePreviewThemeRoot = (rootClasses: string) => PreviewThemeRootValidationResult;
+type AssertPreviewThemeRoot = (theme: PreviewTheme, rootClasses: string) => void;
 
 interface PreviewThemeCase {
   readonly theme: PreviewTheme;
@@ -639,6 +640,21 @@ describe("preview HTML theme wrapper", () => {
     expect(result.error).toContain("theme root");
   });
 
+  it("fails dark wrapper theme drift with the affected theme name", () => {
+    // Given renderPreviewHtml renders a dark preview root without class "gh-dark"
+    const html = getRenderPreviewHtml()({ sections: PreviewHtmlSections, theme: "dark" });
+    const rootClasses = [...extractRootClasses(html)]
+      .filter((className) => className !== "gh-dark")
+      .join(" ");
+
+    // When the wrapper assertion runs
+    const assertWrapperTheme = (): void => getAssertPreviewThemeRoot()("dark", rootClasses);
+
+    // Then the test suite fails
+    // And the thrown error message contains "dark"
+    expect(assertWrapperTheme).toThrow("dark");
+  });
+
   it("inlines the local preview stylesheet without changing markdown payload sections", () => {
     // Given the rendered markdown payload contains the summary, assessment, inline finding, and provenance shapes
     const sections = buildPreviewPayloadSections();
@@ -837,6 +853,23 @@ function hasValidatePreviewThemeRoot(
   );
 }
 
+function getAssertPreviewThemeRoot(): AssertPreviewThemeRoot {
+  if (!hasAssertPreviewThemeRoot(RenderPreviewModule)) {
+    throw missingPreviewRendererExportError(
+      "MissingPreviewThemeRootAssertionExportError",
+      "assertPreviewThemeRoot",
+    );
+  }
+
+  return RenderPreviewModule.assertPreviewThemeRoot;
+}
+
+function hasAssertPreviewThemeRoot(
+  module: object,
+): module is { readonly assertPreviewThemeRoot: AssertPreviewThemeRoot } {
+  return "assertPreviewThemeRoot" in module && typeof module.assertPreviewThemeRoot === "function";
+}
+
 function buildPreviewPayloadSections(): readonly PreviewHtmlSection[] {
   return PreviewGoldenCases.map(({ shape, fixture }) => ({
     title: shape,
@@ -928,7 +961,8 @@ type MissingPreviewRendererExportErrorName =
   | "MissingPreviewFixtureSectionBuilderError"
   | "MissingPreviewDeterminismValidatorError"
   | "MissingPreviewFixtureAnonymizationValidatorError"
-  | "MissingPreviewThemeRootValidatorError";
+  | "MissingPreviewThemeRootValidatorError"
+  | "MissingPreviewThemeRootAssertionExportError";
 
 interface MissingPreviewRendererExportErrorDetails {
   readonly errorName: MissingPreviewRendererExportErrorName;

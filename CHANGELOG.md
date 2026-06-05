@@ -134,6 +134,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   drifts from stored snapshots, with documented custom snapshot source usage
   (R-06, #2358).
 
+- `test(review-engine)`: add RED coverage requiring wrapper theme drift
+  assertions to fail and name the affected preview theme (R-06, #2359).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
