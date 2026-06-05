@@ -94,6 +94,9 @@ const ExplicitAnyTypePositionPattern = new RegExp(
   ExplicitAnyTypePositionPatternFragments.join("|"),
   "u",
 );
+const UnknownTypeAssertionPattern = /(?:\b[\w$]+|[)\]])\s+as\s+unknown\b/u;
+const TypeScriptCommentExpression = /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu;
+const TypeScriptQuotedStringExpression = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu;
 
 const ForbiddenTypeScriptTypePositionEscapeHatchExpressions: readonly ForbiddenTypeScriptEscapeHatchExpression[] =
   [
@@ -103,7 +106,7 @@ const ForbiddenTypeScriptTypePositionEscapeHatchExpressions: readonly ForbiddenT
     },
     {
       label: "as unknown",
-      pattern: /\bas\s+unknown\b/u,
+      pattern: UnknownTypeAssertionPattern,
     },
   ];
 
@@ -352,6 +355,7 @@ describe("@sovri/review-engine scaffold", () => {
         // type Unsafe = any;
         const previewCopy = "render any markdown payload";
         const summary = "Record<string, any> appears in docs";
+        const unknownSummary = "value as unknown to the system";
         const directiveSnippet = "// @ts-ignore";
         const templateDirectiveSnippet = \`markdown mentions @ts-expect-error\`;
       `),
@@ -369,6 +373,7 @@ describe("@sovri/review-engine scaffold", () => {
         const arrayValues: any[] = [];
         const templateCast = \`\${value as any}\`;
         const templateUrlCast = \`https://example.test/\${value as any}\`;
+        const templateQuotedBraceCast = \`\${"}" && (value as any)}\`;
         const templateUnknown = \`\${value as unknown as string}\`;
       `),
     ).toEqual(["any", "as unknown"]);
@@ -457,16 +462,13 @@ function collectForbiddenTypeScriptExpressionLabels(
 
 function stripTypeScriptCommentsAndStrings(content: string): string {
   return stripTypeScriptStringsAndTemplateStaticText(content).replace(
-    /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu,
+    TypeScriptCommentExpression,
     "",
   );
 }
 
 function stripTypeScriptStringsAndTemplateStaticText(content: string): string {
-  return stripTemplateLiteralStaticText(content).replace(
-    /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu,
-    "",
-  );
+  return stripTemplateLiteralStaticText(content).replace(TypeScriptQuotedStringExpression, "");
 }
 
 interface TemplateLiteralExpressionContent {
@@ -504,7 +506,7 @@ function stripTemplateLiteralStaticText(content: string): string {
 
       if (templateCharacter === "$" && content[index + 1] === "{") {
         const expression = readTemplateLiteralExpressionContent(content, index + 2);
-        strippedContent += expression.content;
+        strippedContent += stripTemplateLiteralStaticText(expression.content);
         index = expression.nextIndex;
         continue;
       }
@@ -526,6 +528,13 @@ function readTemplateLiteralExpressionContent(
 
   while (index < content.length) {
     const character = content[index];
+
+    if (character === '"' || character === "'" || character === "`") {
+      const stringContent = readQuotedStringContent(content, index, character);
+      expressionContent += stringContent.content;
+      index = stringContent.nextIndex;
+      continue;
+    }
 
     if (character === "\\") {
       expressionContent += content.slice(index, index + 2);
@@ -557,6 +566,34 @@ function readTemplateLiteralExpressionContent(
   }
 
   return { content: expressionContent, nextIndex: content.length };
+}
+
+function readQuotedStringContent(
+  content: string,
+  startIndex: number,
+  quoteCharacter: string,
+): TemplateLiteralExpressionContent {
+  let index = startIndex + 1;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character === "\\") {
+      index += 2;
+      continue;
+    }
+
+    if (character === quoteCharacter) {
+      return {
+        content: content.slice(startIndex, index + 1),
+        nextIndex: index + 1,
+      };
+    }
+
+    index += 1;
+  }
+
+  return { content: content.slice(startIndex), nextIndex: content.length };
 }
 
 function isDefinedString(value: string | undefined): value is string {
