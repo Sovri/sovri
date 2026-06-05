@@ -249,6 +249,7 @@ describe("preview markdown golden fixtures", () => {
   it("passes golden validation without snapshot updates for unmodified fixtures", () => {
     // Given all four preview fixtures match their stored golden markdown
     const validateGoldenMarkdownSnapshots = getValidatePreviewGoldenMarkdownSnapshots();
+    const assertGoldenMarkdownSnapshots = getAssertPreviewGoldenMarkdownSnapshots();
 
     // When render-preview.test.ts runs
     const result = validateGoldenMarkdownSnapshots(PreviewGoldenCases);
@@ -257,6 +258,8 @@ describe("preview markdown golden fixtures", () => {
     expect(result.ok).toBe(true);
     // And no snapshot update is required
     expect(result.requiredSnapshotUpdates).toEqual([]);
+    // And real catalog drift would fail through the assertion path with named golden files
+    expect(() => assertGoldenMarkdownSnapshots(PreviewGoldenCases)).not.toThrow();
   });
 
   it.each(PreviewGoldenCases)(

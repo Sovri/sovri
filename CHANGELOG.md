@@ -127,7 +127,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `test(review-engine)`: add RED coverage requiring markdown golden snapshot
   drift assertions to fail and name the affected golden file for every preview
-  fixture shape (R-06, #2358).
+  fixture shape and the real unmodified preview catalog path (R-06, #2358).
 
 - `feat(review-engine)`: add a preview golden markdown assertion helper that
   throws with the affected golden snapshot file names when generated markdown
