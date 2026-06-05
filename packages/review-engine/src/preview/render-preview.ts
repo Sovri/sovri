@@ -136,6 +136,11 @@ export interface PreviewMarkdownPayloadValidationResult {
   readonly forbiddenFragments: readonly string[];
 }
 
+export interface PreviewGoldenMarkdownValidationResult {
+  readonly ok: boolean;
+  readonly requiredSnapshotUpdates: readonly string[];
+}
+
 export interface PreviewDeterminismValidationResult {
   readonly ok: boolean;
   readonly volatileFragments: readonly string[];
@@ -205,6 +210,21 @@ export function validatePreviewFixtureCatalog(
   return {
     ok: missingGoldenFiles.length === 0,
     missingGoldenFiles,
+  };
+}
+
+export function validatePreviewGoldenMarkdownSnapshots(
+  catalog: readonly unknown[],
+): PreviewGoldenMarkdownValidationResult {
+  const requiredSnapshotUpdates = PreviewFixtureCatalogSchema.parse(catalog)
+    .filter(
+      (entry) => renderPreviewFixtureMarkdown(entry.fixture) !== loadGoldenFixture(entry.golden),
+    )
+    .map((entry) => entry.golden);
+
+  return {
+    ok: requiredSnapshotUpdates.length === 0,
+    requiredSnapshotUpdates,
   };
 }
 
@@ -346,4 +366,8 @@ function loadPreviewFixture(fixtureName: string): PreviewFixture {
 
 function loadTextFixture(name: string): string {
   return readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8");
+}
+
+function loadGoldenFixture(name: string): string {
+  return loadTextFixture(name).trimEnd();
 }
