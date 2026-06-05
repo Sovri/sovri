@@ -350,6 +350,8 @@ describe("@sovri/review-engine scaffold", () => {
         // type Unsafe = any;
         const previewCopy = "render any markdown payload";
         const summary = "Record<string, any> appears in docs";
+        const directiveSnippet = "// @ts-ignore";
+        const templateDirectiveSnippet = \`markdown mentions @ts-expect-error\`;
       `),
     ).toEqual([]);
 
@@ -431,12 +433,13 @@ function collectForbiddenCommonJsExpressions(content: string): readonly string[]
 
 function collectForbiddenTypeScriptEscapeHatches(content: string): readonly string[] {
   const typePositionContent = stripTypeScriptCommentsAndStrings(content);
+  const directiveContent = stripTypeScriptStringsAndTemplateStaticText(content);
   const typePositionMatches = collectForbiddenTypeScriptExpressionLabels(
     typePositionContent,
     ForbiddenTypeScriptTypePositionEscapeHatchExpressions,
   );
   const directiveMatches = collectForbiddenTypeScriptExpressionLabels(
-    content,
+    directiveContent,
     ForbiddenTypeScriptDirectiveEscapeHatchExpressions,
   );
 
@@ -451,10 +454,15 @@ function collectForbiddenTypeScriptExpressionLabels(
 }
 
 function stripTypeScriptCommentsAndStrings(content: string): string {
-  const contentWithoutTemplateStaticText = stripTemplateLiteralStaticText(content);
+  return stripTypeScriptStringsAndTemplateStaticText(content).replace(
+    /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu,
+    "",
+  );
+}
 
-  return contentWithoutTemplateStaticText.replace(
-    /\/\/[^\n\r]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu,
+function stripTypeScriptStringsAndTemplateStaticText(content: string): string {
+  return stripTemplateLiteralStaticText(content).replace(
+    /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu,
     "",
   );
 }
