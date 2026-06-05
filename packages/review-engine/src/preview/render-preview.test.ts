@@ -55,6 +55,11 @@ interface PreviewFixtureAnonymizationValidationResult {
   readonly violations: readonly PreviewFixtureAnonymizationViolation[];
 }
 
+interface PreviewRenderedOutputValidationResult {
+  readonly ok: boolean;
+  readonly forbiddenFragments: readonly string[];
+}
+
 type RenderPreviewHtml = (request: PreviewHtmlRequest) => string;
 type ParsePreviewFixture = (fixture: unknown) => PreviewFixture;
 type ParsePreviewFixtureJson = (fixtureJson: string) => PreviewFixture;
@@ -68,6 +73,9 @@ type ValidatePreviewFixtureAnonymization = (
   fixtureName: string,
   fixture: unknown,
 ) => PreviewFixtureAnonymizationValidationResult;
+type ValidatePreviewRenderedOutput = (
+  renderedPreview: string,
+) => PreviewRenderedOutputValidationResult;
 type AssertPreviewDevOnlySurface = (publicExportNames: readonly string[]) => void;
 
 interface PreviewThemeRootValidationResult {
@@ -733,6 +741,28 @@ describe("preview HTML theme wrapper", () => {
     // And the rendered markdown payload remains unchanged
     expect(serializeMarkdownPayload(sections)).toBe(markdownPayload);
   });
+
+  it("keeps generated light and dark outputs free of tokens and raw webhook payloads", () => {
+    // Given the fixture catalog uses only placeholder identity data
+    const sections = buildPreviewPayloadSections();
+    const validateRenderedOutput = getValidatePreviewRenderedOutput();
+
+    for (const theme of ["light", "dark"] satisfies readonly PreviewTheme[]) {
+      // When the preview script writes both theme outputs
+      const html = getRenderPreviewHtml()({ sections, theme });
+      const result = validateRenderedOutput(html);
+
+      // Then no output contains "ghp_"
+      expect(html).not.toContain("ghp_");
+      // And no output contains "sk-ant-"
+      expect(html).not.toContain("sk-ant-");
+      // And no output contains "x-hub-signature-256"
+      expect(html).not.toContain("x-hub-signature-256");
+      // And no output contains a raw GitHub webhook payload body
+      expect(result.ok).toBe(true);
+      expect(result.forbiddenFragments).toEqual([]);
+    }
+  });
 });
 
 function loadTextFixture(name: string): string {
@@ -927,6 +957,26 @@ function hasValidatePreviewFixtureAnonymization(module: object): module is {
   return (
     "validatePreviewFixtureAnonymization" in module &&
     typeof module.validatePreviewFixtureAnonymization === "function"
+  );
+}
+
+function getValidatePreviewRenderedOutput(): ValidatePreviewRenderedOutput {
+  if (!hasValidatePreviewRenderedOutput(RenderPreviewModule)) {
+    throw missingPreviewRendererExportError(
+      "MissingPreviewRenderedOutputValidatorError",
+      "validatePreviewRenderedOutput",
+    );
+  }
+
+  return RenderPreviewModule.validatePreviewRenderedOutput;
+}
+
+function hasValidatePreviewRenderedOutput(module: object): module is {
+  readonly validatePreviewRenderedOutput: ValidatePreviewRenderedOutput;
+} {
+  return (
+    "validatePreviewRenderedOutput" in module &&
+    typeof module.validatePreviewRenderedOutput === "function"
   );
 }
 
