@@ -40,6 +40,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(review-engine)`: add explicit preview HTML coverage proving light and
   dark renders differ only by the root theme class replacement (R-02, #2346).
 
+- `test(review-engine)`: add RED coverage requiring theme-root validation to
+  reject wrappers carrying both `gh-light` and `gh-dark` (R-02, #2347).
+
 - `feat(review-engine)`: add the initial dev-only preview markdown fixture
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).
