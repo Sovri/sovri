@@ -95,7 +95,7 @@ const PreviewFixtureSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
-type PreviewFixture = z.infer<typeof PreviewFixtureSchema>;
+export type PreviewFixture = z.infer<typeof PreviewFixtureSchema>;
 
 const PreviewFixtureCatalogEntrySchema = z
   .object({
@@ -247,6 +247,16 @@ export function renderPreviewFixtureMarkdownTwice(fixtureName: string): readonly
   const secondMarkdown = renderPreviewFixture(fixture);
 
   return [firstMarkdown, secondMarkdown];
+}
+
+export function parsePreviewFixture(fixture: unknown): PreviewFixture {
+  return PreviewFixtureSchema.parse(fixture);
+}
+
+export function parsePreviewFixtureJson(fixtureJson: string): PreviewFixture {
+  const parsedFixture: unknown = JSON.parse(fixtureJson);
+
+  return parsePreviewFixture(parsedFixture);
 }
 
 export function validatePreviewFixtureCatalog(
@@ -496,7 +506,7 @@ function escapeHtml(value: string): string {
 }
 
 function loadPreviewFixture(fixtureName: string): PreviewFixture {
-  return PreviewFixtureSchema.parse(JSON.parse(loadTextFixture(fixtureName)));
+  return parsePreviewFixtureJson(loadTextFixture(fixtureName));
 }
 
 function loadTextFixture(name: string): string {
