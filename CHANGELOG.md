@@ -160,6 +160,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(review-engine)`: make the preview-output scaffold assertion inspect the
   real package export map instead of an empty fallback (R-07, #2361).
 
+- `test(review-engine)`: add RED coverage requiring the dev-only preview
+  surface assertion to reject public package exports of `renderPreviewHtml`
+  (R-07, #2362).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).
