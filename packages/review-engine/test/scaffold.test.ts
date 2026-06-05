@@ -475,6 +475,10 @@ interface TemplateLiteralExpressionContent {
   readonly nextIndex: number;
 }
 
+/**
+ * Drops static template prose while preserving interpolation expressions so the
+ * scanner still catches forbidden TypeScript inside `${...}` blocks.
+ */
 function stripTemplateLiteralStaticText(content: string): string {
   let strippedContent = "";
   let index = 0;
@@ -496,6 +500,11 @@ function stripTemplateLiteralStaticText(content: string): string {
   return strippedContent;
 }
 
+/**
+ * Reads one template literal body and returns only nested interpolation source.
+ * Nested templates are stripped recursively so static prose never reaches the
+ * type-position scanner.
+ */
 function readTemplateLiteralRetainedContent(
   content: string,
   startIndex: number,
@@ -528,14 +537,20 @@ function readTemplateLiteralRetainedContent(
   return { content: retainedContent, nextIndex: content.length };
 }
 
+/** Detects the start of a `${...}` interpolation inside a template literal. */
 function isTemplateInterpolationStart(content: string, index: number): boolean {
   return content[index] === "$" && content[index + 1] === "{";
 }
 
+/** Advances over an escaped byte pair while scanning TypeScript-like text. */
 function skipEscapedCharacter(index: number): number {
   return index + 2;
 }
 
+/**
+ * Reads an interpolation expression until its matching closing brace, ignoring
+ * braces that appear inside quoted strings or nested expression blocks.
+ */
 function readTemplateLiteralExpressionContent(
   content: string,
   startIndex: number,
@@ -586,6 +601,7 @@ function readTemplateLiteralExpressionContent(
   return { content: expressionContent, nextIndex: content.length };
 }
 
+/** Reads a quoted string without interpreting braces inside it as syntax. */
 function readQuotedStringContent(
   content: string,
   startIndex: number,
