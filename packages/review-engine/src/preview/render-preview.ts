@@ -253,6 +253,9 @@ export function matchesPreviewGoldenSnapshotBytes(
   return renderedMarkdown === storedGoldenMarkdown;
 }
 
+export type ValidatePreviewGoldenMarkdownSnapshots = typeof validatePreviewGoldenMarkdownSnapshots;
+export type MatchesPreviewGoldenSnapshotBytes = typeof matchesPreviewGoldenSnapshotBytes;
+
 export function buildPreviewFixtureSections(
   catalog: readonly unknown[],
   fixtureFileNames: readonly unknown[],
