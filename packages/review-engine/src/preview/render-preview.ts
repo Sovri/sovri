@@ -151,6 +151,12 @@ export interface PreviewGoldenMarkdownValidationResult {
 
 /**
  * Supplies rendered fixture markdown and stored golden bytes to snapshot validation.
+ *
+ * @example
+ * const source: PreviewGoldenMarkdownSnapshotSource = {
+ *   renderFixtureMarkdown: (fixtureName) => renderedFixtures.get(fixtureName) ?? "",
+ *   loadGoldenMarkdown: (goldenName) => storedGoldens.get(goldenName) ?? "",
+ * };
  */
 export interface PreviewGoldenMarkdownSnapshotSource {
   readonly renderFixtureMarkdown: (fixtureName: string) => string;

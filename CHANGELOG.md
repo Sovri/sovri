@@ -131,7 +131,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(review-engine)`: add a preview golden markdown assertion helper that
   throws with the affected golden snapshot file names when generated markdown
-  drifts from stored snapshots (R-06, #2358).
+  drifts from stored snapshots, with documented custom snapshot source usage
+  (R-06, #2358).
 
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
