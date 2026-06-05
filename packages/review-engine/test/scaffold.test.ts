@@ -94,7 +94,7 @@ const ExplicitAnyTypePositionPattern = new RegExp(
   ExplicitAnyTypePositionPatternFragments.join("|"),
   "u",
 );
-const UnknownTypeAssertionPattern = /(?:\b[\w$]+|[)\]])\s+as\s+unknown\b/u;
+const UnknownTypeAssertionPattern = /(?:\b[\w$]+|[)\]}])\s+as\s+unknown\b/u;
 const TypeScriptCommentExpression = /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu;
 const TypeScriptQuotedStringExpression = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu;
 
@@ -375,6 +375,7 @@ describe("@sovri/review-engine scaffold", () => {
         const templateUrlCast = \`https://example.test/\${value as any}\`;
         const templateQuotedBraceCast = \`\${"}" && (value as any)}\`;
         const templateUnknown = \`\${value as unknown as string}\`;
+        const objectLiteralUnknown = ({ payload } as unknown as PreviewValue);
       `),
     ).toEqual(["any", "as unknown"]);
   });

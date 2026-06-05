@@ -101,7 +101,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   type positions while preserving template URL interpolations before comment
   stripping, keeping directive scans out of preview prose, and naming pattern
   fragments and capture groups for maintainability; quoted braces inside
-  template interpolations no longer hide escape hatches (R-08, #2365).
+  template interpolations and object-literal `as unknown` casts no longer hide
+  escape hatches (R-08, #2365).
 
 - `feat(review-engine)`: expose Zod-derived preview fixture parsers for raw JSON
   text and parsed fixture values, and route preview fixture loading through that
