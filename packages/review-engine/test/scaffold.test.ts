@@ -77,11 +77,27 @@ const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
   },
 ];
 
+const ExplicitAnyTypePositionPatternFragments: readonly string[] = [
+  // Type annotations: const value: any
+  String.raw`:\s*any\b`,
+  // Type assertions: value as any
+  String.raw`\bas\s+any\b`,
+  // Alias, generic, union, intersection, and tuple positions.
+  String.raw`(?:[=<,|&]|\[)\s*any\b`,
+  // Array types: any[]
+  String.raw`\bany\s*\[\]`,
+];
+
+const ExplicitAnyTypePositionPattern = new RegExp(
+  ExplicitAnyTypePositionPatternFragments.join("|"),
+  "u",
+);
+
 const ForbiddenTypeScriptTypePositionEscapeHatchExpressions: readonly ForbiddenTypeScriptEscapeHatchExpression[] =
   [
     {
       label: "any",
-      pattern: /(?::\s*any\b|\bas\s+any\b|(?:[=<,|&]|\[)\s*any\b|\bany\s*\[\])/u,
+      pattern: ExplicitAnyTypePositionPattern,
     },
     {
       label: "as unknown",

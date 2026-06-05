@@ -99,7 +99,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `fix(review-engine)`: detect explicit `any` in preview union and intersection
   type positions while preserving template URL interpolations before comment
-  stripping (R-08, #2365).
+  stripping, with named pattern fragments for maintainability (R-08, #2365).
 
 - `feat(review-engine)`: expose Zod-derived preview fixture parsers for raw JSON
   text and parsed fixture values, and route preview fixture loading through that
