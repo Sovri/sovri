@@ -277,6 +277,22 @@ describe("preview markdown golden fixtures", () => {
     expect(matchesSnapshotBytes("## Approve", "## Approve \n")).toBe(false);
   });
 
+  it("names missing golden snapshot helper exports with typed errors", () => {
+    const missingValidatorError = new MissingPreviewGoldenMarkdownValidatorError();
+    const missingMatcherError = new MissingPreviewGoldenSnapshotMatcherError();
+
+    expect(missingValidatorError).toBeInstanceOf(Error);
+    expect(missingValidatorError.name).toBe("MissingPreviewGoldenMarkdownValidatorError");
+    expect(missingValidatorError.message).toBe(
+      "validatePreviewGoldenMarkdownSnapshots export is missing from the preview renderer",
+    );
+    expect(missingMatcherError).toBeInstanceOf(Error);
+    expect(missingMatcherError.name).toBe("MissingPreviewGoldenSnapshotMatcherError");
+    expect(missingMatcherError.message).toBe(
+      "matchesPreviewGoldenSnapshotBytes export is missing from the preview renderer",
+    );
+  });
+
   it("rejects a fixture catalog when a stored markdown snapshot is missing", () => {
     // Given the fixture catalog contains the four required review comment shapes
     // And the stored markdown snapshots omit "assessment.golden.md"

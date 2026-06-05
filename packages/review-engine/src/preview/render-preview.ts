@@ -136,6 +136,11 @@ export interface PreviewMarkdownPayloadValidationResult {
   readonly forbiddenFragments: readonly string[];
 }
 
+/**
+ * Reports whether preview fixture markdown still matches its stored golden snapshots.
+ *
+ * `requiredSnapshotUpdates` contains golden fixture file names whose stored bytes differ.
+ */
 export interface PreviewGoldenMarkdownValidationResult {
   readonly ok: boolean;
   readonly requiredSnapshotUpdates: readonly string[];
