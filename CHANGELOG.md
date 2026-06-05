@@ -57,6 +57,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(review-engine)`: add RED coverage requiring each preview fixture to
   render twice in the same process with identical markdown bytes (R-04, #2351).
 
+- `test(review-engine)`: add RED coverage requiring preview section generation
+  to preserve the explicit catalog order regardless of reverse filesystem
+  ordering (R-04, #2352).
+
 - `feat(review-engine)`: add the initial dev-only preview markdown fixture
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).
