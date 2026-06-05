@@ -270,9 +270,9 @@ describe("preview markdown golden fixtures", () => {
   it("preserves trailing bytes when comparing golden markdown snapshots", () => {
     const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
 
-    expect(matchesSnapshotBytes("## Approve", "## Approve\n")).toBe(true);
+    expect(matchesSnapshotBytes("## Approve", "## Approve\n")).toBe(false);
     expect(matchesSnapshotBytes("## Approve\n", "## Approve\n")).toBe(true);
-    expect(matchesSnapshotBytes("## Approve", "## Approve")).toBe(false);
+    expect(matchesSnapshotBytes("## Approve", "## Approve")).toBe(true);
     expect(matchesSnapshotBytes("## Approve", "## Approve\n\n")).toBe(false);
     expect(matchesSnapshotBytes("## Approve", "## Approve \n")).toBe(false);
   });
@@ -610,7 +610,7 @@ describe("preview HTML theme wrapper", () => {
 });
 
 function loadTextFixture(name: string): string {
-  return readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8").trimEnd();
+  return readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8");
 }
 
 function getRenderPreviewHtml(): RenderPreviewHtml {

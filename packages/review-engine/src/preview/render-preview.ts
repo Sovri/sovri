@@ -191,7 +191,7 @@ class UnexpectedInlinePreviewCountError extends Error {
 export function renderPreviewFixtureMarkdown(fixtureName: string): string {
   const fixture = loadPreviewFixture(fixtureName);
 
-  return renderPreviewFixture(fixture);
+  return ensureFinalNewline(renderPreviewFixture(fixture));
 }
 
 export function renderPreviewFixtureMarkdownTwice(fixtureName: string): readonly [string, string] {
@@ -241,11 +241,7 @@ export function matchesPreviewGoldenSnapshotBytes(
   renderedMarkdown: string,
   storedGoldenMarkdown: string,
 ): boolean {
-  const renderedSnapshotBytes = renderedMarkdown.endsWith("\n")
-    ? renderedMarkdown
-    : `${renderedMarkdown}\n`;
-
-  return renderedSnapshotBytes === storedGoldenMarkdown;
+  return renderedMarkdown === storedGoldenMarkdown;
 }
 
 export function buildPreviewFixtureSections(
@@ -323,6 +319,10 @@ function renderPreviewFixture(fixture: PreviewFixture): string {
     case "provenance":
       return renderProvenancePreview(fixture);
   }
+}
+
+function ensureFinalNewline(markdown: string): string {
+  return markdown.endsWith("\n") ? markdown : `${markdown}\n`;
 }
 
 function renderPreviewStylesheet(): string {
