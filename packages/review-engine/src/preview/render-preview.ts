@@ -221,6 +221,12 @@ export function validatePreviewFixtureCatalog(
   };
 }
 
+/**
+ * Validate that every preview catalog entry renders to the same bytes as its stored golden markdown.
+ *
+ * @param catalog - Preview fixture catalog entries to render and compare.
+ * @returns A validation result containing golden file names that need snapshot updates.
+ */
 export function validatePreviewGoldenMarkdownSnapshots(
   catalog: readonly unknown[],
 ): PreviewGoldenMarkdownValidationResult {
