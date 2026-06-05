@@ -136,6 +136,11 @@ export interface PreviewMarkdownPayloadValidationResult {
   readonly forbiddenFragments: readonly string[];
 }
 
+export interface PreviewRenderedOutputValidationResult {
+  readonly ok: boolean;
+  readonly forbiddenFragments: readonly string[];
+}
+
 /**
  * Reports whether preview fixture markdown still matches its stored golden snapshots.
  *
@@ -194,6 +199,31 @@ export const PreviewMarkdownForbiddenFragments: readonly string[] = [
 
 const PreviewVolatileFragments: readonly string[] = ["generated_at"];
 const PreviewDevOnlyPublicExportName = "renderPreviewHtml";
+const PreviewRenderedOutputForbiddenExpressions: readonly PreviewRenderedOutputForbiddenExpression[] =
+  [
+    {
+      label: "ghp_",
+      pattern: /ghp_/u,
+    },
+    {
+      label: "sk-ant-",
+      pattern: /sk-ant-/u,
+    },
+    {
+      label: "x-hub-signature-256",
+      pattern: /x-hub-signature-256/iu,
+    },
+    {
+      label: "raw GitHub webhook payload body",
+      pattern:
+        /(?=.*(?:"|&quot;)action(?:"|&quot;)\s*:)(?=.*(?:"|&quot;)pull_request(?:"|&quot;)\s*:)(?=.*(?:"|&quot;)repository(?:"|&quot;)\s*:)(?=.*(?:"|&quot;)sender(?:"|&quot;)\s*:)/su,
+    },
+  ];
+
+interface PreviewRenderedOutputForbiddenExpression {
+  readonly label: string;
+  readonly pattern: RegExp;
+}
 
 class UnexpectedInlinePreviewCountError extends Error {
   public override readonly name = "UnexpectedInlinePreviewCountError";
@@ -422,6 +452,19 @@ export function validatePreviewMarkdownPayload(
 ): PreviewMarkdownPayloadValidationResult {
   const forbiddenFragments = PreviewMarkdownForbiddenFragments.filter((fragment) =>
     markdown.includes(fragment),
+  );
+
+  return {
+    ok: forbiddenFragments.length === 0,
+    forbiddenFragments,
+  };
+}
+
+export function validatePreviewRenderedOutput(
+  renderedPreview: string,
+): PreviewRenderedOutputValidationResult {
+  const forbiddenFragments = PreviewRenderedOutputForbiddenExpressions.flatMap(
+    ({ label, pattern }) => (pattern.test(renderedPreview) ? [label] : []),
   );
 
   return {

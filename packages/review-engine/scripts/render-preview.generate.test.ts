@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPreviewFixtureSections,
   renderPreviewHtml,
+  validatePreviewRenderedOutput,
   type PreviewHtmlTheme,
 } from "../src/preview/render-preview.js";
 
@@ -73,8 +74,11 @@ describe("preview comments HTML generator", () => {
       writeFileSync(outputPath, ensureFinalNewline(html), "utf8");
 
       const writtenHtml = readFileSync(outputPath, "utf8");
+      const outputValidation = validatePreviewRenderedOutput(writtenHtml);
       expect(writtenHtml).toContain(`gh-${theme}`);
       expect(writtenHtml).toContain("<section>");
+      expect(outputValidation.ok).toBe(true);
+      expect(outputValidation.forbiddenFragments).toEqual([]);
     }
   });
 });

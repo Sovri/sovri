@@ -763,6 +763,27 @@ describe("preview HTML theme wrapper", () => {
       expect(result.forbiddenFragments).toEqual([]);
     }
   });
+
+  it.each([
+    { output: "token ghp_1234567890abcdef", fragment: "ghp_" },
+    { output: "key sk-ant-api03-test", fragment: "sk-ant-" },
+    { output: "header x-hub-signature-256=sha256:test", fragment: "x-hub-signature-256" },
+    {
+      output:
+        '{"action":"opened","pull_request":{"number":1},"repository":{"full_name":"example/review-target"},"sender":{"login":"test-author"}}',
+      fragment: "raw GitHub webhook payload body",
+    },
+    {
+      output:
+        "{&quot;action&quot;:&quot;opened&quot;,&quot;pull_request&quot;:{},&quot;repository&quot;:{},&quot;sender&quot;:{}}",
+      fragment: "raw GitHub webhook payload body",
+    },
+  ])("rejects rendered output containing $fragment", ({ output, fragment }) => {
+    const result = getValidatePreviewRenderedOutput()(output);
+
+    expect(result.ok).toBe(false);
+    expect(result.forbiddenFragments).toContain(fragment);
+  });
 });
 
 function loadTextFixture(name: string): string {

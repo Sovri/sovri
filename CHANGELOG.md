@@ -85,6 +85,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   text and parsed fixture values, and route preview fixture loading through that
   boundary before rendering (R-08, #2364).
 
+- `feat(review-engine)`: add rendered preview output validation for token
+  prefixes, webhook signature markers, and raw GitHub webhook payload bodies
+  before local preview HTML files are accepted (R-08, #2366).
+
 - `chore(review-engine)`: move the preview comments generator under the package
   `scripts/` source contract while preserving package-local `.preview/` output
   generation (R-08, #2363).
