@@ -52,6 +52,11 @@ interface ForbiddenCommonJsExpression {
   readonly pattern: RegExp;
 }
 
+interface ForbiddenTypeScriptEscapeHatchCase {
+  readonly forbiddenFragment: string;
+  readonly source: string;
+}
+
 const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
   {
     label: "require(",
@@ -64,6 +69,25 @@ const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
   {
     label: "exports",
     pattern: /\bexports(?:\.|\[)/u,
+  },
+];
+
+const ForbiddenTypeScriptEscapeHatchCases: readonly ForbiddenTypeScriptEscapeHatchCase[] = [
+  {
+    forbiddenFragment: "any",
+    source: "const unsafeValue: any = {};",
+  },
+  {
+    forbiddenFragment: "as unknown",
+    source: "const unsafeValue = value as unknown;",
+  },
+  {
+    forbiddenFragment: "@ts-ignore",
+    source: ["// @ts-ignore", "const ignored = value;"].join("\n"),
+  },
+  {
+    forbiddenFragment: "@ts-expect-error",
+    source: ["// @ts-expect-error", "const expectedError = value;"].join("\n"),
   },
 ];
 
@@ -255,6 +279,20 @@ describe("@sovri/review-engine scaffold", () => {
       `),
     ).toEqual(["require(", "module.exports", "exports"]);
   });
+
+  it.each(ForbiddenTypeScriptEscapeHatchCases)(
+    "fails preview quality gate for $forbiddenFragment",
+    ({ forbiddenFragment, source }) => {
+      // Given a new preview source file contains "<forbiddenFragment>"
+      // When the quality gate runs
+      const violations = collectForbiddenTypeScriptEscapeHatches(source);
+
+      // Then validation fails
+      expect(violations).not.toEqual([]);
+      // And the failure names "<forbiddenFragment>"
+      expect(violations).toContain(forbiddenFragment);
+    },
+  );
 
   it("keeps the deferred ingestion format out of production source", () => {
     const deferredToken = ["sa", "rif"].join("");
