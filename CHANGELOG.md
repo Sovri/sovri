@@ -50,6 +50,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(review-engine)`: add RED coverage requiring stored preview markdown
   snapshots to validate free of CSS-only wrapper fragments (R-03, #2349).
 
+- `test(review-engine)`: add RED coverage requiring user-authored summary
+  fixture `<style>` tags to render as inert markdown while the HTML wrapper
+  keeps a single trusted style element (R-03, #2350).
+
 - `feat(review-engine)`: add the initial dev-only preview markdown fixture
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).

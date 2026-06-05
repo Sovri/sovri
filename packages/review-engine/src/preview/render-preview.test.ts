@@ -179,6 +179,29 @@ describe("preview markdown golden fixtures", () => {
     expect(result.ok).toBe(false);
     expect(result.forbiddenFragments).toEqual([".ghc", ".gh-light", ".gh-dark"]);
   });
+
+  it("keeps user-authored style tags inert in rendered summary markdown", () => {
+    // Given the summary fixture contains the finding body "<style>.ghc{display:none}</style>"
+    const fixtureText = loadTextFixture("summary.review.json");
+    expect(fixtureText).toContain('"body": "<style>.ghc{display:none}</style>"');
+
+    // When the preview harness renders markdown for the summary fixture
+    const markdown = renderPreviewFixtureMarkdown("summary.review.json");
+
+    // Then the rendered markdown contains "&lt;style&gt;.ghc{display:none}&lt;/style&gt;"
+    expect(markdown).toContain("&lt;style&gt;.ghc{display:none}&lt;/style&gt;");
+    // And the rendered markdown does not contain "<style>.ghc{display:none}</style>"
+    expect(markdown).not.toContain("<style>.ghc{display:none}</style>");
+
+    const html = getRenderPreviewHtml()({
+      sections: [{ title: "Summary", markdown }],
+      theme: "light",
+    });
+
+    // And the HTML wrapper still contains exactly one trusted style element
+    expect(countOccurrences(html, "<style>")).toBe(1);
+    expect(html).not.toContain("<style>.ghc{display:none}</style>");
+  });
 });
 
 describe("preview HTML theme wrapper", () => {
