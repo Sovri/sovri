@@ -27,6 +27,13 @@ interface PreviewHtmlRequest {
 
 type RenderPreviewHtml = (request: PreviewHtmlRequest) => string;
 
+interface PreviewThemeRootValidationResult {
+  readonly ok: boolean;
+  readonly error?: string;
+}
+
+type ValidatePreviewThemeRoot = (rootClasses: string) => PreviewThemeRootValidationResult;
+
 interface PreviewThemeCase {
   readonly theme: PreviewTheme;
   readonly themeClass: string;
@@ -171,6 +178,19 @@ describe("preview HTML theme wrapper", () => {
       [...normalizedLightHtml].findIndex((character, index) => character !== darkHtml[index]),
     ).toBe(-1);
   });
+
+  it("rejects a root carrying both light and dark theme classes", () => {
+    // Given a rendered preview root has classes "ghc gh-light gh-dark"
+    const rootClasses = "ghc gh-light gh-dark";
+
+    // When the theme wrapper assertion runs
+    const result = getValidatePreviewThemeRoot()(rootClasses);
+
+    // Then validation fails
+    expect(result.ok).toBe(false);
+    // And the failure names "theme root"
+    expect(result.error).toContain("theme root");
+  });
 });
 
 function loadTextFixture(name: string): string {
@@ -189,6 +209,22 @@ function hasRenderPreviewHtml(
   module: object,
 ): module is { readonly renderPreviewHtml: RenderPreviewHtml } {
   return "renderPreviewHtml" in module && typeof module.renderPreviewHtml === "function";
+}
+
+function getValidatePreviewThemeRoot(): ValidatePreviewThemeRoot {
+  if (!hasValidatePreviewThemeRoot(RenderPreviewModule)) {
+    throw new MissingPreviewThemeRootValidatorError();
+  }
+
+  return RenderPreviewModule.validatePreviewThemeRoot;
+}
+
+function hasValidatePreviewThemeRoot(
+  module: object,
+): module is { readonly validatePreviewThemeRoot: ValidatePreviewThemeRoot } {
+  return (
+    "validatePreviewThemeRoot" in module && typeof module.validatePreviewThemeRoot === "function"
+  );
 }
 
 function extractRootClasses(html: string): ReadonlySet<string> {
@@ -214,5 +250,13 @@ class MissingPreviewRootClassError extends Error {
 
   public constructor() {
     super("preview HTML root element is missing a class attribute");
+  }
+}
+
+class MissingPreviewThemeRootValidatorError extends Error {
+  public override readonly name = "MissingPreviewThemeRootValidatorError";
+
+  public constructor() {
+    super("validatePreviewThemeRoot export is missing from the preview renderer");
   }
 }

@@ -40,6 +40,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `test(review-engine)`: add explicit preview HTML coverage proving light and
   dark renders differ only by the root theme class replacement (R-02, #2346).
 
+- `test(review-engine)`: add RED coverage requiring theme-root validation to
+  reject wrappers carrying both `gh-light` and `gh-dark` (R-02, #2347).
+
 - `feat(review-engine)`: add the initial dev-only preview markdown fixture
   renderer and anonymized golden fixture catalog for the four review comment
   shapes (R-01, #2342).
@@ -49,6 +52,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(review-engine)`: add the initial preview HTML wrapper renderer with
   deterministic light and dark GitHub chrome root classes (R-02, #2345).
+
+- `feat(review-engine)`: add preview theme-root validation that rejects wrappers
+  carrying both GitHub chrome theme classes (R-02, #2347).
 
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
