@@ -18,6 +18,11 @@ interface PreviewGoldenCase {
   readonly golden: string;
 }
 
+interface PreviewGoldenMarkdownValidationResult {
+  readonly ok: boolean;
+  readonly requiredSnapshotUpdates: readonly string[];
+}
+
 type PreviewTheme = "light" | "dark";
 
 interface PreviewHtmlSection {
@@ -51,6 +56,9 @@ interface PreviewFixtureAnonymizationValidationResult {
 
 type RenderPreviewHtml = (request: PreviewHtmlRequest) => string;
 type RenderPreviewFixtureMarkdownTwice = (fixtureName: string) => readonly [string, string];
+type ValidatePreviewGoldenMarkdownSnapshots = (
+  catalog: readonly PreviewGoldenCase[],
+) => PreviewGoldenMarkdownValidationResult;
 type BuildPreviewFixtureSections = (
   catalog: readonly PreviewGoldenCase[],
   fixtureFileNames: readonly string[],
@@ -241,6 +249,19 @@ describe("preview markdown golden fixtures", () => {
       expect(markdown.length).toBeGreaterThan(0);
     },
   );
+
+  it("passes golden validation without snapshot updates for unmodified fixtures", () => {
+    // Given all four preview fixtures match their stored golden markdown
+    const validateGoldenMarkdownSnapshots = getValidatePreviewGoldenMarkdownSnapshots();
+
+    // When render-preview.test.ts runs
+    const result = validateGoldenMarkdownSnapshots(PreviewGoldenCases);
+
+    // Then the test suite passes
+    expect(result.ok).toBe(true);
+    // And no snapshot update is required
+    expect(result.requiredSnapshotUpdates).toEqual([]);
+  });
 
   it("rejects a fixture catalog when a stored markdown snapshot is missing", () => {
     // Given the fixture catalog contains the four required review comment shapes
@@ -593,6 +614,23 @@ function hasRenderPreviewFixtureMarkdownTwice(module: object): module is {
   );
 }
 
+function getValidatePreviewGoldenMarkdownSnapshots(): ValidatePreviewGoldenMarkdownSnapshots {
+  if (!hasValidatePreviewGoldenMarkdownSnapshots(RenderPreviewModule)) {
+    throw new MissingPreviewGoldenMarkdownValidatorError();
+  }
+
+  return RenderPreviewModule.validatePreviewGoldenMarkdownSnapshots;
+}
+
+function hasValidatePreviewGoldenMarkdownSnapshots(module: object): module is {
+  readonly validatePreviewGoldenMarkdownSnapshots: ValidatePreviewGoldenMarkdownSnapshots;
+} {
+  return (
+    "validatePreviewGoldenMarkdownSnapshots" in module &&
+    typeof module.validatePreviewGoldenMarkdownSnapshots === "function"
+  );
+}
+
 function getBuildPreviewFixtureSections(): BuildPreviewFixtureSections {
   if (!hasBuildPreviewFixtureSections(RenderPreviewModule)) {
     throw new MissingPreviewFixtureSectionBuilderError();
@@ -739,6 +777,14 @@ class MissingPreviewFixtureDeterminismRendererError extends Error {
 
   public constructor() {
     super("renderPreviewFixtureMarkdownTwice export is missing from the preview renderer");
+  }
+}
+
+class MissingPreviewGoldenMarkdownValidatorError extends Error {
+  public override readonly name = "MissingPreviewGoldenMarkdownValidatorError";
+
+  public constructor() {
+    super("validatePreviewGoldenMarkdownSnapshots export is missing from the preview renderer");
   }
 }
 
