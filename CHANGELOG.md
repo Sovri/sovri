@@ -77,6 +77,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   parsed values to pass through Zod-derived boundary validation before rendering
   (R-08, #2364).
 
+- `feat(review-engine)`: expose Zod-derived preview fixture parsers for raw JSON
+  text and parsed fixture values, and route preview fixture loading through that
+  boundary before rendering (R-08, #2364).
+
 - `chore(review-engine)`: move the preview comments generator under the package
   `scripts/` source contract while preserving package-local `.preview/` output
   generation (R-08, #2363).
