@@ -122,8 +122,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `feat(review-engine)`: add preview golden catalog validation that reports no
   required snapshot updates for unmodified preview fixtures as a
   raw byte-preserving catalog result with documented validation behavior plus
-  edge-case coverage, exported helper types, and typed helper guard coverage
-  (R-06, #2357).
+  focused edge-case coverage, exported helper types, and named helper guard
+  coverage without repeated guard error subclasses (R-06, #2357).
 
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging

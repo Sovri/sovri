@@ -257,26 +257,57 @@ describe("preview markdown golden fixtures", () => {
     expect(result.requiredSnapshotUpdates).toEqual([]);
   });
 
-  it("preserves trailing bytes when comparing golden markdown snapshots", () => {
+  it("matches empty golden markdown bytes", () => {
     const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
-    const unicodeMarkdown = "Cafe\u0301 review \u{2713}\n";
-    const longMarkdown = `${"x".repeat(8192)}\n`;
 
     expect(matchesSnapshotBytes("", "")).toBe(true);
+  });
+
+  it("detects missing final newline drift in golden markdown snapshots", () => {
+    const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
+
     expect(matchesSnapshotBytes("## Approve", "## Approve\n")).toBe(false);
+  });
+
+  it("matches exact golden markdown bytes with and without final newlines", () => {
+    const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
+
     expect(matchesSnapshotBytes("## Approve\n", "## Approve\n")).toBe(true);
     expect(matchesSnapshotBytes("## Approve", "## Approve")).toBe(true);
+  });
+
+  it("detects extra trailing whitespace drift in golden markdown snapshots", () => {
+    const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
+
     expect(matchesSnapshotBytes("## Approve", "## Approve\n\n")).toBe(false);
     expect(matchesSnapshotBytes("## Approve", "## Approve \n")).toBe(false);
+  });
+
+  it("preserves unicode golden markdown snapshot bytes", () => {
+    const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
+    const unicodeMarkdown = "Cafe\u0301 review \u{2713}\n";
+
     expect(matchesSnapshotBytes(unicodeMarkdown, unicodeMarkdown)).toBe(true);
     expect(matchesSnapshotBytes(unicodeMarkdown, "Cafe review \u{2713}\n")).toBe(false);
+  });
+
+  it("compares long golden markdown snapshot bytes", () => {
+    const matchesSnapshotBytes = getMatchesPreviewGoldenSnapshotBytes();
+    const longMarkdown = `${"x".repeat(8192)}\n`;
+
     expect(matchesSnapshotBytes(longMarkdown, longMarkdown)).toBe(true);
     expect(matchesSnapshotBytes(longMarkdown, `${longMarkdown}x`)).toBe(false);
   });
 
-  it("names missing golden snapshot helper exports with typed errors", () => {
-    const missingValidatorError = new MissingPreviewGoldenMarkdownValidatorExportError();
-    const missingMatcherError = new MissingPreviewGoldenSnapshotMatcherExportError();
+  it("names missing golden snapshot helper exports with factory errors", () => {
+    const missingValidatorError = missingPreviewRendererExportError(
+      "MissingPreviewGoldenMarkdownValidatorExportError",
+      "validatePreviewGoldenMarkdownSnapshots",
+    );
+    const missingMatcherError = missingPreviewRendererExportError(
+      "MissingPreviewGoldenSnapshotMatcherExportError",
+      "matchesPreviewGoldenSnapshotBytes",
+    );
 
     expect(missingValidatorError).toBeInstanceOf(Error);
     expect(missingValidatorError.name).toBe("MissingPreviewGoldenMarkdownValidatorExportError");
@@ -613,7 +644,7 @@ function loadTextFixture(name: string): string {
 
 function getRenderPreviewHtml(): RenderPreviewHtml {
   if (!hasRenderPreviewHtml(RenderPreviewModule)) {
-    throw new MissingPreviewHtmlRendererError();
+    throw missingPreviewRendererExportError("MissingPreviewHtmlRendererError", "renderPreviewHtml");
   }
 
   return RenderPreviewModule.renderPreviewHtml;
@@ -627,7 +658,10 @@ function hasRenderPreviewHtml(
 
 function getRenderPreviewFixtureMarkdownTwice(): RenderPreviewFixtureMarkdownTwice {
   if (!hasRenderPreviewFixtureMarkdownTwice(RenderPreviewModule)) {
-    throw new MissingPreviewFixtureDeterminismRendererError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewFixtureDeterminismRendererError",
+      "renderPreviewFixtureMarkdownTwice",
+    );
   }
 
   return RenderPreviewModule.renderPreviewFixtureMarkdownTwice;
@@ -644,7 +678,10 @@ function hasRenderPreviewFixtureMarkdownTwice(module: object): module is {
 
 function getValidatePreviewGoldenMarkdownSnapshots(): ValidatePreviewGoldenMarkdownSnapshots {
   if (!hasValidatePreviewGoldenMarkdownSnapshots(RenderPreviewModule)) {
-    throw new MissingPreviewGoldenMarkdownValidatorExportError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewGoldenMarkdownValidatorExportError",
+      "validatePreviewGoldenMarkdownSnapshots",
+    );
   }
 
   return RenderPreviewModule.validatePreviewGoldenMarkdownSnapshots;
@@ -661,7 +698,10 @@ function hasValidatePreviewGoldenMarkdownSnapshots(module: object): module is {
 
 function getMatchesPreviewGoldenSnapshotBytes(): MatchesPreviewGoldenSnapshotBytes {
   if (!hasMatchesPreviewGoldenSnapshotBytes(RenderPreviewModule)) {
-    throw new MissingPreviewGoldenSnapshotMatcherExportError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewGoldenSnapshotMatcherExportError",
+      "matchesPreviewGoldenSnapshotBytes",
+    );
   }
 
   return RenderPreviewModule.matchesPreviewGoldenSnapshotBytes;
@@ -678,7 +718,10 @@ function hasMatchesPreviewGoldenSnapshotBytes(module: object): module is {
 
 function getBuildPreviewFixtureSections(): BuildPreviewFixtureSections {
   if (!hasBuildPreviewFixtureSections(RenderPreviewModule)) {
-    throw new MissingPreviewFixtureSectionBuilderError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewFixtureSectionBuilderError",
+      "buildPreviewFixtureSections",
+    );
   }
 
   return RenderPreviewModule.buildPreviewFixtureSections;
@@ -695,7 +738,10 @@ function hasBuildPreviewFixtureSections(module: object): module is {
 
 function getValidatePreviewDeterminism(): ValidatePreviewDeterminism {
   if (!hasValidatePreviewDeterminism(RenderPreviewModule)) {
-    throw new MissingPreviewDeterminismValidatorError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewDeterminismValidatorError",
+      "validatePreviewDeterminism",
+    );
   }
 
   return RenderPreviewModule.validatePreviewDeterminism;
@@ -712,7 +758,10 @@ function hasValidatePreviewDeterminism(module: object): module is {
 
 function getValidatePreviewFixtureAnonymization(): ValidatePreviewFixtureAnonymization {
   if (!hasValidatePreviewFixtureAnonymization(RenderPreviewModule)) {
-    throw new MissingPreviewFixtureAnonymizationValidatorError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewFixtureAnonymizationValidatorError",
+      "validatePreviewFixtureAnonymization",
+    );
   }
 
   return RenderPreviewModule.validatePreviewFixtureAnonymization;
@@ -729,7 +778,10 @@ function hasValidatePreviewFixtureAnonymization(module: object): module is {
 
 function getValidatePreviewThemeRoot(): ValidatePreviewThemeRoot {
   if (!hasValidatePreviewThemeRoot(RenderPreviewModule)) {
-    throw new MissingPreviewThemeRootValidatorError();
+    throw missingPreviewRendererExportError(
+      "MissingPreviewThemeRootValidatorError",
+      "validatePreviewThemeRoot",
+    );
   }
 
   return RenderPreviewModule.validatePreviewThemeRoot;
@@ -801,18 +853,35 @@ function extractRootClasses(html: string): ReadonlySet<string> {
   return new Set(rootClassAttribute.split(/\s+/u).filter((className) => className.length > 0));
 }
 
+type MissingPreviewRendererExportErrorName =
+  | "MissingPreviewHtmlRendererError"
+  | "MissingPreviewFixtureDeterminismRendererError"
+  | "MissingPreviewGoldenMarkdownValidatorExportError"
+  | "MissingPreviewGoldenSnapshotMatcherExportError"
+  | "MissingPreviewFixtureSectionBuilderError"
+  | "MissingPreviewDeterminismValidatorError"
+  | "MissingPreviewFixtureAnonymizationValidatorError"
+  | "MissingPreviewThemeRootValidatorError";
+
+interface MissingPreviewRendererExportErrorDetails {
+  readonly errorName: MissingPreviewRendererExportErrorName;
+  readonly exportName: string;
+}
+
 class MissingPreviewRendererExportError extends Error {
-  public constructor(exportName: string) {
+  public override readonly name: MissingPreviewRendererExportErrorName;
+
+  public constructor({ errorName, exportName }: MissingPreviewRendererExportErrorDetails) {
     super(`${exportName} export is missing from the preview renderer`);
+    this.name = errorName;
   }
 }
 
-class MissingPreviewHtmlRendererError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewHtmlRendererError";
-
-  public constructor() {
-    super("renderPreviewHtml");
-  }
+function missingPreviewRendererExportError(
+  errorName: MissingPreviewRendererExportErrorName,
+  exportName: string,
+): MissingPreviewRendererExportError {
+  return new MissingPreviewRendererExportError({ errorName, exportName });
 }
 
 class MissingPreviewRootClassError extends Error {
@@ -820,62 +889,6 @@ class MissingPreviewRootClassError extends Error {
 
   public constructor() {
     super("preview HTML root element is missing a class attribute");
-  }
-}
-
-class MissingPreviewFixtureDeterminismRendererError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewFixtureDeterminismRendererError";
-
-  public constructor() {
-    super("renderPreviewFixtureMarkdownTwice");
-  }
-}
-
-class MissingPreviewGoldenMarkdownValidatorExportError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewGoldenMarkdownValidatorExportError";
-
-  public constructor() {
-    super("validatePreviewGoldenMarkdownSnapshots");
-  }
-}
-
-class MissingPreviewGoldenSnapshotMatcherExportError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewGoldenSnapshotMatcherExportError";
-
-  public constructor() {
-    super("matchesPreviewGoldenSnapshotBytes");
-  }
-}
-
-class MissingPreviewFixtureSectionBuilderError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewFixtureSectionBuilderError";
-
-  public constructor() {
-    super("buildPreviewFixtureSections");
-  }
-}
-
-class MissingPreviewDeterminismValidatorError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewDeterminismValidatorError";
-
-  public constructor() {
-    super("validatePreviewDeterminism");
-  }
-}
-
-class MissingPreviewFixtureAnonymizationValidatorError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewFixtureAnonymizationValidatorError";
-
-  public constructor() {
-    super("validatePreviewFixtureAnonymization");
-  }
-}
-
-class MissingPreviewThemeRootValidatorError extends MissingPreviewRendererExportError {
-  public override readonly name = "MissingPreviewThemeRootValidatorError";
-
-  public constructor() {
-    super("validatePreviewThemeRoot");
   }
 }
 
