@@ -134,6 +134,21 @@ const PreviewForbiddenIdentityCases: readonly PreviewForbiddenIdentityCase[] = [
     forbiddenValue: "https://github.com/mpiton/sovri",
     reason: "real repo shape",
   },
+  {
+    fixture: "inline-finding.json",
+    forbiddenValue: "Review for acme/docs",
+    reason: "real repo shape",
+  },
+  {
+    fixture: "provenance.review.json",
+    forbiddenValue: "https://github.com/acme/tests",
+    reason: "real repo shape",
+  },
+  {
+    fixture: "summary.review.json",
+    forbiddenValue: "See https://cwe.mitre.org/data/definitions/79.html before realbank/payments",
+    reason: "real repo shape",
+  },
 ];
 
 const PreviewHtmlSections: readonly PreviewHtmlSection[] = [

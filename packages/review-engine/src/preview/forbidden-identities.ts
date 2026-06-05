@@ -2,17 +2,28 @@
 // Copyright 2026 Sovri SAS
 
 /**
- * Detects secret-shaped and real repository identity strings in preview fixtures.
- * Kept separate from traversal so anonymization stays focused on JSON walking and reporting.
+ * Detects secret-shaped values and real repository identities inside preview fixtures.
+ *
+ * The fixture anonymization walker passes every collected string here. This module
+ * owns the sensitive token patterns, the allowed placeholder repository identity,
+ * and URL-aware repository scanning so the walker can stay focused on traversal
+ * and violation reporting.
  */
 interface PreviewForbiddenIdentityPattern {
   readonly reason: string;
   readonly matches: (value: string) => boolean;
 }
 
+interface PreviewUrlMatch {
+  readonly value: string;
+  readonly start: number;
+  readonly end: number;
+}
+
 export const PreviewPlaceholderRepositoryName = "example/review-target";
 
-const PreviewSourcePathOwners = new Set([
+const PreviewDiffPathOwnerSegments = new Set(["a", "b"]);
+const PreviewSourcePathOwnerSegments = new Set([
   "apps",
   "dist",
   "docs",
@@ -58,6 +69,9 @@ export function collectPreviewForbiddenIdentityReasons(value: string): readonly 
 
 function hasRealRepositoryShape(value: string): boolean {
   const searchableValue = removeNonGithubUrls(value);
+  const githubUrls = collectUrlMatches(searchableValue).filter((url) =>
+    hasGithubHostname(url.value),
+  );
 
   for (const match of searchableValue.matchAll(PreviewRepositoryIdentityCandidateExpression)) {
     const candidate = match[1];
@@ -66,16 +80,14 @@ function hasRealRepositoryShape(value: string): boolean {
       continue;
     }
 
+    const candidateStart = getRepositoryCandidateStart(match, candidate);
     const [owner, repository] = candidate.split("/");
 
-    if (owner === undefined || repository === undefined) {
+    if (candidateStart === undefined || owner === undefined || repository === undefined) {
       continue;
     }
 
-    if (
-      !PreviewSourcePathOwners.has(owner.toLowerCase()) &&
-      !PreviewSourcePathOwners.has(repository.toLowerCase())
-    ) {
+    if (!isSourcePathCandidate(owner, repository, candidateStart, githubUrls)) {
       return true;
     }
   }
@@ -83,26 +95,69 @@ function hasRealRepositoryShape(value: string): boolean {
   return false;
 }
 
+function getRepositoryCandidateStart(
+  match: RegExpMatchArray,
+  candidate: string,
+): number | undefined {
+  const matchText = match[0];
+
+  if (matchText === undefined || match.index === undefined) {
+    return undefined;
+  }
+
+  const candidateOffset = matchText.indexOf(candidate);
+
+  if (candidateOffset === -1) {
+    return undefined;
+  }
+
+  return match.index + candidateOffset;
+}
+
+function isSourcePathCandidate(
+  owner: string,
+  repository: string,
+  candidateStart: number,
+  githubUrls: readonly PreviewUrlMatch[],
+): boolean {
+  if (isInsideUrl(candidateStart, githubUrls)) {
+    return false;
+  }
+
+  const ownerSegment = owner.toLowerCase();
+
+  return (
+    PreviewSourcePathOwnerSegments.has(ownerSegment) ||
+    (PreviewDiffPathOwnerSegments.has(ownerSegment) &&
+      PreviewSourcePathOwnerSegments.has(repository.toLowerCase()))
+  );
+}
+
+function isInsideUrl(offset: number, urls: readonly PreviewUrlMatch[]): boolean {
+  return urls.some((url) => offset >= url.start && offset < url.end);
+}
+
 function removeNonGithubUrls(value: string): string {
   let searchableValue = value;
 
-  for (const url of collectUrls(value)) {
-    if (!hasGithubHostname(url)) {
-      searchableValue = searchableValue.replace(url, " ");
+  for (const url of collectUrlMatches(value).toReversed()) {
+    if (!hasGithubHostname(url.value)) {
+      const replacement = " ".repeat(url.value.length);
+      searchableValue = `${searchableValue.slice(0, url.start)}${replacement}${searchableValue.slice(url.end)}`;
     }
   }
 
   return searchableValue;
 }
 
-function collectUrls(value: string): readonly string[] {
-  const urls: string[] = [];
+function collectUrlMatches(value: string): readonly PreviewUrlMatch[] {
+  const urls: PreviewUrlMatch[] = [];
 
   for (const match of value.matchAll(PreviewUrlExpression)) {
     const url = match[0];
 
-    if (url !== undefined) {
-      urls.push(url);
+    if (url !== undefined && match.index !== undefined) {
+      urls.push({ value: url, start: match.index, end: match.index + url.length });
     }
   }
 

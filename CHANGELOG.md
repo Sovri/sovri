@@ -110,7 +110,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `feat(review-engine)`: detect and report secret-shaped and real identity
   values, including direct array entries, embedded owner/repository names, and
-  GitHub URLs, in preview fixture anonymization validation (R-05, #2355).
+  GitHub URLs, without letting local source paths mask real repository leaks, in
+  preview fixture anonymization validation (R-05, #2355).
 
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
