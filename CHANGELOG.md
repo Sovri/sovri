@@ -21,6 +21,61 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
+  with project headers, explicit ESM imports, and payload-safe failure logging
+  (R-10, #2328).
+
+- `test(bot)`: add R-10 source-contract coverage for GitHub Checks helper and
+  poster adapter headers, ESM imports, Zod-derived input typing, and
+  payload-safe logging (#2328).
+
+- `test(bot)`: add R-09 scaffold coverage requiring GitHub App manifest
+  `checks: write` while preserving narrow existing bot permissions (#2327).
+
+- `test(bot)`: add R-08 MSW coverage for GitHub Checks creation and the
+  thin-adapter descriptor contract (#2326).
+
+- `feat(bot)`: post Sovri GitHub Check runs after review posting on a
+  best-effort basis, logging `checks.create` failures without failing the
+  webhook flow (R-06, #2324).
+
+- `test(bot)`: add ATDD coverage for best-effort GitHub Checks posting when
+  `checks.create` rejects, including delivery, repository, and pull request log
+  context (R-06, #2324).
+
+- `test(bot, review-engine)`: add ATDD coverage that GitHub Check descriptor
+  titles, summaries, and posted output omit GitHub tokens, LLM keys, and raw
+  webhook payloads (R-07, #2325).
+
+- `test(review-engine)`: add ATDD coverage proving the GitHub Checks
+  license-scan row stays a neutral v1.0 placeholder and does not wire a SARIF
+  reader or license scanner command (R-05, #2323).
+
+- `feat(review-engine)`: map the `Sovri / provenance` GitHub Check
+  conclusion to `success` when a signed audit entry is attached while keeping
+  missing audit evidence neutral (R-04, #2322).
+
+- `test(review-engine)`: add ATDD coverage for the GitHub Checks provenance
+  conclusion, including successful signed audit evidence and the neutral
+  missing-audit case (R-04, #2322).
+
+- `test(review-engine)`: add ATDD coverage proving GitHub Checks descriptor
+  mapping is deterministic for identical inputs and independent of wall-clock
+  time (R-03, #2321).
+
+- `feat(review-engine)`: map the `Sovri / review` GitHub Check conclusion
+  from the validated review verdict (`approve`, `comment`,
+  `request-changes`) (R-02, #2320).
+
+- `test(review-engine)`: add ATDD coverage for GitHub Checks review
+  conclusion mapping and unknown-verdict validation (R-02, #2320).
+
+- `feat(review-engine)`: add the initial pure GitHub Checks descriptor mapper
+  returning the three stable completed Sovri status rows (R-01, #2319).
+
+- `test(review-engine)`: add ATDD coverage and the initial helper surface for
+  the three stable Sovri GitHub Checks status rows (R-01, #2319).
+
 - `test(review-engine)`: add ATDD coverage for the compliance provenance
   implementation quality contract, including Apache headers, explicit ESM
   imports, forbidden TypeScript escape-hatch and type-assertion guards,
@@ -210,6 +265,30 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-006).
 
 ### Fixed
+
+- `fix(bot, review-engine)`: address review feedback so failed reviews publish
+  failing check conclusions, signed audit provenance feeds the provenance check,
+  and missing descriptors skip best-effort checks without aborting review
+  posting (#2339).
+
+- `fix(bot)`: request GitHub App `checks: write` permission for the
+  Community bot manifest without broadening existing repository scopes (R-09,
+  #2327).
+
+- `fix(bot, review-engine)`: attach GitHub Check descriptors to review-engine
+  results and keep the bot adapter as a descriptor-posting pass-through (R-08,
+  #2326).
+
+- `fix(bot)`: derive the `Sovri / review` Check run conclusion from the
+  unreconciled review findings so already-posted blocking findings cannot be
+  hidden by reconciliation before check mapping (#2324).
+
+- `fix(review-engine)`: format the one-finding GitHub Check summary as
+  `1 finding found.` while keeping plural summaries for other counts (R-07,
+  #2325).
+
+- `test(bot)`: widen the repeated synchronize e2e fixture timeout to absorb CI
+  variance after GitHub Check run posting was added (#2324).
 
 - `fix(review-engine)`: trim optional free-text provenance fields before
   rendering and compute prompt SHA-256 digests from an unambiguous

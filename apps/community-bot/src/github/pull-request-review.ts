@@ -8,12 +8,15 @@ import {
   buildInlineComments,
   reviewPullRequest,
   type Diff,
-  type Review,
   type ReviewPullRequestOptions,
 } from "@sovri/review-engine";
 
 import { readBotLogin, splitRepoFullName } from "../commands/shared-utilities.js";
 import { postReview as postPullRequestReview } from "./comment-poster.js";
+import {
+  postCheckRuns,
+  type ReviewWithOptionalCheckRunDescriptors,
+} from "./pull-request-checks.js";
 import { fetchPostedFindings, minimizeFindingComments } from "./posted-findings.js";
 import type {
   PullRequestHandlerDependencies,
@@ -51,7 +54,8 @@ export function createPullRequestHandlerDependencies(
     logger,
     minimizeComments: (_target, nodeIds) => minimizeFindingComments(context.octokit, nodeIds),
     postErrorComment: (target, message) => postErrorComment(context, target, message),
-    postReview: (target, review, diff) => postReview(context, target, review, diff),
+    postReview: (target, review, diff, checkSourceReview) =>
+      postReview(context, target, review, diff, checkSourceReview),
     reviewPullRequest,
   };
 }
@@ -96,8 +100,9 @@ async function loadRepositoryConfig(
 async function postReview(
   context: PullRequestWebhookContext,
   target: ReviewPostTarget,
-  review: Review,
+  review: ReviewWithOptionalCheckRunDescriptors,
   diff: Diff,
+  checkSourceReview: ReviewWithOptionalCheckRunDescriptors = review,
 ): Promise<void> {
   const repo = splitRepoFullName(target.repoFullName, createPullRequestReviewAdapterError);
   await postPullRequestReview(
@@ -113,6 +118,7 @@ async function postReview(
       logger,
     },
   );
+  await postCheckRuns(context, target, checkSourceReview);
 }
 
 async function postErrorComment(
