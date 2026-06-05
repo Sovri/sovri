@@ -157,6 +157,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   previews under an ignored package-local preview directory without exporting
   generated artifacts (R-07, #2361).
 
+- `fix(review-engine)`: make the preview-output scaffold assertion inspect the
+  real package export map instead of an empty fallback (R-07, #2361).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).

@@ -54,7 +54,7 @@ function readReviewEnginePackageManifest(): ReviewEnginePackageManifest {
     throw new TypeError("Expected review-engine package manifest to be a JSON object.");
   }
 
-  const { dependencies, scripts } = manifest;
+  const { dependencies, exports: packageExports, scripts } = manifest;
 
   if (!isStringRecord(scripts)) {
     throw new TypeError("Expected review-engine package manifest scripts to be string entries.");
@@ -66,7 +66,11 @@ function readReviewEnginePackageManifest(): ReviewEnginePackageManifest {
     );
   }
 
-  return dependencies === undefined ? { scripts } : { dependencies, scripts };
+  const validatedManifest = dependencies === undefined ? { scripts } : { dependencies, scripts };
+
+  return packageExports === undefined
+    ? validatedManifest
+    : { ...validatedManifest, exports: packageExports };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
