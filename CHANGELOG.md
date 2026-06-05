@@ -129,6 +129,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   drift assertions to fail and name the affected golden file for every preview
   fixture shape (R-06, #2358).
 
+- `feat(review-engine)`: add a preview golden markdown assertion helper that
+  throws with the affected golden snapshot file names when generated markdown
+  drifts from stored snapshots (R-06, #2358).
+
 - `fix(bot)`: extract GitHub Checks posting into a dedicated source adapter
   with project headers, explicit ESM imports, and payload-safe failure logging
   (R-10, #2328).

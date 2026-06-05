@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import * as RenderPreviewModule from "./render-preview.js";
 import {
+  type AssertPreviewGoldenMarkdownSnapshots,
   PreviewMarkdownForbiddenFragments,
   type MatchesPreviewGoldenSnapshotBytes,
+  type PreviewGoldenMarkdownSnapshotSource,
   renderPreviewFixtureMarkdown,
   type ValidatePreviewGoldenMarkdownSnapshots,
   validatePreviewFixtureCatalog,
@@ -51,11 +53,6 @@ interface PreviewFixtureAnonymizationValidationResult {
   readonly violations: readonly PreviewFixtureAnonymizationViolation[];
 }
 
-interface PreviewGoldenMarkdownSnapshotSource {
-  readonly renderFixtureMarkdown: (fixtureName: string) => string;
-  readonly loadGoldenMarkdown: (goldenName: string) => string;
-}
-
 type RenderPreviewHtml = (request: PreviewHtmlRequest) => string;
 type RenderPreviewFixtureMarkdownTwice = (fixtureName: string) => readonly [string, string];
 type BuildPreviewFixtureSections = (
@@ -63,10 +60,6 @@ type BuildPreviewFixtureSections = (
   fixtureFileNames: readonly string[],
 ) => readonly PreviewHtmlSection[];
 type ValidatePreviewDeterminism = (renderedPreview: string) => PreviewDeterminismValidationResult;
-type AssertPreviewGoldenMarkdownSnapshots = (
-  catalog: readonly PreviewGoldenCase[],
-  snapshotSource?: PreviewGoldenMarkdownSnapshotSource,
-) => void;
 type ValidatePreviewFixtureAnonymization = (
   fixtureName: string,
   fixture: unknown,
