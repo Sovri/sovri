@@ -1,11 +1,11 @@
 ### Review assessment
 
-| Metric | Value |
-| --- | --- |
-| Findings | 4 |
-| Files touched | 3 |
-| Blocker + major | 1 |
+Effort: ●●●●● 5/5
+Metrics: `4 findings` · `3 files touched` · `1 blocker plus major finding`
 
-Effort: ●●●○○
-
-Severity distribution: major 1 · minor 2 · info 1
+Severity distribution:
+Total: 4 findings
+Bar: ████
+- 🔴 major: 1 finding
+- 🟡 minor: 2 findings
+- ℹ️ info: 1 finding

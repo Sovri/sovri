@@ -274,6 +274,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(review-engine)`: render preview golden snapshots from typed source
+  fixtures through the walkthrough, inline, assessment, and provenance renderers
+  instead of duplicating stored markdown lines (#2342).
+
 - `fix(bot, review-engine)`: address review feedback so failed reviews publish
   failing check conclusions, signed audit provenance feeds the provenance check,
   and missing descriptors skip best-effort checks without aborting review
