@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as RenderPreviewModule from "./render-preview.js";
 import {
   type AssertPreviewGoldenMarkdownSnapshots,
+  type AssertPreviewThemeRoot,
   PreviewMarkdownForbiddenFragments,
   type MatchesPreviewGoldenSnapshotBytes,
   type PreviewGoldenMarkdownSnapshotSource,
@@ -71,7 +72,6 @@ interface PreviewThemeRootValidationResult {
 }
 
 type ValidatePreviewThemeRoot = (rootClasses: string) => PreviewThemeRootValidationResult;
-type AssertPreviewThemeRoot = (theme: PreviewTheme, rootClasses: string) => void;
 
 interface PreviewThemeCase {
   readonly theme: PreviewTheme;
@@ -605,6 +605,8 @@ describe("preview HTML theme wrapper", () => {
       expect(rootClasses.has(themeClass)).toBe(true);
       // And the HTML root element does not have class "<otherThemeClass>"
       expect(rootClasses.has(otherThemeClass)).toBe(false);
+      // And the wrapper assertion accepts the rendered root for "<theme>"
+      expect(() => getAssertPreviewThemeRoot()(theme, [...rootClasses].join(" "))).not.toThrow();
     },
   );
 
