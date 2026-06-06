@@ -138,16 +138,25 @@ function extractMarkdownSection(source: string, heading: string, nextHeading: st
 
 function extractReleaseCandidateSections(changelog: string): string[] {
   const unreleasedSection = extractMarkdownSection(changelog, "## [Unreleased]", "##");
-  const latestReleaseHeading = findLatestReleaseHeading(changelog);
-  if (latestReleaseHeading === undefined) {
-    return [unreleasedSection];
-  }
+  const releaseSections = findReleaseHeadings(changelog).map((heading) =>
+    extractMarkdownSection(changelog, heading, "##"),
+  );
 
-  return [unreleasedSection, extractMarkdownSection(changelog, latestReleaseHeading, "##")];
+  return [unreleasedSection, ...releaseSections];
 }
 
-function findLatestReleaseHeading(changelog: string): string | undefined {
-  return /^## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}$/mu.exec(changelog)?.[0];
+// Scan every cut release, not just the most recent one. A documented entry stays valid in the
+// section where it first landed, even after later versions are promoted above it at release time.
+function findReleaseHeadings(changelog: string): string[] {
+  const headings: string[] = [];
+  for (const match of changelog.matchAll(/^## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}$/gmu)) {
+    const heading = match[0];
+    if (heading !== undefined) {
+      headings.push(heading);
+    }
+  }
+
+  return headings;
 }
 
 function findChangelogEntry(section: string, requiredFragments: readonly string[]): string {

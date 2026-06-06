@@ -470,6 +470,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `test(review-engine)`: scan every cut release section in the syntax-sanity
+  changelog scope test, not only `[Unreleased]` and the single most recent
+  release, so a documented entry stays found in the section where it first
+  landed after a later version is promoted above it at release time.
+
 - `fix(review-engine)`: recognize every URL scheme, not just HTTP(S), when
   scanning preview fixtures for real repository identities, so an `owner/repo`
   path inside an `ssh://`/`git://` URL gets the same non-GitHub exemption as its
