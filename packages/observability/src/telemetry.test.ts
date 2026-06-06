@@ -14,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 interface NodeSdkConfig {
   readonly autoDetectResources?: boolean;
+  readonly metricReaders?: readonly unknown[];
+  readonly logRecordProcessors?: readonly unknown[];
 }
 interface ExporterConfig {
   readonly url?: string;
@@ -135,6 +137,19 @@ describe("initTelemetry — starts the OTLP trace SDK when the endpoint is set (
     initTelemetry();
 
     expect(mocks.nodeSdkCtor.mock.calls.at(0)?.[0]?.autoDetectResources).toBe(false);
+  });
+
+  // Trace-only: NodeSDK must not auto-configure metric/log exporters from OTEL_METRICS_EXPORTER /
+  // OTEL_LOGS_EXPORTER (both default to OTLP when unset). Explicit empty arrays keep init traces-only.
+  it("does not start metric or log exporters", async () => {
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318");
+    const { initTelemetry } = await loadTelemetry();
+
+    initTelemetry();
+
+    const cfg = mocks.nodeSdkCtor.mock.calls.at(0)?.[0];
+    expect(cfg?.metricReaders).toEqual([]);
+    expect(cfg?.logRecordProcessors).toEqual([]);
   });
 
   // A trailing slash on the endpoint must not produce "//v1/traces".

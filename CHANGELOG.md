@@ -44,8 +44,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   exact-pinned `4.4.3`) so no secret-bearing env reaches a span or the exporter;
   NodeSDK default resource auto-detection is off (`autoDetectResources: false`) to
   keep that boundary closed, and a trailing slash on the endpoint is normalized.
-  Both public functions carry JSDoc. Additive — the `createLogger`/`Logger` surface
-  is unchanged (R-01..R-08, #2401).
+  Init is trace-only: explicit empty `metricReaders` / `logRecordProcessors` stop
+  NodeSDK auto-starting OTLP metric/log exporters from `OTEL_METRICS_EXPORTER` /
+  `OTEL_LOGS_EXPORTER` (metrics are a later task). Both public functions carry JSDoc.
+  Additive — the `createLogger`/`Logger` surface is unchanged (R-01..R-08, #2401).
 
 ### Changed
 

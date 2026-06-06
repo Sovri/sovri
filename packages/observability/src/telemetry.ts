@@ -65,6 +65,12 @@ export function initTelemetry(): void {
     // OTEL_RESOURCE_ATTRIBUTES / OTEL_NODE_RESOURCE_DETECTORS at runtime and could override the
     // service.name/version resolved above. Only the three OTEL_ vars in the schema feed the SDK.
     autoDetectResources: false,
+    // This task ships the TRACE lifecycle only (metrics are task-126). Passing explicit empty
+    // arrays stops NodeSDK from auto-configuring metric/log exporters from OTEL_METRICS_EXPORTER /
+    // OTEL_LOGS_EXPORTER (which default to OTLP when unset) — keeping init trace-only and the
+    // env boundary closed.
+    metricReaders: [],
+    logRecordProcessors: [],
     resource,
     traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
     instrumentations: [
