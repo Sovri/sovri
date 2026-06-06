@@ -21,6 +21,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.5.0] - 2026-06-06
+### Added
+
 - `test(review-engine)`: add RED coverage for the preview markdown golden
   snapshot catalog across the summary, assessment, inline finding, and
   compliance provenance shapes (R-01, #2342).
@@ -469,6 +482,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADR-006).
 
 ### Fixed
+
+- `test(review-engine)`: scan every cut release section in the syntax-sanity
+  changelog scope test, not only `[Unreleased]` and the single most recent
+  release, so a documented entry stays found in the section where it first
+  landed after a later version is promoted above it at release time.
 
 - `fix(review-engine)`: recognize every URL scheme, not just HTTP(S), when
   scanning preview fixtures for real repository identities, so an `owner/repo`
