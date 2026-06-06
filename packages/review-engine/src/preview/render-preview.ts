@@ -247,11 +247,15 @@ interface PreviewRenderedOutputForbiddenExpression {
 const RawGitHubWebhookPayloadSchema = z
   .object({
     action: z.unknown(),
-    pull_request: z.unknown(),
     repository: z.unknown(),
     sender: z.unknown(),
   })
-  .passthrough();
+  .passthrough()
+  // Recognize the webhook event shapes the bot subscribes to (pull_request and
+  // issue_comment) by their event-specific payload keys, not pull_request alone.
+  .refine((payload) => "pull_request" in payload || ("issue" in payload && "comment" in payload), {
+    message: "missing recognized GitHub webhook event payload",
+  });
 
 class UnexpectedInlinePreviewCountError extends Error {
   public override readonly name = "UnexpectedInlinePreviewCountError";
@@ -509,11 +513,31 @@ function containsRawGitHubWebhookPayloadBody(renderedPreview: string): boolean {
 
 function collectJsonObjectCandidates(value: string): readonly string[] {
   const candidates: string[] = [];
-  const candidateStarts: number[] = [];
+
+  // Extract a balanced object independently from every `{`, so a malformed
+  // prefix (such as an unclosed string) cannot desync the scan and hide a
+  // later or nested webhook payload object.
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charAt(index) !== "{") {
+      continue;
+    }
+
+    const candidate = extractBalancedJsonObject(value, index);
+
+    if (candidate !== undefined) {
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
+function extractBalancedJsonObject(value: string, start: number): string | undefined {
+  let depth = 0;
   let inString = false;
   let escaped = false;
 
-  for (let index = 0; index < value.length; index += 1) {
+  for (let index = start; index < value.length; index += 1) {
     const character = value.charAt(index);
 
     if (inString) {
@@ -528,36 +552,26 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
       continue;
     }
 
-    if (character === "{") {
-      candidateStarts.push(index);
-      continue;
-    }
-
-    // Outside any object quotes are prose, not JSON string delimiters, so only
-    // track string state once a candidate has started.
-    if (candidateStarts.length === 0) {
-      continue;
-    }
-
     if (character === '"') {
       inString = true;
       continue;
     }
 
-    if (character !== "}") {
+    if (character === "{") {
+      depth += 1;
       continue;
     }
 
-    // Emit every balanced object, including nested ones, so a webhook payload
-    // wrapped inside a larger JSON envelope is still inspected.
-    const candidateStart = candidateStarts.pop();
+    if (character === "}") {
+      depth -= 1;
 
-    if (candidateStart !== undefined) {
-      candidates.push(value.slice(candidateStart, index + 1));
+      if (depth === 0) {
+        return value.slice(start, index + 1);
+      }
     }
   }
 
-  return candidates;
+  return undefined;
 }
 
 function isRawGitHubWebhookPayloadBody(value: string): boolean {

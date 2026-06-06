@@ -462,6 +462,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   when scanning preview output, so a raw webhook payload wrapped inside a larger
   envelope is still detected (R-08, #2366).
 
+- `fix(review-engine)`: extract each preview JSON object candidate independently
+  from its opening brace, so a malformed prefix with an unclosed string can no
+  longer desync the scan and hide a later payload (R-08, #2366).
+
+- `fix(review-engine)`: recognize `issue_comment` webhook bodies (not just
+  `pull_request`) when guarding rendered preview output, matching the events the
+  bot subscribes to (R-08, #2366).
+
 - `fix(review-engine)`: render preview golden snapshots from typed source
   fixtures through the walkthrough, inline, assessment, and provenance renderers
   instead of duplicating stored markdown lines, with an explicit fixture-renderer
