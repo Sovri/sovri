@@ -77,6 +77,38 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   parsed values to pass through Zod-derived boundary validation before rendering
   (R-08, #2364).
 
+- `test(review-engine)`: add RED scaffold coverage requiring the preview source
+  quality gate to fail and name forbidden TypeScript escape-hatch fragments
+  (R-08, #2365).
+
+- `test(review-engine)`: extend the preview source contract quality gate to
+  reject and name `any`, `as unknown`, `@ts-ignore`, and `@ts-expect-error`
+  fragments (R-08, #2365).
+
+- `fix(review-engine)`: constrain the preview escape-hatch scanner so ordinary
+  prose containing `any` is allowed while explicit `any` type positions still
+  fail the quality gate (R-08, #2365).
+
+- `fix(review-engine)`: cover explicit `any` aliases and generic type arguments
+  in the preview escape-hatch scanner while keeping prose strings/comments out
+  of type-position matching (R-08, #2365).
+
+- `fix(review-engine)`: preserve template-literal interpolation expressions in
+  the preview escape-hatch scanner so casts inside `${...}` still fail while
+  static template prose is ignored (R-08, #2365).
+
+- `fix(review-engine)`: detect explicit `any` in preview union and intersection
+  type positions while preserving template URL interpolations before comment
+  stripping, keeping directive scans out of preview prose, and naming pattern
+  fragments and capture groups for maintainability; quoted braces inside
+  template interpolations and object-literal `as unknown` casts no longer hide
+  escape hatches (R-08, #2365).
+
+- `fix(review-engine)`: simplify redundant preview escape-hatch regex fragments
+  and split template-literal scanning into documented helpers with loop-based
+  label collection while keeping comment braces inside interpolations from
+  hiding forbidden type fragments (R-08, #2365).
+
 - `feat(review-engine)`: expose Zod-derived preview fixture parsers for raw JSON
   text and parsed fixture values, and route preview fixture loading through that
   boundary before rendering (R-08, #2364).
