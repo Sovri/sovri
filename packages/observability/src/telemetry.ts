@@ -38,6 +38,10 @@ function envOrUndefined(value: string | undefined): string | undefined {
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
+/**
+ * Start the OpenTelemetry trace SDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; a complete no-op
+ * otherwise. Safe to call more than once — a second call is a no-op while an SDK is running.
+ */
 export function initTelemetry(): void {
   if (sdk !== undefined) {
     return; // R-05: an SDK is already started — a further init is a no-op.
@@ -75,6 +79,10 @@ export function initTelemetry(): void {
   sdk = started;
 }
 
+/**
+ * Drain the started SDK and clear the handle. Resolves cleanly when nothing was started and is
+ * safe to call repeatedly; a later {@link initTelemetry} then starts a fresh SDK.
+ */
 export async function shutdownTelemetry(): Promise<void> {
   if (sdk === undefined) {
     return; // R-06: nothing started — resolve cleanly.

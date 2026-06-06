@@ -44,7 +44,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   exact-pinned `4.4.3`) so no secret-bearing env reaches a span or the exporter;
   NodeSDK default resource auto-detection is off (`autoDetectResources: false`) to
   keep that boundary closed, and a trailing slash on the endpoint is normalized.
-  Additive — the `createLogger`/`Logger` surface is unchanged (R-01..R-08, #2401).
+  Both public functions carry JSDoc. Additive — the `createLogger`/`Logger` surface
+  is unchanged (R-01..R-08, #2401).
 
 ### Changed
 
