@@ -449,6 +449,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `fix(review-engine)`: detect double-escaped JSON quote entities when scanning
   rendered preview output for raw GitHub webhook payload bodies (R-08, #2366).
 
+- `fix(review-engine)`: track JSON string state when collecting rendered preview
+  payload candidates so a `}` inside a string field no longer bypasses raw
+  webhook body detection, and normalize hex quote entities (`&#x22;`,
+  `&amp;#x22;`) before parsing (R-08, #2366).
+
 - `fix(review-engine)`: render preview golden snapshots from typed source
   fixtures through the walkthrough, inline, assessment, and provenance renderers
   instead of duplicating stored markdown lines, with an explicit fixture-renderer

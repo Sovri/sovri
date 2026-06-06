@@ -788,6 +788,20 @@ describe("preview HTML theme wrapper", () => {
         "{&amp;quot;action&amp;quot;:&amp;quot;opened&amp;quot;,&amp;quot;pull_request&amp;quot;:{},&amp;quot;repository&amp;quot;:{},&amp;quot;sender&amp;quot;:{}}",
       fragment: "raw GitHub webhook payload body",
     },
+    {
+      output: '{"action":"opened","pull_request":{"title":"done}"},"repository":{},"sender":{}}',
+      fragment: "raw GitHub webhook payload body",
+    },
+    {
+      output:
+        "{&#x22;action&#x22;:&#x22;opened&#x22;,&#x22;pull_request&#x22;:{},&#x22;repository&#x22;:{},&#x22;sender&#x22;:{}}",
+      fragment: "raw GitHub webhook payload body",
+    },
+    {
+      output:
+        "{&amp;#x22;action&amp;#x22;:&amp;#x22;opened&amp;#x22;,&amp;#x22;pull_request&amp;#x22;:{},&amp;#x22;repository&amp;#x22;:{},&amp;#x22;sender&amp;#x22;:{}}",
+      fragment: "raw GitHub webhook payload body",
+    },
   ])("rejects rendered output containing $fragment", ({ output, fragment }) => {
     const result = getValidatePreviewRenderedOutput()(output);
 

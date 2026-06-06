@@ -502,29 +502,47 @@ export function validatePreviewRenderedOutput(
 }
 
 function containsRawGitHubWebhookPayloadBody(renderedPreview: string): boolean {
-  return collectJsonObjectCandidates(renderedPreview).some(isRawGitHubWebhookPayloadBody);
+  const decoded = normalizePreviewJsonEntities(renderedPreview);
+
+  return collectJsonObjectCandidates(decoded).some(isRawGitHubWebhookPayloadBody);
 }
 
 function collectJsonObjectCandidates(value: string): readonly string[] {
   const candidates: string[] = [];
   let depth = 0;
   let candidateStart: number | undefined;
+  let inString = false;
+  let escaped = false;
 
   for (let index = 0; index < value.length; index += 1) {
     const character = value.charAt(index);
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
 
     if (character === "{") {
       if (depth === 0) {
         candidateStart = index;
       }
       depth += 1;
-    }
-
-    if (character !== "}") {
       continue;
     }
 
-    if (depth === 0) {
+    if (character !== "}" || depth === 0) {
       continue;
     }
 
@@ -541,7 +559,7 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
 
 function isRawGitHubWebhookPayloadBody(value: string): boolean {
   try {
-    const parsedCandidate: unknown = JSON.parse(normalizePreviewJsonEntities(value));
+    const parsedCandidate: unknown = JSON.parse(value);
 
     return RawGitHubWebhookPayloadSchema.safeParse(parsedCandidate).success;
   } catch {
@@ -550,7 +568,7 @@ function isRawGitHubWebhookPayloadBody(value: string): boolean {
 }
 
 function normalizePreviewJsonEntities(value: string): string {
-  return value.replace(/&amp;quot;|&amp;#34;|&quot;|&#34;/gu, '"');
+  return value.replace(/&amp;quot;|&amp;#34;|&amp;#x22;|&quot;|&#34;|&#x22;/giu, '"');
 }
 
 function renderPreviewFixture(fixture: PreviewFixture): string {
