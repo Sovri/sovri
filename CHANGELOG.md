@@ -470,6 +470,15 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `fix(review-engine)`: recognize every URL scheme, not just HTTP(S), when
+  scanning preview fixtures for real repository identities, so an `owner/repo`
+  path inside an `ssh://`/`git://` URL gets the same non-GitHub exemption as its
+  HTTPS form (#2392).
+
+- `fix(review-engine)`: make the preview escape-hatch scanner step over regex
+  literals before stripping comments, so a `//` inside a regex body can no longer
+  hide a forbidden `as any` later on the same line (#2392).
+
 - `fix(review-engine)`: broaden rendered preview output validation to cover all
   GitHub token prefixes already rejected in preview fixture anonymization and
   validate generated HTML before it is written to disk (R-08, #2366).

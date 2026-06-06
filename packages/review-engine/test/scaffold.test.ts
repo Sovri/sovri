@@ -93,8 +93,27 @@ const ExplicitAnyTypePositionPattern = new RegExp(
   "u",
 );
 const UnknownTypeAssertionPattern = /(?:\b[\w$]+|[)\]}])\s+as\s+unknown\b/u;
-const TypeScriptCommentExpression = /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu;
 const TypeScriptQuotedStringExpression = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu;
+const RegexLiteralPrecedingCharacters = new Set([
+  "(",
+  ",",
+  ";",
+  ":",
+  "=",
+  "{",
+  "&",
+  "|",
+  "!",
+  "?",
+  "+",
+  "-",
+  "*",
+  "%",
+  "<",
+  ">",
+  "~",
+  "^",
+]);
 
 const ForbiddenTypeScriptTypePositionEscapeHatchExpressions: readonly ForbiddenTypeScriptEscapeHatchExpression[] =
   [
@@ -382,6 +401,39 @@ describe("@sovri/review-engine scaffold", () => {
     ).toEqual(["any", "as unknown"]);
   });
 
+  it("still catches an escape hatch hidden behind a regex literal slash", () => {
+    // Given a regex literal whose character class holds "//"
+    // When a forbidden cast follows it on the same line
+    // Then the regex body is stepped over and the cast is still reported
+    expect(
+      collectForbiddenTypeScriptEscapeHatches(
+        "const pattern = /[//]/u; const unsafe = value as any;",
+      ),
+    ).toEqual(["any"]);
+  });
+
+  it("strips a real comment that trails a regex literal containing slashes", () => {
+    // Given a regex literal followed by a genuine line comment carrying "as any"
+    // When the quality gate runs
+    // Then the comment is removed and nothing is reported
+    expect(
+      collectForbiddenTypeScriptEscapeHatches(
+        ["const pattern = /[//]/u; // const ignored = value as any;", "const safe = value;"].join(
+          "\n",
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps division operators from being read as regex literals", () => {
+    // Given a division expression whose operands surround a forbidden cast
+    // When the quality gate runs
+    // Then the slash stays division and the cast is still reported
+    expect(
+      collectForbiddenTypeScriptEscapeHatches("const ratio = total / (value as any) / divisor;"),
+    ).toEqual(["any"]);
+  });
+
   it("keeps the deferred ingestion format out of production source", () => {
     const deferredToken = ["sa", "rif"].join("");
     const deferredPattern = new RegExp(deferredToken, "iu");
@@ -472,10 +524,122 @@ function collectForbiddenTypeScriptExpressionLabels(
 }
 
 function stripTypeScriptCommentsAndStrings(content: string): string {
-  return stripTypeScriptStringsAndTemplateStaticText(content).replace(
-    TypeScriptCommentExpression,
-    "",
+  return stripTypeScriptComments(stripTypeScriptStringsAndTemplateStaticText(content));
+}
+
+/**
+ * Removes line and block comments while stepping over regex literals, so a `//`
+ * or `/*` marker inside a regex body is never mistaken for a comment that would
+ * swallow a forbidden token later on the same line. Strings and template prose
+ * are already gone before this pass, leaving comments, regex literals, and
+ * division as the only `/`-led constructs.
+ */
+function stripTypeScriptComments(content: string): string {
+  let stripped = "";
+  let index = 0;
+  let previousSignificantCharacter = "";
+
+  while (index < content.length) {
+    const character = content[index] ?? "";
+    const regexEnd = startsRegexLiteral(content, index, previousSignificantCharacter)
+      ? readRegexLiteralEnd(content, index)
+      : undefined;
+
+    if (regexEnd !== undefined) {
+      stripped += content.slice(index, regexEnd);
+      previousSignificantCharacter = "/";
+      index = regexEnd;
+      continue;
+    }
+
+    const comment = readTypeScriptCommentContent(content, index);
+
+    if (comment !== undefined) {
+      index = comment.nextIndex;
+      continue;
+    }
+
+    stripped += character;
+    if (!/\s/u.test(character)) {
+      previousSignificantCharacter = character;
+    }
+    index += 1;
+  }
+
+  return stripped;
+}
+
+/**
+ * Decides whether the slash at `index` opens a regex literal. A `/` followed by
+ * `/` or `*` is always a comment, never an empty regex, so those are excluded.
+ * Otherwise the slash opens a regex only in expression position, biased toward
+ * division so a stray match can never consume real code.
+ */
+function startsRegexLiteral(
+  content: string,
+  index: number,
+  previousSignificantCharacter: string,
+): boolean {
+  if (content[index] !== "/") {
+    return false;
+  }
+
+  const nextCharacter = content[index + 1];
+
+  if (nextCharacter === undefined || nextCharacter === "/" || nextCharacter === "*") {
+    return false;
+  }
+
+  return (
+    previousSignificantCharacter === "" ||
+    RegexLiteralPrecedingCharacters.has(previousSignificantCharacter)
   );
+}
+
+/**
+ * Returns the index past a regex literal that opens at `startIndex`, including
+ * its trailing flags. Slashes inside a character class do not close the literal,
+ * and a regex never spans a line, so an unterminated candidate yields undefined.
+ */
+function readRegexLiteralEnd(content: string, startIndex: number): number | undefined {
+  let index = startIndex + 1;
+  let insideCharacterClass = false;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character === "\\") {
+      index = skipEscapedCharacter(index);
+      continue;
+    }
+
+    if (character === "\n" || character === "\r") {
+      return undefined;
+    }
+
+    if (character === "[") {
+      insideCharacterClass = true;
+    } else if (character === "]") {
+      insideCharacterClass = false;
+    } else if (character === "/" && !insideCharacterClass) {
+      return skipRegexLiteralFlags(content, index + 1);
+    }
+
+    index += 1;
+  }
+
+  return undefined;
+}
+
+/** Advances past the lowercase flag suffix that follows a regex literal. */
+function skipRegexLiteralFlags(content: string, startIndex: number): number {
+  let index = startIndex;
+
+  while (index < content.length && /[a-z]/iu.test(content[index] ?? "")) {
+    index += 1;
+  }
+
+  return index;
 }
 
 function stripTypeScriptStringsAndTemplateStaticText(content: string): string {

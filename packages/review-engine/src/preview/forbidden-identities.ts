@@ -47,7 +47,7 @@ const PreviewRepositoryOwnerInnerMaxLength = 37;
 const PreviewGitHubTokenExpression =
   /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/u;
 const PreviewLlmKeyExpression = /\bsk-ant-api03-[A-Za-z0-9_-]+\b/u;
-const PreviewUrlExpression = /\bhttps?:\/\/[^\s"'<>`]+/giu;
+const PreviewUrlExpression = /\b[a-z][a-z0-9+.-]*:\/\/[^\s"'<>`]+/giu;
 const PreviewRepositoryIdentityCandidateExpression = new RegExp(
   String.raw`(?:^|[^A-Za-z0-9._-])([A-Za-z0-9](?:[A-Za-z0-9-]{0,${PreviewRepositoryOwnerInnerMaxLength}}[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,${PreviewRepositoryNameInnerMaxLength}}[A-Za-z0-9])?)(?=$|[^A-Za-z0-9_-])`,
   "gu",
