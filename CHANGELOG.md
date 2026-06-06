@@ -458,6 +458,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   candidate has started, so an unmatched prose quote before a raw webhook object
   no longer swallows its opening brace and bypasses detection (R-08, #2366).
 
+- `fix(review-engine)`: emit every balanced JSON object, including nested ones,
+  when scanning preview output, so a raw webhook payload wrapped inside a larger
+  envelope is still detected (R-08, #2366).
+
 - `fix(review-engine)`: render preview golden snapshots from typed source
   fixtures through the walkthrough, inline, assessment, and provenance renderers
   instead of duplicating stored markdown lines, with an explicit fixture-renderer

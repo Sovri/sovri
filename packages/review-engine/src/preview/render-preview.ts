@@ -509,8 +509,7 @@ function containsRawGitHubWebhookPayloadBody(renderedPreview: string): boolean {
 
 function collectJsonObjectCandidates(value: string): readonly string[] {
   const candidates: string[] = [];
-  let depth = 0;
-  let candidateStart: number | undefined;
+  const candidateStarts: number[] = [];
   let inString = false;
   let escaped = false;
 
@@ -530,16 +529,13 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
     }
 
     if (character === "{") {
-      if (depth === 0) {
-        candidateStart = index;
-      }
-      depth += 1;
+      candidateStarts.push(index);
       continue;
     }
 
     // Outside any object quotes are prose, not JSON string delimiters, so only
     // track string state once a candidate has started.
-    if (depth === 0) {
+    if (candidateStarts.length === 0) {
       continue;
     }
 
@@ -552,11 +548,12 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
       continue;
     }
 
-    depth -= 1;
+    // Emit every balanced object, including nested ones, so a webhook payload
+    // wrapped inside a larger JSON envelope is still inspected.
+    const candidateStart = candidateStarts.pop();
 
-    if (depth === 0 && candidateStart !== undefined) {
+    if (candidateStart !== undefined) {
       candidates.push(value.slice(candidateStart, index + 1));
-      candidateStart = undefined;
     }
   }
 
