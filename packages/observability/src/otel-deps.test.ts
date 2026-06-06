@@ -114,8 +114,9 @@ describe("@sovri/observability logger API is unchanged (R-07)", () => {
     expect(barrel).toMatch(/export\s+type\s*\{\s*Logger\s*\}\s*from\s*["']\.\/logger\.js["']/u);
   });
 
-  it("creates no telemetry or tracing source file and keeps logger.ts", () => {
-    expect(fileExists("./telemetry.ts"), "telemetry.ts must not exist yet").toBe(false);
+  it("keeps logger.ts and tracing.ts state expected by the deps slice", () => {
+    // task-125 adds telemetry.ts (the SDK lifecycle); tracing.ts is a later task and stays absent.
+    expect(fileExists("./telemetry.ts"), "telemetry.ts must exist after task-125").toBe(true);
     expect(fileExists("./tracing.ts"), "tracing.ts must not exist yet").toBe(false);
     expect(fileExists("./logger.ts"), "logger.ts must still exist").toBe(true);
   });

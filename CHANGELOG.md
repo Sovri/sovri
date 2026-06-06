@@ -35,6 +35,27 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   dependency set is exact-pinned, declared under `dependencies` only, recorded in
   the lockfile, Apache-2.0 licensed, with `createLogger`/`Logger` and the package
   `exports` map untouched (R-01, R-02, R-03, R-06, R-07, R-08, #2396).
+- `feat(observability)`: add the OpenTelemetry SDK init/shutdown lifecycle to
+  `@sovri/observability` — `initTelemetry()` starts a `NodeSDK` (OTLP trace
+  exporter at `${OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces`, fs/dns auto-instrumentation
+  disabled, `PinoInstrumentation`) only when an OTLP endpoint is set and otherwise
+  stays a complete no-op; `shutdownTelemetry()` drains it safely whether or not it
+  started. The three `OTEL_*` env vars are read through a `zod` schema (added,
+  exact-pinned `4.4.3`) so no secret-bearing env reaches a span or the exporter;
+  NodeSDK default resource auto-detection is off (`autoDetectResources: false`) to
+  keep that boundary closed, and a trailing slash on the endpoint is normalized.
+  Init is trace-only: explicit empty `metricReaders` / `logRecordProcessors` stop
+  NodeSDK auto-starting OTLP metric/log exporters from `OTEL_METRICS_EXPORTER` /
+  `OTEL_LOGS_EXPORTER` (metrics are a later task). The bundled Pino auto-instrumentation
+  is disabled so the standalone `PinoInstrumentation` is the only one (no double-wrap).
+  `shutdownTelemetry()` deregisters the OTel global trace/context/propagation/metric/log
+  providers (`@opentelemetry/api-logs` added, exact-pinned `0.218.0`; in a `finally`, so a
+  failed drain still deregisters) so a later
+  `initTelemetry()` re-registers a live pipeline instead of hitting duplicate-registration;
+  the handle is cleared only after deregistration, so a concurrent init during an in-flight
+  drain no-ops rather than starting an SDK the drain would tear down, and concurrent
+  `shutdownTelemetry()` calls coalesce into a single drain. Both public functions carry JSDoc.
+  Additive — the `createLogger`/`Logger` surface is unchanged (R-01..R-08, #2401).
 
 ### Changed
 
