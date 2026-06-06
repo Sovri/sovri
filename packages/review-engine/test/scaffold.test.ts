@@ -52,6 +52,18 @@ interface ForbiddenCommonJsExpression {
   readonly pattern: RegExp;
 }
 
+/** Forbidden TypeScript fragment tracked by the preview scaffold gate. */
+interface ForbiddenTypeScriptEscapeHatchExpression {
+  readonly label: string;
+  readonly pattern: RegExp;
+}
+
+/** Regression case for a forbidden TypeScript escape-hatch fragment. */
+interface ForbiddenTypeScriptEscapeHatchCase {
+  readonly forbiddenFragment: string;
+  readonly source: string;
+}
+
 const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
   {
     label: "require(",
@@ -64,6 +76,70 @@ const ForbiddenCommonJsExpressions: readonly ForbiddenCommonJsExpression[] = [
   {
     label: "exports",
     pattern: /\bexports(?:\.|\[)/u,
+  },
+];
+
+const ExplicitAnyTypePositionPatternFragments: readonly string[] = [
+  // Type annotations: const value: any
+  String.raw`(?<typeAnnotation>:\s*any\b)`,
+  // Type assertions: value as any
+  String.raw`(?<typeAssertion>\bas\s+any\b)`,
+  // Alias, generic, union, intersection, and tuple positions.
+  String.raw`(?<structuredTypePosition>(?:[=<,|&]|\[)\s*any\b)`,
+];
+
+const ExplicitAnyTypePositionPattern = new RegExp(
+  ExplicitAnyTypePositionPatternFragments.join("|"),
+  "u",
+);
+const UnknownTypeAssertionPattern = /(?:\b[\w$]+|[)\]}])\s+as\s+unknown\b/u;
+const TypeScriptCommentExpression = /\/\/[^\n\r]*|\/\*[\s\S]*?\*\//gu;
+const TypeScriptQuotedStringExpression = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu;
+
+const ForbiddenTypeScriptTypePositionEscapeHatchExpressions: readonly ForbiddenTypeScriptEscapeHatchExpression[] =
+  [
+    {
+      label: "any",
+      pattern: ExplicitAnyTypePositionPattern,
+    },
+    {
+      label: "as unknown",
+      pattern: UnknownTypeAssertionPattern,
+    },
+  ];
+
+const ForbiddenTypeScriptDirectiveEscapeHatchExpressions: readonly ForbiddenTypeScriptEscapeHatchExpression[] =
+  [
+    {
+      label: "@ts-ignore",
+      pattern: /@ts-ignore/u,
+    },
+    {
+      label: "@ts-expect-error",
+      pattern: /@ts-expect-error/u,
+    },
+  ];
+
+const ForbiddenTypeScriptEscapeHatchCases: readonly ForbiddenTypeScriptEscapeHatchCase[] = [
+  {
+    forbiddenFragment: "any",
+    source: "const unsafeValue: any = {};",
+  },
+  {
+    forbiddenFragment: "any",
+    source: "const unsafeValue = `${/* } */ value as any}`;",
+  },
+  {
+    forbiddenFragment: "as unknown",
+    source: "const unsafeValue = value as unknown;",
+  },
+  {
+    forbiddenFragment: "@ts-ignore",
+    source: ["// @ts-ignore", "const ignored = value;"].join("\n"),
+  },
+  {
+    forbiddenFragment: "@ts-expect-error",
+    source: ["// @ts-expect-error", "const expectedError = value;"].join("\n"),
   },
 ];
 
@@ -231,6 +307,11 @@ describe("@sovri/review-engine scaffold", () => {
         collectForbiddenCommonJsExpressions(content),
         `${relativePath} must not contain CommonJS entry points`,
       ).toEqual([]);
+      // And no file contains forbidden TypeScript escape hatches
+      expect(
+        collectForbiddenTypeScriptEscapeHatches(content),
+        `${relativePath} must not contain TypeScript escape hatches`,
+      ).toEqual([]);
     }
   });
 
@@ -254,6 +335,51 @@ describe("@sovri/review-engine scaffold", () => {
         exports["other"] = 2;
       `),
     ).toEqual(["require(", "module.exports", "exports"]);
+  });
+
+  it.each(ForbiddenTypeScriptEscapeHatchCases)(
+    "fails preview quality gate for $forbiddenFragment",
+    ({ forbiddenFragment, source }) => {
+      // Given a new preview source file contains "<forbiddenFragment>"
+      // When the quality gate runs
+      const violations = collectForbiddenTypeScriptEscapeHatches(source);
+
+      // Then validation fails
+      expect(violations).not.toEqual([]);
+      // And the failure names "<forbiddenFragment>"
+      expect(violations).toContain(forbiddenFragment);
+    },
+  );
+
+  it("allows ordinary prose that contains any without an explicit any type", () => {
+    expect(
+      collectForbiddenTypeScriptEscapeHatches(`
+        // type Unsafe = any;
+        const previewCopy = "render any markdown payload";
+        const summary = "Record<string, any> appears in docs";
+        const unknownSummary = "value as unknown to the system";
+        const directiveSnippet = "// @ts-ignore";
+        const templateDirectiveSnippet = \`markdown mentions @ts-expect-error\`;
+      `),
+    ).toEqual([]);
+
+    expect(
+      collectForbiddenTypeScriptEscapeHatches(`
+        type Unsafe = any;
+        const explicitType: any = {};
+        const asserted = value as any;
+        const recordValues: Record<string, any> = {};
+        const unionValue: Safe | any = value;
+        const intersectionValue: Safe & any = value;
+        const genericValues = new Set<any>();
+        const arrayValues: any[] = [];
+        const templateCast = \`\${value as any}\`;
+        const templateUrlCast = \`https://example.test/\${value as any}\`;
+        const templateQuotedBraceCast = \`\${"}" && (value as any)}\`;
+        const templateUnknown = \`\${value as unknown as string}\`;
+        const objectLiteralUnknown = ({ payload } as unknown as PreviewValue);
+      `),
+    ).toEqual(["any", "as unknown"]);
   });
 
   it("keeps the deferred ingestion format out of production source", () => {
@@ -313,6 +439,281 @@ function collectForbiddenCommonJsExpressions(content: string): readonly string[]
   return ForbiddenCommonJsExpressions.flatMap(({ label, pattern }) =>
     pattern.test(content) ? [label] : [],
   );
+}
+
+function collectForbiddenTypeScriptEscapeHatches(content: string): readonly string[] {
+  const typePositionContent = stripTypeScriptCommentsAndStrings(content);
+  const directiveContent = stripTypeScriptStringsAndTemplateStaticText(content);
+  const typePositionMatches = collectForbiddenTypeScriptExpressionLabels(
+    typePositionContent,
+    ForbiddenTypeScriptTypePositionEscapeHatchExpressions,
+  );
+  const directiveMatches = collectForbiddenTypeScriptExpressionLabels(
+    directiveContent,
+    ForbiddenTypeScriptDirectiveEscapeHatchExpressions,
+  );
+
+  return [...typePositionMatches, ...directiveMatches];
+}
+
+function collectForbiddenTypeScriptExpressionLabels(
+  content: string,
+  expressions: readonly ForbiddenTypeScriptEscapeHatchExpression[],
+): readonly string[] {
+  const labels: string[] = [];
+
+  for (const { label, pattern } of expressions) {
+    if (pattern.test(content)) {
+      labels.push(label);
+    }
+  }
+
+  return labels;
+}
+
+function stripTypeScriptCommentsAndStrings(content: string): string {
+  return stripTypeScriptStringsAndTemplateStaticText(content).replace(
+    TypeScriptCommentExpression,
+    "",
+  );
+}
+
+function stripTypeScriptStringsAndTemplateStaticText(content: string): string {
+  return stripTemplateLiteralStaticText(content).replace(TypeScriptQuotedStringExpression, "");
+}
+
+interface TemplateLiteralExpressionContent {
+  readonly content: string;
+  readonly nextIndex: number;
+}
+
+/**
+ * Drops static template prose while preserving interpolation expressions so the
+ * scanner still catches forbidden TypeScript inside `${...}` blocks.
+ * Unclosed templates are scanned to EOF, and nested interpolations are stripped
+ * recursively before their expression source is retained.
+ */
+function stripTemplateLiteralStaticText(content: string): string {
+  let strippedContent = "";
+  let index = 0;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character !== "`") {
+      strippedContent += character;
+      index += 1;
+      continue;
+    }
+
+    const templateContent = readTemplateLiteralRetainedContent(content, index + 1);
+    strippedContent += templateContent.content;
+    index = templateContent.nextIndex;
+  }
+
+  return strippedContent;
+}
+
+/**
+ * Reads one template literal body and returns only nested interpolation source.
+ * Nested templates are stripped recursively so static prose never reaches the
+ * type-position scanner.
+ */
+function readTemplateLiteralRetainedContent(
+  content: string,
+  startIndex: number,
+): TemplateLiteralExpressionContent {
+  let retainedContent = "";
+  let index = startIndex;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character === "\\") {
+      index = skipEscapedCharacter(index);
+      continue;
+    }
+
+    if (character === "`") {
+      return { content: retainedContent, nextIndex: index + 1 };
+    }
+
+    if (isTemplateInterpolationStart(content, index)) {
+      const expression = readTemplateLiteralExpressionContent(content, index + 2);
+      retainedContent += stripTemplateLiteralStaticText(expression.content);
+      index = expression.nextIndex;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  return { content: retainedContent, nextIndex: content.length };
+}
+
+/** Detects the start of a `${...}` interpolation inside a template literal. */
+function isTemplateInterpolationStart(content: string, index: number): boolean {
+  return content[index] === "$" && content[index + 1] === "{";
+}
+
+/** Advances over an escaped byte pair while scanning TypeScript-like text. */
+function skipEscapedCharacter(index: number): number {
+  return index + 2;
+}
+
+/**
+ * Reads an interpolation expression until its matching closing brace, ignoring
+ * braces that appear inside quoted strings, comments, or nested expression
+ * blocks.
+ */
+function readTemplateLiteralExpressionContent(
+  content: string,
+  startIndex: number,
+): TemplateLiteralExpressionContent {
+  let expressionContent = "";
+  let index = startIndex;
+  let depth = 1;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character === '"' || character === "'" || character === "`") {
+      const stringContent = readQuotedStringContent(content, index, character);
+      expressionContent += stringContent.content;
+      index = stringContent.nextIndex;
+      continue;
+    }
+
+    const commentContent = readTypeScriptCommentContent(content, index);
+
+    if (commentContent !== undefined) {
+      expressionContent += commentContent.content;
+      index = commentContent.nextIndex;
+      continue;
+    }
+
+    if (character === "\\") {
+      expressionContent += content.slice(index, index + 2);
+      index = skipEscapedCharacter(index);
+      continue;
+    }
+
+    if (character === "{") {
+      depth += 1;
+      expressionContent += character;
+      index += 1;
+      continue;
+    }
+
+    if (character === "}") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return { content: expressionContent, nextIndex: index + 1 };
+      }
+
+      expressionContent += character;
+      index += 1;
+      continue;
+    }
+
+    expressionContent += character;
+    index += 1;
+  }
+
+  return { content: expressionContent, nextIndex: content.length };
+}
+
+/**
+ * Reads a TypeScript comment inside an interpolation without interpreting
+ * comment braces as syntax.
+ */
+function readTypeScriptCommentContent(
+  content: string,
+  startIndex: number,
+): TemplateLiteralExpressionContent | undefined {
+  if (content[startIndex] !== "/") {
+    return undefined;
+  }
+
+  if (content[startIndex + 1] === "/") {
+    return readLineCommentContent(content, startIndex);
+  }
+
+  if (content[startIndex + 1] === "*") {
+    return readBlockCommentContent(content, startIndex);
+  }
+
+  return undefined;
+}
+
+/** Reads a line comment through its line terminator or EOF. */
+function readLineCommentContent(
+  content: string,
+  startIndex: number,
+): TemplateLiteralExpressionContent {
+  const lineFeedIndex = content.indexOf("\n", startIndex + 2);
+  const carriageReturnIndex = content.indexOf("\r", startIndex + 2);
+  const endIndex = minFoundIndex(lineFeedIndex, carriageReturnIndex) ?? content.length;
+
+  return { content: content.slice(startIndex, endIndex), nextIndex: endIndex };
+}
+
+/** Reads a block comment through its closing marker or EOF. */
+function readBlockCommentContent(
+  content: string,
+  startIndex: number,
+): TemplateLiteralExpressionContent {
+  const closingIndex = content.indexOf("*/", startIndex + 2);
+  const nextIndex = closingIndex === -1 ? content.length : closingIndex + 2;
+
+  return { content: content.slice(startIndex, nextIndex), nextIndex };
+}
+
+/** Returns the smallest found string index, treating -1 as not found. */
+function minFoundIndex(firstIndex: number, secondIndex: number): number | undefined {
+  if (firstIndex === -1) {
+    return secondIndex === -1 ? undefined : secondIndex;
+  }
+
+  if (secondIndex === -1) {
+    return firstIndex;
+  }
+
+  return Math.min(firstIndex, secondIndex);
+}
+
+/**
+ * Reads a quoted string without interpreting braces inside it as syntax.
+ * Escaped quotes are skipped with their escaped byte pair, so they do not end
+ * the string.
+ */
+function readQuotedStringContent(
+  content: string,
+  startIndex: number,
+  quoteCharacter: string,
+): TemplateLiteralExpressionContent {
+  let index = startIndex + 1;
+
+  while (index < content.length) {
+    const character = content[index];
+
+    if (character === "\\") {
+      index = skipEscapedCharacter(index);
+      continue;
+    }
+
+    if (character === quoteCharacter) {
+      return {
+        content: content.slice(startIndex, index + 1),
+        nextIndex: index + 1,
+      };
+    }
+
+    index += 1;
+  }
+
+  return { content: content.slice(startIndex), nextIndex: content.length };
 }
 
 function isDefinedString(value: string | undefined): value is string {
