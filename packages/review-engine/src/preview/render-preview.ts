@@ -529,11 +529,6 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
       continue;
     }
 
-    if (character === '"') {
-      inString = true;
-      continue;
-    }
-
     if (character === "{") {
       if (depth === 0) {
         candidateStart = index;
@@ -542,7 +537,18 @@ function collectJsonObjectCandidates(value: string): readonly string[] {
       continue;
     }
 
-    if (character !== "}" || depth === 0) {
+    // Outside any object quotes are prose, not JSON string delimiters, so only
+    // track string state once a candidate has started.
+    if (depth === 0) {
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (character !== "}") {
       continue;
     }
 

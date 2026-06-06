@@ -793,6 +793,10 @@ describe("preview HTML theme wrapper", () => {
       fragment: "raw GitHub webhook payload body",
     },
     {
+      output: 'before "x {"action":"opened","pull_request":{},"repository":{},"sender":{}}',
+      fragment: "raw GitHub webhook payload body",
+    },
+    {
       output:
         "{&#x22;action&#x22;:&#x22;opened&#x22;,&#x22;pull_request&#x22;:{},&#x22;repository&#x22;:{},&#x22;sender&#x22;:{}}",
       fragment: "raw GitHub webhook payload body",
