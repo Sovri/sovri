@@ -21,6 +21,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(observability)`: add the generic `withSpan`/`recordMetric` facade to
+  `@sovri/observability` over `@opentelemetry/api`. `withSpan(name, fn, attributes?)`
+  runs `fn` in an active span from the `"sovri"` tracer, returns its value unchanged,
+  records the exception + ERROR status and rethrows the original on reject, and ends
+  the span once in `finally`. `recordMetric(descriptor, value, tags?)` validates the
+  descriptor against a Zod instrument model (`counter`/`histogram`), lazily creates and
+  caches each instrument by name over the `"sovri"` meter, and routes the value by kind.
+  Both stay no-op-safe when no SDK is started (OTel's own no-op tracer/meter). Re-exported
+  from the barrel alongside `createLogger`/`initTelemetry`; `createLogger` API unchanged
+  (R-01..R-09, #2406).
 - `test(observability)`: add RED acceptance test for the generic `withSpan`/
   `recordMetric` facade over `@opentelemetry/api` — `withSpan` is a transparent
   pass-through that records the exception, sets ERROR status, and rethrows the
