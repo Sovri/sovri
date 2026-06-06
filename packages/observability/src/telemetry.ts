@@ -99,14 +99,17 @@ export async function shutdownTelemetry(): Promise<void> {
   }
   const current = sdk;
   sdk = undefined; // Clear first so a later init starts fresh and a repeat shutdown no-ops.
-  await current.shutdown();
-  // NodeSDK.start() registers the global trace/context/propagation/metric providers, but
-  // NodeSDK.shutdown() does not remove them. Without deregistering, a later initTelemetry()
-  // hits "Attempted duplicate registration of API: trace" and the fresh provider is silently
-  // dropped — spans would keep routing to the already-shut-down provider. Disabling the globals
-  // here makes the documented restart (R-06) re-register a working trace pipeline.
-  context.disable();
-  propagation.disable();
-  trace.disable();
-  metrics.disable();
+  try {
+    await current.shutdown();
+  } finally {
+    // NodeSDK.start() registers the global trace/context/propagation/metric providers, but
+    // NodeSDK.shutdown() does not remove them. Without deregistering, a later initTelemetry()
+    // hits "Attempted duplicate registration of API: trace" and the fresh provider is silently
+    // dropped — spans would keep routing to the already-shut-down provider. Run this in `finally`
+    // so a rejected drain still deregisters and a later init can re-register (R-06).
+    context.disable();
+    propagation.disable();
+    trace.disable();
+    metrics.disable();
+  }
 }

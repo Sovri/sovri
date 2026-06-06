@@ -276,6 +276,22 @@ describe("shutdownTelemetry — drain safety (R-06)", () => {
     expect(mocks.propagationDisable).toHaveBeenCalledTimes(1);
     expect(mocks.metricsDisable).toHaveBeenCalledTimes(1);
   });
+
+  // A failed drain must not leak the global registrations — otherwise a later init can't re-register.
+  it("deregisters the OTel globals even if the SDK drain rejects", async () => {
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318");
+    const { initTelemetry, shutdownTelemetry } = await loadTelemetry();
+
+    initTelemetry();
+    mocks.shutdownSpy.mockRejectedValueOnce(new Error("drain failed"));
+
+    await expect(shutdownTelemetry()).rejects.toThrow("drain failed");
+
+    expect(mocks.traceDisable).toHaveBeenCalledTimes(1);
+    expect(mocks.contextDisable).toHaveBeenCalledTimes(1);
+    expect(mocks.propagationDisable).toHaveBeenCalledTimes(1);
+    expect(mocks.metricsDisable).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("barrel — the package surface is additive (R-07)", () => {
