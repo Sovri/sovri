@@ -317,6 +317,30 @@ describe("shutdownTelemetry — drain safety (R-06)", () => {
     releaseDrain?.();
     await pending;
   });
+
+  // Concurrent shutdown calls during an in-flight drain share one promise and drain only once.
+  it("coalesces concurrent shutdown calls into a single drain", async () => {
+    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318");
+    const { initTelemetry, shutdownTelemetry } = await loadTelemetry();
+
+    initTelemetry();
+    let releaseDrain: (() => void) | undefined;
+    mocks.shutdownSpy.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseDrain = resolve;
+        }),
+    );
+
+    const first = shutdownTelemetry();
+    const second = shutdownTelemetry(); // in flight → same promise, no second drain
+    expect(second).toBe(first);
+
+    releaseDrain?.();
+    await Promise.all([first, second]);
+
+    expect(mocks.shutdownSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("barrel — the package surface is additive (R-07)", () => {

@@ -32,6 +32,11 @@ const DEFAULT_SERVICE_VERSION = "0.0.0";
 // initTelemetry() and a repeated shutdownTelemetry() safe no-ops.
 let sdk: NodeSDK | undefined;
 
+// In-flight shutdown promise. While a drain is running, concurrent shutdownTelemetry() calls
+// share this promise (one drain, not N) and initTelemetry() stays a no-op because `sdk` is only
+// cleared once the drain and deregistration finish.
+let shuttingDown: Promise<void> | undefined;
+
 // Mirror logger.ts's "empty == unset" convention: an absent, empty, or whitespace-only value
 // is treated as unset. Common in docker-compose / Helm where an unset var expands to "".
 function envOrUndefined(value: string | undefined): string | undefined {
@@ -90,29 +95,37 @@ export function initTelemetry(): void {
 }
 
 /**
- * Drain the started SDK and clear the handle. Resolves cleanly when nothing was started and is
- * safe to call repeatedly; a later {@link initTelemetry} then starts a fresh SDK.
+ * Drain the started SDK, deregister the OTel globals, and clear the handle. Resolves cleanly when
+ * nothing was started, coalesces concurrent calls into a single drain, and is safe to call
+ * repeatedly; a later {@link initTelemetry} then starts a fresh SDK.
  */
-export async function shutdownTelemetry(): Promise<void> {
+export function shutdownTelemetry(): Promise<void> {
+  if (shuttingDown !== undefined) {
+    return shuttingDown; // A drain is already running — coalesce, don't drain the SDK twice.
+  }
   if (sdk === undefined) {
-    return; // R-06: nothing started — resolve cleanly.
+    return Promise.resolve(); // R-06: nothing started — resolve cleanly.
   }
   const current = sdk;
-  try {
-    await current.shutdown();
-  } finally {
-    // NodeSDK.start() registers the global trace/context/propagation/metric providers, but
-    // NodeSDK.shutdown() does not remove them. Without deregistering, a later initTelemetry()
-    // hits "Attempted duplicate registration of API: trace" and the fresh provider is silently
-    // dropped — spans would keep routing to the already-shut-down provider. Run this in `finally`
-    // so a rejected drain still deregisters and a later init can re-register (R-06).
-    context.disable();
-    propagation.disable();
-    trace.disable();
-    metrics.disable();
-    // Clear the handle LAST. While the drain is in flight `sdk` stays set, so a concurrent
-    // initTelemetry() no-ops (R-05) instead of starting a second SDK whose freshly registered
-    // globals this `finally` would then disable.
-    sdk = undefined;
-  }
+  shuttingDown = (async (): Promise<void> => {
+    try {
+      await current.shutdown();
+    } finally {
+      // NodeSDK.start() registers the global trace/context/propagation/metric providers, but
+      // NodeSDK.shutdown() does not remove them. Without deregistering, a later initTelemetry()
+      // hits "Attempted duplicate registration of API: trace" and the fresh provider is silently
+      // dropped — spans would keep routing to the already-shut-down provider. Run this in
+      // `finally` so a rejected drain still deregisters and a later init can re-register (R-06).
+      context.disable();
+      propagation.disable();
+      trace.disable();
+      metrics.disable();
+      // Clear the handles LAST. While the drain is in flight `sdk` stays set, so a concurrent
+      // initTelemetry() no-ops (R-05) rather than starting a second SDK whose freshly registered
+      // globals this `finally` would then disable.
+      sdk = undefined;
+      shuttingDown = undefined;
+    }
+  })();
+  return shuttingDown;
 }
