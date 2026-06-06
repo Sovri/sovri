@@ -585,7 +585,13 @@ function isRawGitHubWebhookPayloadBody(value: string): boolean {
 }
 
 function normalizePreviewJsonEntities(value: string): string {
-  return value.replace(/&amp;quot;|&amp;#34;|&amp;#x22;|&quot;|&#34;|&#x22;/giu, '"');
+  return (
+    value
+      .replace(/&amp;quot;|&amp;#34;|&amp;#x22;|&quot;|&#34;|&#x22;/giu, '"')
+      // Unescape backslash-escaped quotes so a webhook body serialized as a JSON
+      // string value (the common logged form) still parses as a candidate object.
+      .replace(/\\"/gu, '"')
+  );
 }
 
 function renderPreviewFixture(fixture: PreviewFixture): string {

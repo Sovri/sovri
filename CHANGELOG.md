@@ -470,6 +470,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `pull_request`) when guarding rendered preview output, matching the events the
   bot subscribes to (R-08, #2366).
 
+- `fix(review-engine)`: unescape backslash-escaped quotes when scanning preview
+  output, so a webhook body serialized as a JSON string value (the common logged
+  form) is still detected (R-08, #2366).
+
 - `fix(review-engine)`: render preview golden snapshots from typed source
   fixtures through the walkthrough, inline, assessment, and provenance renderers
   instead of duplicating stored markdown lines, with an explicit fixture-renderer
