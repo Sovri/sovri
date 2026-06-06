@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(observability)`: add RED acceptance test asserting the v0.6 OpenTelemetry
+  dependency set is exact-pinned, declared under `dependencies` only, recorded in
+  the lockfile, Apache-2.0 licensed, with `createLogger`/`Logger` and the package
+  `exports` map untouched (R-01, R-02, R-03, R-06, R-07, R-08, #2396).
+
 ### Changed
 
 ### Deprecated
