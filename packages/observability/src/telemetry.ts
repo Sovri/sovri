@@ -77,6 +77,9 @@ export function initTelemetry(): void {
       getNodeAutoInstrumentations({
         "@opentelemetry/instrumentation-fs": { enabled: false },
         "@opentelemetry/instrumentation-dns": { enabled: false },
+        // Disable the bundled Pino instrumentation so the standalone instance below is the single
+        // authoritative one — otherwise Pino is instrumented twice (double log-correlation hooks).
+        "@opentelemetry/instrumentation-pino": { enabled: false },
       }),
       new PinoInstrumentation({ disableLogSending: false }),
     ],

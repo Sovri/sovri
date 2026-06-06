@@ -124,7 +124,10 @@ describe("initTelemetry — starts the OTLP trace SDK when the endpoint is set (
     const autoCfg = mocks.autoInstr.mock.calls.at(0)?.[0];
     expect(autoCfg?.["@opentelemetry/instrumentation-fs"]?.enabled).toBe(false);
     expect(autoCfg?.["@opentelemetry/instrumentation-dns"]?.enabled).toBe(false);
+    // Bundled Pino is disabled so the standalone PinoInstrumentation is the only one.
+    expect(autoCfg?.["@opentelemetry/instrumentation-pino"]?.enabled).toBe(false);
 
+    expect(mocks.pinoCtor).toHaveBeenCalledTimes(1);
     expect(mocks.pinoCtor.mock.calls.at(0)?.[0]?.disableLogSending).toBe(false);
   });
 
@@ -152,15 +155,18 @@ describe("initTelemetry — starts the OTLP trace SDK when the endpoint is set (
     expect(cfg?.logRecordProcessors).toEqual([]);
   });
 
-  // A trailing slash on the endpoint must not produce "//v1/traces".
-  it("normalizes a trailing slash on the endpoint", async () => {
-    vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318/");
-    const { initTelemetry } = await loadTelemetry();
+  // One or many trailing slashes on the endpoint must not produce "//v1/traces".
+  it.each(["http://localhost:4318/", "http://localhost:4318///"])(
+    "normalizes trailing slashes on the endpoint %s",
+    async (endpoint) => {
+      vi.stubEnv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint);
+      const { initTelemetry } = await loadTelemetry();
 
-    initTelemetry();
+      initTelemetry();
 
-    expect(mocks.otlpCtor.mock.calls.at(0)?.[0]?.url).toBe("http://localhost:4318/v1/traces");
-  });
+      expect(mocks.otlpCtor.mock.calls.at(0)?.[0]?.url).toBe("http://localhost:4318/v1/traces");
+    },
+  );
 });
 
 describe("initTelemetry — the SDK resource carries service identity (R-03)", () => {
