@@ -18,3 +18,5 @@ export {
   type SpacingScale,
   type TypeScale,
 } from "./tokens.js";
+
+export { BrandAssetUrlsSchema, brandAssetUrls, type BrandAssetUrls } from "./assets.js";

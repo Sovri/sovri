@@ -21,6 +21,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `docs`: brand image kit under `assets/` (banner, three-step "how it works" illustration, review
+  comment header/footer banners, OG/social cards, and a concept-art set in `assets/illustrations/`).
+  The README gains a hero banner and a "How it works" section using the three-step illustration.
+- `feat(brand)`: export `brandAssetUrls` — absolute `raw.githubusercontent.com` URLs for the review
+  comment header/footer banners, validated at load. GitHub proxies Markdown images through camo, so a
+  comment body needs an absolute URL (a repo-relative path only resolves in the rendered README). The
+  schema rejects any URL without an `https://` scheme.
+- `feat(review-engine)`: `composeWalkthrough` gains opt-in `brandHeader` / `brandFooter` options that
+  prepend/append the Sovri banner images. Off by default, so the deterministic text-only walkthrough
+  (ADR-016) and every existing golden/structure test are unchanged; the banner sits above, never
+  replaces, the emoji verdict heading.
+- `feat(bot)`: the community bot enables `brandHeader` / `brandFooter` when composing the PR review
+  comment, so posted reviews carry the brand banners.
 - `feat(review-engine)`: instrument `reviewPullRequest` with the `review.pull_request` business span
   tree — child spans `review.fetch_diff` / `review.build_prompt` / `review.llm_call` /
   `review.parse_findings`, carrying only non-sensitive scalar attributes (`pr.number`, `pr.repo`,
