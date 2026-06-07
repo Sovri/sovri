@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Sovri — EU-sovereign AI code review for regulated enterprises" width="100%">
+</p>
+
 # Sovri
 
 > EU-sovereign AI code review for regulated enterprises.
@@ -31,6 +35,16 @@ Sovri inverts each of these:
 - **Bring-your-own LLM** — Anthropic, Mistral, OpenAI, or any OpenAI-compatible endpoint. No model is bundled or required.
 
 Sovri does **not** claim to be a certified product. There is no ISO 27001, no SOC 2, no HDS, no SecNumCloud certification today. Each of these has a roadmap entry; none is implied by the current state of the code.
+
+---
+
+## How it works
+
+<p align="center">
+  <img src="assets/how-it-works.png" alt="A pull request flows through three steps: Sovri reads the diff, runs the review, and returns findings with an audit trail" width="640">
+</p>
+
+A pull request opens. Sovri reads the diff, runs it through the review engine with the LLM provider you configured, and posts a walkthrough plus inline findings. Every finding carries a provenance trail — model, prompt digest, hosting region — so a reviewer can audit how the verdict was reached.
 
 ---
 

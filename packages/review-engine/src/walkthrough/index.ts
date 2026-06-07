@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri SAS
 
+import { brandAssetUrls } from "@sovri/brand";
 import { ReviewSchema, z, type Review } from "@sovri/core";
 
 import { renderAssessmentBlock } from "./assessment.js";
@@ -131,7 +132,14 @@ export type { EffortScore } from "./assessment.js";
 
 export function composeWalkthrough(
   input: unknown,
-  options: { readonly pipelineFlow?: boolean } = {},
+  options: {
+    readonly pipelineFlow?: boolean;
+    // Opt-in brand banners. GitHub strips CSS in PR comments (ADR-016), so these are plain
+    // Markdown images referencing the published assets by absolute URL — off by default so the
+    // deterministic, text-only walkthrough is unchanged unless a caller (the bot) turns them on.
+    readonly brandHeader?: boolean;
+    readonly brandFooter?: boolean;
+  } = {},
 ): string {
   const review: WalkthroughInput = WalkthroughInputSchema.parse(input);
   const findings = sortFindings(review.findings);
@@ -144,7 +152,11 @@ export function composeWalkthrough(
 
   const verdict = computeVerdict(findings);
 
-  const sections = [...renderVerdictHeader(verdict, findings)];
+  const sections: string[] = [];
+  if (options.brandHeader === true) {
+    sections.push(`![Sovri code review](${brandAssetUrls.reviewCommentHeader})`, "");
+  }
+  sections.push(...renderVerdictHeader(verdict, findings));
 
   sections.push("", "### Review assessment", "", ...renderAssessmentBlock(findings));
 
@@ -193,6 +205,10 @@ export function composeWalkthrough(
 
   if (costFooter.length > 0) {
     sections.push("", "---", "", costFooter);
+  }
+
+  if (options.brandFooter === true) {
+    sections.push("", `![Sovri](${brandAssetUrls.reviewCommentFooter})`);
   }
 
   return sections.join("\n");

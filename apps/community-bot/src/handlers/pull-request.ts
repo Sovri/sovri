@@ -321,11 +321,14 @@ async function postReconciledReview(
     ...review,
     findings: reconciledFindings,
     summary: reconciledSummary,
-    walkthrough_markdown: composeWalkthrough({
-      ...review,
-      findings: reconciledFindings,
-      summary: reconciledSummary,
-    }),
+    walkthrough_markdown: composeWalkthrough(
+      {
+        ...review,
+        findings: reconciledFindings,
+        summary: reconciledSummary,
+      },
+      { brandHeader: true, brandFooter: true },
+    ),
   };
   await dependencies.postReview(target, reconciled, diff, review);
   await minimizeResolvedComments(dependencies, target, review, diff, posted.comments);
