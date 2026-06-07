@@ -21,6 +21,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `feat(review-engine)`: emit the `sovri.reviews.total` (counter), `sovri.reviews.duration_ms`
+  (histogram), and `sovri.findings.total` (counter) business metrics through `recordMetric`, defined
+  once as a typed Zod registry in `metrics.ts`. Tags stay low-cardinality — `status`/`llm_provider`
+  and `severity`/`category`/`source` taken straight from each validated `Finding`. `sovri.findings.total`
+  fires once per emitted Finding, including the synthetic finding a parse-failure descriptor surfaces.
+  Emission is best-effort: a metrics failure never disturbs the review and output is identical with
+  metrics on or off.
+- `feat(llm-providers)`: emit `sovri.llm.tokens` (once per `prompt`/`completion` direction per call)
+  and `sovri.llm.errors` (with a class-derived `error_type`, never the error message) from the provider
+  adapters via a shared `withLlmMetrics` helper, tagged with the provider name and model.
 - `docs`: brand image kit under `assets/` (banner, three-step "how it works" illustration, review
   comment header/footer banners, OG/social cards, and a concept-art set in `assets/illustrations/`).
   The README gains a hero banner and a "How it works" section using the three-step illustration.

@@ -13,6 +13,7 @@ import { z } from "@sovri/core";
 
 import { AnthropicAuthError, AnthropicResponseError } from "../errors.js";
 import { zodToProviderJsonSchema } from "../helpers/provider-json-schema.js";
+import { withLlmMetrics } from "../metrics.js";
 import type {
   GenerateStructuredParams,
   LLMProvider,
@@ -84,12 +85,14 @@ export class AnthropicProvider implements LLMProvider {
   async generateStructuredWithUsage<T>(
     params: GenerateStructuredParams<T>,
   ): Promise<StructuredGeneration<T>> {
-    const request = this.createRequest(params);
-    const response = await this.createMessage(request);
-    const tokenUsage = extractTokenUsage(response);
-    const data = parseStructuredResponse(response, params.schema, tokenUsage);
+    return withLlmMetrics({ provider: this.name, model: this.model }, async () => {
+      const request = this.createRequest(params);
+      const response = await this.createMessage(request);
+      const tokenUsage = extractTokenUsage(response);
+      const data = parseStructuredResponse(response, params.schema, tokenUsage);
 
-    return { data, tokenUsage };
+      return { data, tokenUsage };
+    });
   }
 
   private createRequest<T>(params: GenerateStructuredParams<T>): MessageCreateParamsNonStreaming {

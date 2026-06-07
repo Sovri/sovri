@@ -24,6 +24,12 @@ import { v4 as uuidv4, v7 as uuidv7 } from "uuid";
 
 import { generateAuditReference } from "./audit-ref.js";
 import {
+  recordFinding,
+  recordReviewDuration,
+  recordReviewTotal,
+  type ReviewStatus,
+} from "./metrics.js";
+import {
   computePromptSha256,
   emitAuditEvent,
   findingCreatedEvent,
@@ -275,167 +281,197 @@ export async function reviewPullRequest(
   return withSpan(
     "review.pull_request",
     async (reviewSpan) => {
+      // Business metrics (docs/adr/019, ARCHI §10.2.3): time the whole review and emit
+      // sovri.reviews.total + sovri.reviews.duration_ms exactly once in finally — status "succeeded"
+      // for a success/partial descriptor, "failed" for a failed descriptor or a thrown review.
+      const reviewStartedAtMs = performance.now();
+      let reviewStatus: ReviewStatus = "failed";
       try {
-        const limitError = getLimitError(reviewInput.pullRequest, reviewInput.config);
-        if (limitError !== undefined) {
-          await emitAuditEvent(sink, reviewFailedEvent("limit_exceeded"), logger);
+        const reviewDescriptor = await (async (): Promise<ReviewWithCheckRunDescriptors> => {
+          const limitError = getLimitError(reviewInput.pullRequest, reviewInput.config);
+          if (limitError !== undefined) {
+            await emitAuditEvent(sink, reviewFailedEvent("limit_exceeded"), logger);
 
-          const failedReview = buildFailedReview(
-            reviewInput.pullRequest,
-            provider,
-            startedAt,
-            limitError,
+            const failedReview = buildFailedReview(
+              reviewInput.pullRequest,
+              provider,
+              startedAt,
+              limitError,
+            );
+            return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
+          }
+
+          const filteredDiff = await withSpan("review.fetch_diff", async (diffSpan) => {
+            const filtered = filterDiffByIgnores(reviewInput.diff, reviewInput.config.ignores);
+            diffSpan.setAttribute("changed_files", reviewInput.diff.files.length);
+            diffSpan.setAttribute("reviewable_files", filtered.files.length);
+            return filtered;
+          });
+          logger?.info(
+            {
+              provider: provider.name,
+              changed_files: reviewInput.diff.files.length,
+              reviewable_files: filteredDiff.files.length,
+              ignored_files: reviewInput.diff.files.length - filteredDiff.files.length,
+            },
+            "Review engine ignore filters applied",
           );
-          return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
-        }
 
-        const filteredDiff = await withSpan("review.fetch_diff", async (diffSpan) => {
-          const filtered = filterDiffByIgnores(reviewInput.diff, reviewInput.config.ignores);
-          diffSpan.setAttribute("changed_files", reviewInput.diff.files.length);
-          diffSpan.setAttribute("reviewable_files", filtered.files.length);
-          return filtered;
-        });
-        logger?.info(
-          {
-            provider: provider.name,
-            changed_files: reviewInput.diff.files.length,
-            reviewable_files: filteredDiff.files.length,
-            ignored_files: reviewInput.diff.files.length - filteredDiff.files.length,
-          },
-          "Review engine ignore filters applied",
-        );
+          if (filteredDiff.files.length === 0) {
+            await emitAuditEvent(sink, reviewCompletedEvent(), logger);
 
-        if (filteredDiff.files.length === 0) {
+            return stampFindingsCount(
+              reviewSpan,
+              attachCheckRunDescriptors(
+                buildNoFilesReview(reviewInput.pullRequest, provider, startedAt),
+              ),
+            );
+          }
+
+          const prompt = await withSpan("review.build_prompt", async () =>
+            buildReviewPrompt({
+              unifiedDiff: filteredDiff.unified_diff,
+              mode: reviewInput.config.review.mode,
+              pullRequest: {
+                number: reviewInput.pullRequest.number,
+                repoFullName: reviewInput.pullRequest.repo_full_name,
+                title: reviewInput.pullRequest.title,
+                description: reviewInput.pullRequest.body ?? "",
+              },
+            }),
+          );
+
+          logger?.info(
+            { provider: provider.name, changed_files: filteredDiff.files.length },
+            "Review engine request started",
+          );
+
+          const generation = await withSpan(
+            "review.llm_call",
+            async () =>
+              generateParsedProviderReview(provider, {
+                systemPrompt: prompt.systemPrompt,
+                userPrompt: prompt.userPrompt,
+                schema: ProviderReviewResponseSchema,
+                maxTokens: provider.maxTokens,
+              }),
+            { "llm.provider": provider.name, "provider.model": provider.model },
+          );
+
+          if (generation.responseReturned && generation.promptSha256 !== undefined) {
+            await emitAuditEvent(
+              sink,
+              llmCalledEvent(
+                generation.promptSha256,
+                generation.tokenUsage.prompt,
+                generation.tokenUsage.completion,
+              ),
+              logger,
+            );
+          }
+
+          if (generation.status === "failed") {
+            const errorCode = generation.failureKind === "parse" ? "parse_error" : "provider_error";
+            await emitAuditEvent(sink, reviewFailedEvent(errorCode), logger);
+
+            const findings =
+              generation.failureKind === "parse"
+                ? [buildReviewFailedFinding(filteredDiff, generation.error)]
+                : [];
+
+            // The parse-failure descriptor still surfaces a synthetic Finding, so count it like any
+            // other emitted Finding — otherwise finding-mix dashboards undercount this branch (R-06).
+            for (const finding of findings) {
+              recordFinding({
+                severity: finding.severity,
+                category: finding.category,
+                source: finding.source,
+              });
+            }
+
+            const failedReview = buildFailedReview(
+              reviewInput.pullRequest,
+              provider,
+              startedAt,
+              generation.error,
+              {
+                findings,
+                ...(generation.promptSha256 === undefined
+                  ? {}
+                  : { promptSha256: generation.promptSha256 }),
+                tokenUsage: generation.tokenUsage,
+                tokenUsageReported: generation.tokenUsageReported,
+              },
+            );
+            return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
+          }
+
+          const findings = await withSpan("review.parse_findings", async () =>
+            applyReviewFilters(
+              generation.parsed.findings.map((finding) => toFinding(finding, logger)),
+              reviewInput.config.review.severityThreshold,
+              reviewInput.config.ignores,
+            ),
+          );
+
+          // Append findings in order: a chaining sink (the Cloud file writer) links
+          // entries by hash, so they must be awaited sequentially, never in parallel.
+          await findings.reduce(async (previous, finding) => {
+            await previous;
+            // sovri.findings.total: one increment per emitted Finding, tagged from the Finding's own
+            // validated enums (severity/category/source) — never re-derived (R-04, R-06).
+            recordFinding({
+              severity: finding.severity,
+              category: finding.category,
+              source: finding.source,
+            });
+            const event = findingCreatedEvent(finding);
+            if (event !== undefined) {
+              await emitAuditEvent(sink, event, logger);
+            }
+          }, Promise.resolve());
+
           await emitAuditEvent(sink, reviewCompletedEvent(), logger);
+
+          const review = ReviewSchema.parse({
+            id: uuidv7(),
+            pr_number: reviewInput.pullRequest.number,
+            repo_full_name: reviewInput.pullRequest.repo_full_name,
+            commit_sha: reviewInput.pullRequest.head_sha,
+            started_at: startedAt,
+            completed_at: new Date(),
+            llm_provider: provider.name,
+            llm_model: provider.model,
+            tokens_used: generation.tokenUsage,
+            token_usage_reported: generation.tokenUsageReported,
+            summary: generation.parsed.summary,
+            findings,
+            walkthrough_markdown: generation.parsed.walkthrough_markdown,
+            status: generation.status,
+          });
 
           return stampFindingsCount(
             reviewSpan,
             attachCheckRunDescriptors(
-              buildNoFilesReview(reviewInput.pullRequest, provider, startedAt),
+              withComposedWalkthrough(
+                review,
+                generation.promptSha256 === undefined
+                  ? {}
+                  : { promptSha256: generation.promptSha256 },
+              ),
             ),
           );
-        }
-
-        const prompt = await withSpan("review.build_prompt", async () =>
-          buildReviewPrompt({
-            unifiedDiff: filteredDiff.unified_diff,
-            mode: reviewInput.config.review.mode,
-            pullRequest: {
-              number: reviewInput.pullRequest.number,
-              repoFullName: reviewInput.pullRequest.repo_full_name,
-              title: reviewInput.pullRequest.title,
-              description: reviewInput.pullRequest.body ?? "",
-            },
-          }),
-        );
-
-        logger?.info(
-          { provider: provider.name, changed_files: filteredDiff.files.length },
-          "Review engine request started",
-        );
-
-        const generation = await withSpan(
-          "review.llm_call",
-          async () =>
-            generateParsedProviderReview(provider, {
-              systemPrompt: prompt.systemPrompt,
-              userPrompt: prompt.userPrompt,
-              schema: ProviderReviewResponseSchema,
-              maxTokens: provider.maxTokens,
-            }),
-          { "llm.provider": provider.name, "provider.model": provider.model },
-        );
-
-        if (generation.responseReturned && generation.promptSha256 !== undefined) {
-          await emitAuditEvent(
-            sink,
-            llmCalledEvent(
-              generation.promptSha256,
-              generation.tokenUsage.prompt,
-              generation.tokenUsage.completion,
-            ),
-            logger,
-          );
-        }
-
-        if (generation.status === "failed") {
-          const errorCode = generation.failureKind === "parse" ? "parse_error" : "provider_error";
-          await emitAuditEvent(sink, reviewFailedEvent(errorCode), logger);
-
-          const findings =
-            generation.failureKind === "parse"
-              ? [buildReviewFailedFinding(filteredDiff, generation.error)]
-              : [];
-
-          const failedReview = buildFailedReview(
-            reviewInput.pullRequest,
-            provider,
-            startedAt,
-            generation.error,
-            {
-              findings,
-              ...(generation.promptSha256 === undefined
-                ? {}
-                : { promptSha256: generation.promptSha256 }),
-              tokenUsage: generation.tokenUsage,
-              tokenUsageReported: generation.tokenUsageReported,
-            },
-          );
-          return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
-        }
-
-        const findings = await withSpan("review.parse_findings", async () =>
-          applyReviewFilters(
-            generation.parsed.findings.map((finding) => toFinding(finding, logger)),
-            reviewInput.config.review.severityThreshold,
-            reviewInput.config.ignores,
-          ),
-        );
-
-        // Append findings in order: a chaining sink (the Cloud file writer) links
-        // entries by hash, so they must be awaited sequentially, never in parallel.
-        await findings.reduce(async (previous, finding) => {
-          await previous;
-          const event = findingCreatedEvent(finding);
-          if (event !== undefined) {
-            await emitAuditEvent(sink, event, logger);
-          }
-        }, Promise.resolve());
-
-        await emitAuditEvent(sink, reviewCompletedEvent(), logger);
-
-        const review = ReviewSchema.parse({
-          id: uuidv7(),
-          pr_number: reviewInput.pullRequest.number,
-          repo_full_name: reviewInput.pullRequest.repo_full_name,
-          commit_sha: reviewInput.pullRequest.head_sha,
-          started_at: startedAt,
-          completed_at: new Date(),
-          llm_provider: provider.name,
-          llm_model: provider.model,
-          tokens_used: generation.tokenUsage,
-          token_usage_reported: generation.tokenUsageReported,
-          summary: generation.parsed.summary,
-          findings,
-          walkthrough_markdown: generation.parsed.walkthrough_markdown,
-          status: generation.status,
-        });
-
-        return stampFindingsCount(
-          reviewSpan,
-          attachCheckRunDescriptors(
-            withComposedWalkthrough(
-              review,
-              generation.promptSha256 === undefined
-                ? {}
-                : { promptSha256: generation.promptSha256 },
-            ),
-          ),
-        );
+        })();
+        reviewStatus = reviewDescriptor.status === "failed" ? "failed" : "succeeded";
+        return reviewDescriptor;
       } catch (error) {
         await emitAuditEvent(sink, reviewFailedEvent("unexpected_error"), logger);
 
         throw error;
+      } finally {
+        const reviewDurationMs = performance.now() - reviewStartedAtMs;
+        recordReviewDuration({ llm_provider: provider.name }, reviewDurationMs);
+        recordReviewTotal({ status: reviewStatus, llm_provider: provider.name });
       }
     },
     {

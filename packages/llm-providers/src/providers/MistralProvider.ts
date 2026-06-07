@@ -8,6 +8,7 @@ import type {
   LLMProvider,
   StructuredGeneration,
 } from "../types/LLMProvider.js";
+import { withLlmMetrics } from "../metrics.js";
 import { MistralProviderError } from "./MistralProvider.errors.js";
 import {
   createMistralJsonSchemaResponseFormat,
@@ -75,16 +76,18 @@ export class MistralProvider implements LLMProvider {
   async generateStructuredWithUsage<T>(
     params: GenerateStructuredParams<T>,
   ): Promise<StructuredGeneration<T>> {
-    const response = await createMistralChatCompletionWithRetry({
-      client: this.client,
-      request: this.createRequest(params),
-      timeoutMs: this.timeoutMs,
-      maxAttempts: this.maxAttempts,
-    });
-    const tokenUsage = extractMistralTokenUsage(response);
-    const data = parseStructuredMistralResponse(response, params.schema, tokenUsage);
+    return withLlmMetrics({ provider: this.name, model: this.model }, async () => {
+      const response = await createMistralChatCompletionWithRetry({
+        client: this.client,
+        request: this.createRequest(params),
+        timeoutMs: this.timeoutMs,
+        maxAttempts: this.maxAttempts,
+      });
+      const tokenUsage = extractMistralTokenUsage(response);
+      const data = parseStructuredMistralResponse(response, params.schema, tokenUsage);
 
-    return { data, tokenUsage };
+      return { data, tokenUsage };
+    });
   }
 
   private createRequest<T>(params: GenerateStructuredParams<T>): MistralChatRequest {
