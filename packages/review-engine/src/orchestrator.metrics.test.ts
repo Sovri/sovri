@@ -162,6 +162,23 @@ class ZodThrowProvider implements LLMProvider {
   }
 }
 
+// Throws a retryable schema failure on every attempt -> failureKind "parse" -> the orchestrator
+// RETURNS a failed descriptor carrying one synthetic review_failed Finding (findings.count === 1).
+class ParseFailureProvider implements LLMProvider {
+  public readonly name = "test-provider";
+  public readonly model = "test-model";
+  public readonly maxTokens = 2048;
+
+  async generateStructured<T>(): Promise<T> {
+    throw new RetryableProviderError("schema invalid, retry");
+  }
+}
+
+class RetryableProviderError extends Error {
+  public override readonly name = "RetryableProviderError";
+  public readonly retryableWithCorrectivePrompt = true;
+}
+
 const pullRequest: PullRequest = {
   number: 128,
   repo_full_name: "mpiton/sovri",
@@ -398,6 +415,27 @@ describe("R-06 — findings.total fires once per emitted Finding", () => {
       expect(callsFor(METRIC.findingsTotal).every((c) => c.value === 1)).toBe(true);
     },
   );
+
+  it("a parse-failure descriptor counts its synthetic review_failed Finding once", async () => {
+    // Given the provider fails schema parsing on every attempt (failureKind "parse")
+    const { value } = await capture(
+      { pullRequest, diff: oneFileDiff(), config: baseConfig },
+      { provider: new ParseFailureProvider() },
+    );
+    expect(value).toBeDefined();
+
+    // Then findings.total fires once for the one synthetic Finding the descriptor surfaces
+    const findings = callsFor(METRIC.findingsTotal);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.tags).toEqual({
+      severity: "major",
+      category: "maintainability",
+      source: "llm",
+    });
+    // And reviews.total still records the failed review exactly once
+    expect(callsFor(METRIC.reviewsTotal)).toHaveLength(1);
+    expect(callsFor(METRIC.reviewsTotal)[0]?.tags["status"]).toBe("failed");
+  });
 });
 
 // --- R-07 -------------------------------------------------------------------

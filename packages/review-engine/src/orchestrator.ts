@@ -379,6 +379,16 @@ export async function reviewPullRequest(
                 ? [buildReviewFailedFinding(filteredDiff, generation.error)]
                 : [];
 
+            // The parse-failure descriptor still surfaces a synthetic Finding, so count it like any
+            // other emitted Finding — otherwise finding-mix dashboards undercount this branch (R-06).
+            for (const finding of findings) {
+              recordFinding({
+                severity: finding.severity,
+                category: finding.category,
+                source: finding.source,
+              });
+            }
+
             const failedReview = buildFailedReview(
               reviewInput.pullRequest,
               provider,
