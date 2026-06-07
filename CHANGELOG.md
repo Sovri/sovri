@@ -21,6 +21,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `test(bot)`: add RED acceptance test (`tests/operational/otel-bootstrap.test.ts`) for the
+  community-bot OpenTelemetry bootstrap — asserts the `instrumentation.js` import is the first
+  statement in `server.ts` ahead of probot/observability/app, `initTelemetry()` runs once on import
+  with no argument, graceful `SIGTERM`/`SIGINT` shutdown awaits `shutdownTelemetry()` before exit
+  (double-signal-safe, a no-op shutdown resolves, a rejecting flush still exits non-zero), `/health`
+  and `/version` serve unchanged with and without an OTLP endpoint, the bot stays a thin adapter, and
+  no secret reaches the bootstrap (R-01..R-09, #2424).
 - `feat(review-engine)`: emit the `sovri.reviews.total` (counter), `sovri.reviews.duration_ms`
   (histogram), and `sovri.findings.total` (counter) business metrics through `recordMetric`, defined
   once as a typed Zod registry in `metrics.ts`. Tags stay low-cardinality — `status`/`llm_provider`
