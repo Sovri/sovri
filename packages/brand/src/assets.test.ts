@@ -20,7 +20,10 @@ describe("brandAssetUrls", () => {
     expect(() => BrandAssetUrlsSchema.parse(brandAssetUrls)).not.toThrow();
   });
 
-  it("rejects a relative path that would not resolve inside a GitHub comment", () => {
+  it("rejects a URL without the required https:// scheme", () => {
+    // The schema guards the invariant that both banners are absolute https URLs. A relative
+    // path is one way to violate it; the rejection is about the scheme the schema enforces,
+    // not about how GitHub happens to render a relative path today.
     expect(() =>
       BrandAssetUrlsSchema.parse({
         reviewCommentHeader: "assets/review-comment-header.png",

@@ -26,7 +26,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   The README gains a hero banner and a "How it works" section using the three-step illustration.
 - `feat(brand)`: export `brandAssetUrls` — absolute `raw.githubusercontent.com` URLs for the review
   comment header/footer banners, validated at load. GitHub proxies Markdown images through camo, so a
-  comment body needs an absolute URL (a repo-relative path only resolves in the rendered README).
+  comment body needs an absolute URL (a repo-relative path only resolves in the rendered README). The
+  schema rejects any URL without an `https://` scheme.
 - `feat(review-engine)`: `composeWalkthrough` gains opt-in `brandHeader` / `brandFooter` options that
   prepend/append the Sovri banner images. Off by default, so the deterministic text-only walkthrough
   (ADR-016) and every existing golden/structure test are unchanged; the banner sits above, never
