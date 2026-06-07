@@ -25,6 +25,7 @@ import {
   type OpenAIChatRequest,
 } from "./OpenAIProvider.retry.js";
 import { OpenAIProviderError } from "./OpenAIProvider.errors.js";
+import { withLlmMetrics } from "../metrics.js";
 
 export {
   OpenAIProviderAuthError,
@@ -94,11 +95,13 @@ export class OpenAIProvider implements LLMProvider {
   async generateStructuredWithUsage<T>(
     params: GenerateStructuredParams<T>,
   ): Promise<StructuredGeneration<T>> {
-    const response = await this.createChatCompletion(params);
-    const tokenUsage = extractOpenAITokenUsage(response);
-    const data = parseStructuredOpenAIResponse(response, params.schema, tokenUsage);
+    return withLlmMetrics({ provider: this.name, model: this.model }, async () => {
+      const response = await this.createChatCompletion(params);
+      const tokenUsage = extractOpenAITokenUsage(response);
+      const data = parseStructuredOpenAIResponse(response, params.schema, tokenUsage);
 
-    return { data, tokenUsage };
+      return { data, tokenUsage };
+    });
   }
 
   private async createChatCompletion<T>(params: GenerateStructuredParams<T>): Promise<unknown> {
