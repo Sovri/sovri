@@ -415,11 +415,13 @@ function firstNonHeaderStatement(source: string): string {
 }
 
 function unreleasedSection(changelog: string): string {
-  const start = changelog.indexOf("[Unreleased]");
+  // Anchor on the heading, not a bare "[Unreleased]" — the preamble prose also mentions the token.
+  const heading = "## [Unreleased]";
+  const start = changelog.indexOf(heading);
   if (start === -1) {
     return "";
   }
-  const rest = changelog.slice(start + "[Unreleased]".length);
+  const rest = changelog.slice(start + heading.length);
   const nextRelease = rest.search(/\n## \[/u);
   return nextRelease === -1 ? rest : rest.slice(0, nextRelease);
 }
