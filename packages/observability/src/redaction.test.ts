@@ -20,12 +20,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const CENSOR = "[Redacted]";
 
-// The 13 keys ARCHI 10.2 permits: 4 span attributes + 9 metric tags.
+// The 16 permitted keys: the 4 ARCHI 10.2.2 span attributes + 9 ARCHI 10.2.3 metric tags + the 3
+// non-sensitive operational attributes the review-engine spans already carry (changed_files /
+// reviewable_files on fetch_diff, provider.model on llm_call).
 const EXPECTED_ALLOWED_KEYS = [
   "pr.number",
   "pr.repo",
   "llm.provider",
   "findings.count",
+  "changed_files",
+  "reviewable_files",
+  "provider.model",
   "status",
   "llm_provider",
   "severity",
@@ -386,7 +391,7 @@ describe("the instrumented log path stays redacted (R-07)", () => {
 describe("the allowlist is the single source of truth (R-08)", () => {
   // Given ALLOWED_TELEMETRY_KEYS exported from the guard
   // Then it contains exactly the four span attributes and nine metric tags from ARCHI 10.2
-  it("enumerates exactly the 13 permitted keys", async () => {
+  it("enumerates exactly the 16 permitted keys", async () => {
     const { ALLOWED_TELEMETRY_KEYS } = await loadGuard();
 
     expect([...ALLOWED_TELEMETRY_KEYS].toSorted()).toEqual([...EXPECTED_ALLOWED_KEYS].toSorted());
