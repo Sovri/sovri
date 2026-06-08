@@ -167,6 +167,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Security
 
+- `test(observability)`: add the RED acceptance test (`redaction.test.ts`) for the telemetry
+  redaction guard — allowlisted span attributes / metric tags pass, off-allowlist keys drop,
+  GitHub-token / LLM-key / PEM / webhook-payload values censor to `[Redacted]`, only scalars pass,
+  the guard is pure and deterministic, `withSpan` / `recordMetric` route through it, and the Pino
+  `REDACT_PATHS` log path stays redacted; includes a seeded property/fuzz pass (R-01..R-10, #2437).
+
 ## [0.5.0] - 2026-06-06
 ### Added
 
