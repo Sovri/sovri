@@ -188,9 +188,12 @@ eval_docs() {
   fi
 
   # R-09 — CHANGELOG [Unreleased] has a docs-scoped Added entry naming the guide.
+  # Here-strings, not `printf | grep -q`: under `set -o pipefail` a `grep -q` that exits early on a
+  # large [Unreleased] block SIGPIPEs the upstream printf and the pipeline reports failure even on a
+  # match (false negative). A here-string has no upstream writer to kill.
   local unrel
   unrel=$(awk '/## \[Unreleased\]/{f=1;next} /^## /{f=0} f' "$changelog")
-  if printf '%s' "$unrel" | grep -qiF 'observability' && printf '%s' "$unrel" | grep -qF '`docs`'; then
+  if grep -qiF 'observability' <<<"$unrel" && grep -qF '`docs`' <<<"$unrel"; then
     printf 'changelog=recorded\n'
   else
     printf 'changelog=missing\n'; mark_fail
