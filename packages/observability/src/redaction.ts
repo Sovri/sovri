@@ -53,7 +53,11 @@ const CENSOR = "[Redacted]";
 // REDACT_PATHS rationale in logger.ts. Detection is shape-anchored: each pattern requires a realistic
 // token tail so a benign value that merely contains the literal "sk-" (e.g. "task-131") is NOT
 // censored. The regexes are non-global so `.test()` stays stateless and the guard deterministic.
-export const GITHUB_TOKEN_PATTERN: RegExp = /(?:ghp_|ghs_|github_pat_)[A-Za-z0-9_]{16,}/u;
+// GitHub credential prefixes: classic PAT (ghp_), OAuth (gho_), App user (ghu_), App refresh (ghr_),
+// App installation (ghs_, including the stateless ghs_APPID_JWT format whose JWT tail carries "." and
+// "-"), and fine-grained PAT (github_pat_). The tail allows ".-_" so stateless installation tokens
+// are caught as opaque strings.
+export const GITHUB_TOKEN_PATTERN: RegExp = /(?:gh[posur]_|github_pat_)[A-Za-z0-9._-]{16,}/u;
 export const LLM_API_KEY_PATTERN: RegExp = /sk-[A-Za-z0-9]{16,}/u;
 export const PEM_PRIVATE_KEY_PATTERN: RegExp = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/u;
 
@@ -114,10 +118,12 @@ export type SanitizedTelemetryAttributes = z.infer<typeof SanitizedTelemetryAttr
  *   with "[Redacted]" (R-02, R-03).
  * - Only `string | number | boolean` values pass; objects, arrays, functions, null, and undefined
  *   are dropped (R-04), bounding tag cardinality and preventing nested-payload leakage.
+ *
+ * @param input - An arbitrary attribute/tag map from any (possibly untyped) producer. Accepts
+ *   `unknown` so callers at the telemetry boundary need no cast; a non-record input sanitizes to `{}`.
+ * @returns A fresh record holding only allowlisted keys with scalar, secret-free values.
  */
-export function sanitizeTelemetryAttributes(
-  input: Record<string, unknown>,
-): SanitizedTelemetryAttributes {
+export function sanitizeTelemetryAttributes(input: unknown): SanitizedTelemetryAttributes {
   const parsed = TelemetryInputSchema.safeParse(input);
   const record: Record<string, unknown> = parsed.success ? parsed.data : {};
 

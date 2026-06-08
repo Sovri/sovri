@@ -154,7 +154,12 @@ describe("sanitizeTelemetryAttributes — secret-shaped values are censored (R-0
   // Then the entry is exactly "[Redacted]" and the cleartext appears nowhere in the output
   it.each([
     ["llm.provider", "ghp_FAKE0123456789abcdef"],
+    ["llm.provider", "gho_FAKE0123456789abcdef"],
+    ["llm.provider", "ghu_FAKE0123456789abcdef"],
+    ["llm.provider", "ghr_FAKE0123456789abcdef"],
     ["llm.provider", "ghs_FAKE0123456789abcdef0123"],
+    // Stateless GitHub App installation token: ghs_ + numeric app id + JWT (with "." and "-").
+    ["provider", "ghs_123456_FAKEjwtHeader.FAKEjwtPayload-FAKEsig"],
     ["source", "github_pat_11ABCDE0a1b2c3d4e5f60123456789abcdef"],
     ["provider", "sk-FAKE0123456789abcdef"],
     ["model", "-----BEGIN RSA PRIVATE KEY-----"],
@@ -409,6 +414,9 @@ describe("the allowlist is the single source of truth (R-08)", () => {
     );
     expect(barrel).toMatch(
       /export\s*\{[^}]*\bALLOWED_TELEMETRY_KEYS\b[^}]*\}\s*from\s*["']\.\/redaction\.js["']/u,
+    );
+    expect(barrel).toMatch(
+      /export\s+type\s*\{[^}]*\bAllowedTelemetryKey\b[^}]*\}\s*from\s*["']\.\/redaction\.js["']/u,
     );
   });
 });

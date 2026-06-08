@@ -171,7 +171,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   attribute and metric tag at the single `withSpan` / `recordMetric` choke point. A key outside the
   `ALLOWED_TELEMETRY_KEYS` allowlist (the four ARCHI §10.2.2 span attributes, the nine §10.2.3 metric
   tags, plus the non-sensitive operational `changed_files` / `reviewable_files` / `provider.model`)
-  is dropped; a value matching a GitHub-token (`ghp_`/`ghs_`/`github_pat_`), LLM-key (`sk-`), PEM
+  is dropped; a value matching a GitHub-token (`ghp_`/`gho_`/`ghu_`/`ghr_`/`ghs_`/`github_pat_`,
+  including the stateless `ghs_APPID_JWT` format), LLM-key (`sk-`), PEM
   private-key, or webhook-payload JSON pattern is censored to `[Redacted]`; only scalars pass. The
   allowlist is one Zod enum (`z.infer`), detection is shape-anchored so benign values like `task-131`
   are kept, and `delivery_id` correlation stays in logs — never on a span or metric. The existing
