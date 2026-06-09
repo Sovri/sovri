@@ -323,11 +323,12 @@ describe("community bot OTel bootstrap — R-07 no secret leaks at bootstrap", (
 });
 
 describe("community bot OTel bootstrap — R-08 changelog and R-09 code quality", () => {
-  it("records the OTel bootstrap in the changelog Unreleased section", () => {
-    // Then CHANGELOG.md [Unreleased] gains a bot-scoped entry describing the bootstrap and --require form
-    const unreleased = unreleasedSection(readRepoFile("CHANGELOG.md"));
-    expect(unreleased.toLowerCase()).toContain("otel");
-    expect(unreleased).toContain(REQUIRE_FLAG);
+  it("records the OTel bootstrap in the changelog", () => {
+    // The bot-scoped entry lands in [Unreleased] on the feature PR and stays valid in the release
+    // section it is promoted into at release time. Scan both so the entry is found where it landed.
+    const documented = releaseCandidateSections(readRepoFile("CHANGELOG.md")).join("\n");
+    expect(documented.toLowerCase()).toContain("otel");
+    expect(documented).toContain(REQUIRE_FLAG);
   });
 
   it.each([INSTRUMENTATION_SOURCE, SHUTDOWN_SOURCE])(
@@ -424,6 +425,20 @@ function unreleasedSection(changelog: string): string {
   const rest = changelog.slice(start + heading.length);
   const nextRelease = rest.search(/\n## \[/u);
   return nextRelease === -1 ? rest : rest.slice(0, nextRelease);
+}
+
+// Scan [Unreleased] plus every cut release section. A documented entry stays valid in the section
+// where it first landed, even after later versions are promoted above it at release time.
+function releaseCandidateSections(changelog: string): string[] {
+  const sections = [unreleasedSection(changelog)];
+  for (const match of changelog.matchAll(/^## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}$/gmu)) {
+    const heading = match[0];
+    const start = changelog.indexOf(heading);
+    const rest = changelog.slice(start + heading.length);
+    const nextRelease = rest.search(/\n## \[/u);
+    sections.push(nextRelease === -1 ? rest : rest.slice(0, nextRelease));
+  }
+  return sections;
 }
 
 async function startCommunityBotServer(): Promise<HttpServer> {

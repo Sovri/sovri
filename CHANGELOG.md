@@ -19,6 +19,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+
+## [0.6.0] - 2026-06-09
 ### Security
 
 - `ci`: sign the Community-bot GHCR image with cosign keyless (Sigstore + GitHub OIDC) in
