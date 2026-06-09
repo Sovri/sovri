@@ -36,6 +36,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - review prompt now asks the LLM for a CWE id (e.g. CWE-287) and a confidence score (0–1) on security/bug findings.
 - compliance integration test: split weak `?? 0` existence guard into separate `toBeDefined()` + length assertions.
+- bumped LLM SDKs (exact pins): `@anthropic-ai/sdk` 0.99.0 → 0.102.0, `openai` 6.39.1 → 6.42.0.
+- bumped `js-yaml` 4.1.1 → 4.2.0 (config parser, community-bot).
+- bumped dev tooling: `vitest`/coverage 4.1.7 → 4.1.8, `turbo` 2.9.15 → 2.9.16, `lefthook` 2.1.8 → 2.1.9, `knip` 6.14.2 → 6.16.1, `oxlint` 1.67.0 → 1.69.0, `oxfmt` 0.52.0 → 0.54.0.
 
 ## [0.6.0] - 2026-06-09
 ### Security
