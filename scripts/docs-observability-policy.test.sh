@@ -135,15 +135,17 @@ eval_docs() {
   fi
 
   # R-03 — verify commands consistent with the release workflow (image ref, OIDC issuer, tag scheme).
+  # Both commands must be present: a verify section that documents neither cosign nor SLSA verification
+  # is not "consistent", it is incomplete, so an `else` arm fails it rather than letting the skipped
+  # block print commands=consistent by default.
   local cmd_ok=1 reason=""
-  if grep -qE 'cosign verify|gh attestation verify' "$doc"; then
+  if grep -qF 'cosign verify' "$doc" && grep -qF 'gh attestation verify' "$doc"; then
     # Image ref: every community-bot reference is the official repo.
     if grep -oE 'ghcr\.io/[A-Za-z0-9._/-]*community-bot' "$doc" | grep -qv '^ghcr\.io/mpiton/sovri/community-bot$'; then
       reason="image_ref"; cmd_ok=0
     fi
-    # OIDC issuer: the canonical GitHub Actions OIDC issuer only.
-    if [ "$cmd_ok" -eq 1 ] && grep -qE -- '--certificate-oidc-issuer' "$doc" \
-       && ! grep -qF -- '--certificate-oidc-issuer https://token.actions.githubusercontent.com' "$doc"; then
+    # OIDC issuer: cosign verify is present, so its canonical GitHub Actions issuer must be too.
+    if [ "$cmd_ok" -eq 1 ] && ! grep -qF -- '--certificate-oidc-issuer https://token.actions.githubusercontent.com' "$doc"; then
       reason="oidc_issuer"; cmd_ok=0
     fi
     # Tag scheme: image tags are v-prefixed SemVer (or `latest`); reject off-scheme tags like :dev.
@@ -157,6 +159,8 @@ eval_docs() {
         esac
       done < <(grep -oE 'community-bot:[A-Za-z0-9._-]+' "$doc" | sed 's/^community-bot://')
     fi
+  else
+    reason="commands_missing"; cmd_ok=0
   fi
   if [ "$cmd_ok" -eq 1 ]; then printf 'commands=consistent\n'; else printf 'commands=inconsistent\nreason=%s\n' "$reason"; mark_fail; fi
 

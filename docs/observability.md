@@ -35,13 +35,13 @@ never opt out of anything by leaving it blank.
 
 The bot serves Prometheus text exposition at `GET /metrics` from the OpenTelemetry meter on port 3000. Scrape it directly:
 
-```
+```bash
 curl http://localhost:3000/metrics
 ```
 
 Point Prometheus at the same path:
 
-```
+```yaml
 scrape_configs:
   - job_name: sovri-community-bot
     metrics_path: /metrics
@@ -81,7 +81,7 @@ post-deploy audit.
 
 Keyless signature (cosign):
 
-```
+```bash
 cosign verify ghcr.io/mpiton/sovri/community-bot:v0.6.0 \
   --certificate-identity-regexp '^https://github.com/mpiton/sovri/' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -90,7 +90,7 @@ cosign verify ghcr.io/mpiton/sovri/community-bot:v0.6.0 \
 SLSA build provenance, to prove the image was built from the Sovri source by the official release
 workflow:
 
-```
+```bash
 gh attestation verify oci://ghcr.io/mpiton/sovri/community-bot:v0.6.0 --owner mpiton
 ```
 
