@@ -22,6 +22,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 - COMPLIANCE_MIN_CONFIDENCE domain threshold in @sovri/core.
+- compliance enrichment gate (security/bug + CWE + confidence >= 0.7); category filter is an explicit allowlist — style findings with a CWE are excluded by category, not by CWE absence.
 
 ### Changed
 
