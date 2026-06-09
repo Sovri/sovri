@@ -21,6 +21,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- compliance mappings for resilience and logging CWEs (674, 754, 778, 223).
 - compliance mappings for credential-protection and sensitive-info-exposure CWEs (256, 522, 359, 209).
 - compliance mappings for cleartext storage/transmission and weak-hash CWEs (312, 319, 313, 328).
 - compliance mapping for CWE-532 (sensitive data in logs) → GDPR/NIS2/ISO references; only GDPR Art. 32 is enforced, NIS2 and ISO 27001 are present but not required pending DPO review.

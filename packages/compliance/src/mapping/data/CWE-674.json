@@ -1,0 +1,31 @@
+{
+  "cwe_id": "CWE-674",
+  "title": "Uncontrolled Recursion",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/674.html",
+  "impacts": ["Denial of service", "Stack overflow", "Resource exhaustion"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-674",
+      "description": "Uncontrolled Recursion",
+      "source_url": "https://cwe.mitre.org/data/definitions/674.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "DORA",
+      "identifier": "Art. 9",
+      "description": "ICT risk management protection and prevention controls against unbounded recursion causing service disruption.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+      "applicability": "applicable_if",
+      "condition": "The affected system is part of the ICT infrastructure of a financial entity subject to DORA"
+    },
+    {
+      "framework": "NIS2",
+      "identifier": "Art. 21(2)(c)",
+      "description": "Business continuity measures covering stack overflow and denial-of-service conditions from uncontrolled recursion.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+      "applicability": "applicable_if",
+      "condition": "The entity is an essential or important entity subject to NIS2"
+    }
+  ]
+}

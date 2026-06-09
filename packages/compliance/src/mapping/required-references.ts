@@ -18,6 +18,7 @@ interface ReferenceLike {
 // exact article/control identifiers.
 const requiredReferencesByCwe: Record<string, readonly RequiredReference[]> = {
   "CWE-200": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-223": [{ framework: "NIS2", identifier: "Art. 21(2)(g)" }],
   "CWE-209": [{ framework: "GDPR", identifier: "Art. 32" }],
   "CWE-256": [{ framework: "GDPR", identifier: "Art. 32" }],
   "CWE-312": [{ framework: "GDPR", identifier: "Art. 32" }],
@@ -35,10 +36,13 @@ const requiredReferencesByCwe: Record<string, readonly RequiredReference[]> = {
     { framework: "GDPR", identifier: "Art. 32" },
     { framework: "ISO27001-2022", identifier: "A.5.15" },
   ],
+  "CWE-674": [{ framework: "DORA", identifier: "Art. 9" }],
+  "CWE-754": [{ framework: "DORA", identifier: "Art. 9" }],
   "CWE-770": [
     { framework: "DORA", identifier: "Art. 9" },
     { framework: "NIS2", identifier: "Art. 21(2)(b)" },
   ],
+  "CWE-778": [{ framework: "NIS2", identifier: "Art. 21(2)(g)" }],
   "CWE-863": [
     { framework: "GDPR", identifier: "Art. 32" },
     { framework: "DORA", identifier: "Art. 9" },

@@ -24,6 +24,7 @@ import cwe121Entry from "./data/CWE-121.json" with { type: "json" };
 import cwe122Entry from "./data/CWE-122.json" with { type: "json" };
 import cwe200Entry from "./data/CWE-200.json" with { type: "json" };
 import cwe209Entry from "./data/CWE-209.json" with { type: "json" };
+import cwe223Entry from "./data/CWE-223.json" with { type: "json" };
 import cwe256Entry from "./data/CWE-256.json" with { type: "json" };
 import cwe284Entry from "./data/CWE-284.json" with { type: "json" };
 import cwe306Entry from "./data/CWE-306.json" with { type: "json" };
@@ -35,7 +36,10 @@ import cwe502Entry from "./data/CWE-502.json" with { type: "json" };
 import cwe522Entry from "./data/CWE-522.json" with { type: "json" };
 import cwe532Entry from "./data/CWE-532.json" with { type: "json" };
 import cwe639Entry from "./data/CWE-639.json" with { type: "json" };
+import cwe674Entry from "./data/CWE-674.json" with { type: "json" };
+import cwe754Entry from "./data/CWE-754.json" with { type: "json" };
 import cwe770Entry from "./data/CWE-770.json" with { type: "json" };
+import cwe778Entry from "./data/CWE-778.json" with { type: "json" };
 import cwe863Entry from "./data/CWE-863.json" with { type: "json" };
 import cwe918Entry from "./data/CWE-918.json" with { type: "json" };
 
@@ -61,6 +65,7 @@ const mappingEntries = [
   cwe122Entry,
   cwe200Entry,
   cwe209Entry,
+  cwe223Entry,
   cwe256Entry,
   cwe284Entry,
   cwe306Entry,
@@ -72,7 +77,10 @@ const mappingEntries = [
   cwe522Entry,
   cwe532Entry,
   cwe639Entry,
+  cwe674Entry,
+  cwe754Entry,
   cwe770Entry,
+  cwe778Entry,
   cwe863Entry,
   cwe918Entry,
 ] satisfies readonly unknown[];
