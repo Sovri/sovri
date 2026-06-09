@@ -260,4 +260,21 @@ describe("composeWalkthrough compliance references block", () => {
     );
     expect(markdown).not.toContain("(applicable if:");
   });
+
+  // Regression lock: end-to-end render path — composeWalkthrough → renderComplianceSection
+  it("renders the compliance references block end-to-end for an enriched finding", () => {
+    // Given a security finding carrying a GDPR compliance reference
+    const review = reviewWith({
+      ...baseFinding,
+      compliance_references: [gdprReference],
+    });
+
+    // When the full walkthrough is composed
+    const markdown = composeWalkthrough(review);
+
+    // Then the rendered markdown contains the block heading
+    expect(markdown).toContain("Potential compliance references");
+    // And the framework label is present
+    expect(markdown).toContain("GDPR");
+  });
 });
