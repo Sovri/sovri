@@ -14,6 +14,7 @@ const REVIEWER_DIRECTIVES = [
   "Each finding states the problem and its impact in `body` and the concrete fix in `recommendation`.",
   "Write a neutral one-paragraph `summary` separately from the findings.",
   "Return structured JSON findings that match the requested schema.",
+  "For a security or bug finding tied to a known weakness, set `cwe` to its CWE id (for example CWE-287) and `confidence` to a number between 0 and 1 reflecting your honest certainty; omit `cwe` otherwise.",
 ];
 
 const FULL_REVIEW_SYSTEM_TEMPLATE = [
@@ -130,6 +131,8 @@ const FEW_SHOT_PREAMBLE = [
   "  title: Unvalidated session token",
   "  body: The handler trusts req.body.token without a signature check, so a forged token is accepted.",
   "  recommendation: Verify the token with the existing verifySession helper before use.",
+  "  cwe: CWE-287",
+  "  confidence: 0.9",
   "Forbidden narration (emit nothing instead):",
   "  title: Added generateAuthContent function",
   "  body: A new function was added to generate crawler-friendly content for auth routes.",

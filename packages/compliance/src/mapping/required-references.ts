@@ -13,8 +13,25 @@ interface ReferenceLike {
   readonly identifier: string;
 }
 
+// Only the primary mandatory framework per CWE is enforced here. Secondary references (e.g. NIS2,
+// ISO 27001) are present in the data files but not required, pending expert/DPO review of their
+// exact article/control identifiers.
 const requiredReferencesByCwe: Record<string, readonly RequiredReference[]> = {
   "CWE-200": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-307": [{ framework: "NIS2", identifier: "Art. 21(2)(i)" }],
+  "CWE-327": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-521": [{ framework: "NIS2", identifier: "Art. 21(2)(i)" }],
+  "CWE-916": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-223": [{ framework: "NIS2", identifier: "Art. 21(2)(g)" }],
+  "CWE-209": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-256": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-312": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-313": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-319": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-328": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-359": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-522": [{ framework: "GDPR", identifier: "Art. 32" }],
+  "CWE-532": [{ framework: "GDPR", identifier: "Art. 32" }],
   "CWE-284": [
     { framework: "GDPR", identifier: "Art. 32" },
     { framework: "DORA", identifier: "Art. 9" },
@@ -23,10 +40,13 @@ const requiredReferencesByCwe: Record<string, readonly RequiredReference[]> = {
     { framework: "GDPR", identifier: "Art. 32" },
     { framework: "ISO27001-2022", identifier: "A.5.15" },
   ],
+  "CWE-674": [{ framework: "DORA", identifier: "Art. 9" }],
+  "CWE-754": [{ framework: "DORA", identifier: "Art. 9" }],
   "CWE-770": [
     { framework: "DORA", identifier: "Art. 9" },
     { framework: "NIS2", identifier: "Art. 21(2)(b)" },
   ],
+  "CWE-778": [{ framework: "NIS2", identifier: "Art. 21(2)(g)" }],
   "CWE-863": [
     { framework: "GDPR", identifier: "Art. 32" },
     { framework: "DORA", identifier: "Art. 9" },

@@ -19,6 +19,23 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- cross-cutting invariants test for the batch-3 CWE compliance mappings.
+- compliance mappings for authentication CWEs (307, 521) and Tier-2 crypto CWEs (327, 916).
+- compliance mappings for resilience and logging CWEs (674, 754, 778, 223).
+- compliance mappings for credential-protection and sensitive-info-exposure CWEs (256, 522, 359, 209).
+- compliance mappings for cleartext storage/transmission and weak-hash CWEs (312, 319, 313, 328).
+- compliance mapping for CWE-532 (sensitive data in logs) → GDPR/NIS2/ISO references; only GDPR Art. 32 is enforced, NIS2 and ISO 27001 are present but not required pending DPO review.
+- COMPLIANCE_MIN_CONFIDENCE domain threshold in @sovri/core.
+- compliance enrichment gate (security/bug + CWE + confidence >= 0.7); category filter is an explicit allowlist — style findings with a CWE are excluded by category, not by CWE absence.
+- compliance references are now emitted on eligible security/bug findings.
+- regression test locking compliance-reference rendering end-to-end through `composeWalkthrough`.
+
+### Changed
+
+- review prompt now asks the LLM for a CWE id (e.g. CWE-287) and a confidence score (0–1) on security/bug findings.
+- compliance integration test: split weak `?? 0` existence guard into separate `toBeDefined()` + length assertions.
 
 ## [0.6.0] - 2026-06-09
 ### Security

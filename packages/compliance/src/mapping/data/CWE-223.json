@@ -1,0 +1,30 @@
+{
+  "cwe_id": "CWE-223",
+  "title": "Omission of Security-relevant Information",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/223.html",
+  "impacts": ["Audit gap", "Undetected attack", "Forensic evidence loss"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-223",
+      "description": "Omission of Security-relevant Information",
+      "source_url": "https://cwe.mitre.org/data/definitions/223.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "NIS2",
+      "identifier": "Art. 21(2)(g)",
+      "description": "Basic cyber hygiene measures requiring that security-relevant events are captured and not omitted from logs.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+      "applicability": "applicable_if",
+      "condition": "The entity is an essential or important entity subject to NIS2"
+    },
+    {
+      "framework": "ISO27001-2022",
+      "identifier": "A.8.15",
+      "description": "Logging controls requiring complete recording of security-relevant events.",
+      "source_url": "https://www.iso.org/standard/82875.html",
+      "applicability": "informational"
+    }
+  ]
+}

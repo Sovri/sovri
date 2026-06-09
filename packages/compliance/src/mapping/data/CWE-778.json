@@ -1,0 +1,38 @@
+{
+  "cwe_id": "CWE-778",
+  "title": "Insufficient Logging",
+  "mitre_url": "https://cwe.mitre.org/data/definitions/778.html",
+  "impacts": ["Undetected attack", "Audit gap", "Incident response failure"],
+  "references": [
+    {
+      "framework": "CWE",
+      "identifier": "CWE-778",
+      "description": "Insufficient Logging",
+      "source_url": "https://cwe.mitre.org/data/definitions/778.html",
+      "applicability": "informational"
+    },
+    {
+      "framework": "NIS2",
+      "identifier": "Art. 21(2)(g)",
+      "description": "Basic cyber hygiene and cybersecurity training measures requiring adequate logging for incident detection and response.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022L2555",
+      "applicability": "applicable_if",
+      "condition": "The entity is an essential or important entity subject to NIS2"
+    },
+    {
+      "framework": "DORA",
+      "identifier": "Art. 9",
+      "description": "ICT risk management detection controls requiring sufficient logging to identify and monitor ICT-related incidents.",
+      "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A32022R2554",
+      "applicability": "applicable_if",
+      "condition": "The affected system is part of the ICT infrastructure of a financial entity subject to DORA"
+    },
+    {
+      "framework": "ISO27001-2022",
+      "identifier": "A.8.15",
+      "description": "Logging controls for event records covering security-relevant activities.",
+      "source_url": "https://www.iso.org/standard/82875.html",
+      "applicability": "informational"
+    }
+  ]
+}
