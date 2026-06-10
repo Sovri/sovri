@@ -25,7 +25,7 @@ sovri/
 │   └── observability
 └── apps/
     ├── community-bot   ← public, Apache 2.0
-    └── cloud-api       ← PRIVATE (v1.0+)
+    └── cloud-api       ← PRIVATE (proprietary, not published)
 ```
 
 ## Rationale
