@@ -64,6 +64,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   collapse first-wins — surfaces SARIF only when its file is in the diff's changed-files set,
   applies the severity threshold and ignore rules, and orders the merged set by a stable tie-break
   (severity, source, file, line, id) for reproducible output (rule R-09).
+- SARIF output surfacing in `@sovri/review-engine`: SARIF findings are counted in the
+  "Sovri / review" Checks row (the "Sovri / license-scan" row stays the v1.0 neutral placeholder),
+  attributed in the walkthrough findings table via a `SARIF` source badge in the title cell (no core
+  Finding change), with every SARIF-derived string escaped through the existing `formatTableCell`
+  (rule R-10).
 - `@sovri/cli` package with a `sovri verify <trail.jsonl>` command that verifies an audit trail
   offline (Ed25519 hash chain + signatures), reading the verification public key from the trail's
   `trail.started` entry or a `--public-key` PEM file; exits non-zero on tamper or malformed input.
