@@ -8,9 +8,12 @@ import { z, type Category, type Finding, type Severity } from "@sovri/core";
 import { generateAuditReference } from "../audit-ref.js";
 import { parseSarifReport, type SarifResult } from "./reader.js";
 
-// Probe for a primary physical location without committing to the full SARIF
-// location shape (R-05 resolves the uri itself). A result that cannot anchor a
-// file/line is off-spec for a Finding and is dropped with a counted reason.
+// Probe for a primary physicalLocation without committing to the full SARIF
+// location shape (R-05 resolves the uri itself). A result with no primary
+// physicalLocation is off-spec for a Finding and is dropped with a counted
+// reason. A present-but-partial location still maps: resolveLocation fills a
+// missing uri/region defensively (file "unknown", file-level line 1), since a
+// region-less location is valid file-level SARIF and uri policy is R-05's.
 const LocationProbeSchema = z.looseObject({
   locations: z.array(z.looseObject({ physicalLocation: z.looseObject({}).optional() })).optional(),
 });
@@ -63,8 +66,10 @@ export function ingestReport(raw: string): ReportIngestion {
   };
 }
 
-// R-03 owns one skip reason: a result that cannot anchor a file/line. Later
-// rules add their own reasons (uri escapes, non-failing kind, suppressed).
+// R-03 owns one skip reason: a result with no primary physicalLocation. A
+// partial location (uri or region absent) still maps; resolveLocation supplies
+// defensive defaults. Later rules add their own reasons (uri escapes,
+// non-failing kind, suppressed).
 function resultSkipReason(result: SarifResult): string | null {
   return hasPhysicalLocation(result) ? null : "no-physical-location";
 }

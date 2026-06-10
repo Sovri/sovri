@@ -82,6 +82,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- review-engine: clarify the SARIF `no-physical-location` drop contract — only a result with no primary `physicalLocation` is dropped; a present-but-partial location still maps with defensive defaults (R-05 owns uri resolution).
+
 ### Deprecated
 
 ### Removed
