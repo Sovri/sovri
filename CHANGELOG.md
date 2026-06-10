@@ -39,6 +39,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   resolving the human message from `result.message.text`, else the rule's `messageStrings[id]` with
   `{n}` argument substitution, else a deterministic fallback, and truncating over-long
   title / body / recommendation to the schema caps rather than dropping the result (rule R-04).
+- Safe SARIF file resolution in `@sovri/review-engine`: `resolveSarifFile` resolves a result's
+  physical location to a repo-relative path through the uri chain (`artifactLocation.uri`, else
+  `run.artifacts[index].location.uri`), resolving or refusing `uriBaseId`, percent-decoding, and
+  dropping a non-relative scheme, an absolute path, or a repo-escaping traversal — an untrusted
+  artifact can never surface a finding outside the repository (rule R-05).
 - `@sovri/cli` package with a `sovri verify <trail.jsonl>` command that verifies an audit trail
   offline (Ed25519 hash chain + signatures), reading the verification public key from the trail's
   `trail.started` entry or a `--public-key` PEM file; exits non-zero on tamper or malformed input.
