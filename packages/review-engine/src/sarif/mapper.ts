@@ -228,3 +228,59 @@ function resolveRecommendation(rule: RuleView): string {
 function truncate(value: string, max: number): string {
   return value.length <= max ? value : value.slice(0, max);
 }
+
+const SuppressionViewSchema = z.looseObject({
+  suppressions: z.array(z.looseObject({ state: z.string().optional() })).optional(),
+});
+
+/**
+ * The reason a result is dropped by its suppression state, or null. A non-empty
+ * `suppressions[]` with a state of "accepted" means a human already dismissed
+ * the result; an empty array or an under-review suppression still maps.
+ */
+export function resultSuppressionReason(result: SarifResult): "suppressed-accepted" | null {
+  const view = parseView(SuppressionViewSchema, result);
+  const accepted = (view.suppressions ?? []).some(
+    (suppression) => suppression.state === "accepted",
+  );
+  return accepted ? "suppressed-accepted" : null;
+}
+
+const NotificationSchema = z.looseObject({ level: z.string().optional() });
+const InvocationViewSchema = z.looseObject({
+  invocations: z
+    .array(
+      z.looseObject({
+        executionSuccessful: z.boolean().optional(),
+        toolExecutionNotifications: z.array(NotificationSchema).optional(),
+        toolConfigurationNotifications: z.array(NotificationSchema).optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * Count the scan-failure signals in a run so a failed scan is not presented as
+ * clean: each invocation with `executionSuccessful === false`, plus each
+ * error-level tool notification. Notifications never become Findings.
+ */
+export function countScanFailures(run: Record<string, unknown>): number {
+  const view = parseView(InvocationViewSchema, run);
+  let count = 0;
+  for (const invocation of view.invocations ?? []) {
+    if (invocation.executionSuccessful === false) {
+      count += 1;
+    }
+    for (const notification of invocation.toolExecutionNotifications ?? []) {
+      if (notification.level === "error") {
+        count += 1;
+      }
+    }
+    for (const notification of invocation.toolConfigurationNotifications ?? []) {
+      if (notification.level === "error") {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
