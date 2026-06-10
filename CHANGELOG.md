@@ -53,6 +53,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   (no leading zeros) from Semgrep `rule.properties.cwe`, CodeQL zero-padded `external/cwe/cwe-NNN`
   tags, and `taxa` / `rule.relationships` resolved against `run.taxonomies`, consulted in document
   order with the first valid id winning; CWE stays optional (rule R-07).
+- SARIF suppressions and scan-failure surfacing in `@sovri/review-engine`: `resultSuppressionReason`
+  drops a result whose `suppressions[]` carries an `accepted` state (an empty array or an
+  under-review suppression still maps), and `countScanFailures` counts a run's failed invocations
+  (`executionSuccessful: false`) and error-level tool notifications so a failed scan is not
+  presented as clean; tool notifications never become Findings (rule R-08).
 - `@sovri/cli` package with a `sovri verify <trail.jsonl>` command that verifies an audit trail
   offline (Ed25519 hash chain + signatures), reading the verification public key from the trail's
   `trail.started` entry or a `--public-key` PEM file; exits non-zero on tamper or malformed input.

@@ -8,7 +8,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ingestReport, mapSarifResult, resultKindReason } from "./mapper.js";
+import {
+  countScanFailures,
+  ingestReport,
+  mapSarifResult,
+  resultKindReason,
+  resultSuppressionReason,
+} from "./mapper.js";
 import { SarifParseError } from "./reader.js";
 
 function resultWithKind(kind: string | undefined, level?: string): Record<string, unknown> {
@@ -275,5 +281,74 @@ describe("severity and kind mapping — R-06", () => {
 
     // When the result is mapped / Then the severity defaults to minor (warning)
     expect(mapSarifResult(result, { id: "rule-1" }).severity).toBe("minor");
+  });
+});
+
+describe("suppressions and scan-failure notifications — R-08", () => {
+  it("drops a result suppressed with state accepted", () => {
+    // Given a result whose suppressions is [{ kind: external, state: accepted }]
+    const result = { ruleId: "rule-1", suppressions: [{ kind: "external", state: "accepted" }] };
+
+    // When the result suppression is checked / Then it is dropped as suppressed-accepted
+    expect(resultSuppressionReason(result)).toBe("suppressed-accepted");
+  });
+
+  it("maps a result with an under-review suppression", () => {
+    // Given a result whose suppressions is [{ kind: inSource, state: underReview }]
+    const result = {
+      ruleId: "rule-1",
+      suppressions: [{ kind: "inSource", state: "underReview" }],
+      locations: [
+        { physicalLocation: { artifactLocation: { uri: "src/a.ts" }, region: { startLine: 1 } } },
+      ],
+    };
+
+    // When checked / Then it still maps
+    expect(resultSuppressionReason(result)).toBeNull();
+    expect(mapSarifResult(result, { id: "rule-1" }).source).toBe("sarif");
+  });
+
+  it("maps a result with an empty suppressions array", () => {
+    // Given a result whose suppressions is []
+    const result = {
+      ruleId: "rule-1",
+      suppressions: [],
+      locations: [
+        { physicalLocation: { artifactLocation: { uri: "src/a.ts" }, region: { startLine: 1 } } },
+      ],
+    };
+
+    // When checked / Then it still maps
+    expect(resultSuppressionReason(result)).toBeNull();
+    expect(mapSarifResult(result, { id: "rule-1" }).source).toBe("sarif");
+  });
+
+  it("never maps a tool notification to a Finding", () => {
+    // Given a run whose invocation has one toolConfigurationNotification and no results
+    const raw = JSON.stringify({
+      version: "2.1.0",
+      runs: [{ invocations: [{ toolConfigurationNotifications: [{ level: "note" }] }] }],
+    });
+
+    // When the report is ingested / Then no Finding is produced from the notification
+    const ingestion = ingestReport(raw);
+    expect(ingestion.summary.seen).toBe(0);
+    expect(ingestion.summary.mapped).toBe(0);
+  });
+
+  it("surfaces and counts a failed scan invocation", () => {
+    // Given a run whose invocation has executionSuccessful equal to false
+    const run = { invocations: [{ executionSuccessful: false }] };
+
+    // When scan failures are counted / Then one failure is surfaced
+    expect(countScanFailures(run)).toBe(1);
+  });
+
+  it("surfaces and counts an error-level tool notification", () => {
+    // Given a run whose invocation has one toolExecutionNotification at level "error"
+    const run = { invocations: [{ toolExecutionNotifications: [{ level: "error" }] }] };
+
+    // When scan failures are counted / Then the error notification is surfaced
+    expect(countScanFailures(run)).toBe(1);
   });
 });
