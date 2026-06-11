@@ -13,7 +13,7 @@ Categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 
 Scope of this changelog: the Community edition (`packages/*` + `apps/community-bot/`).
 The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
-(not published) starting at v1.0+, when that directory is created.
+(not published) starting at v0.9, when that directory is scaffolded.
 
 ---
 
@@ -22,6 +22,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ### Added
 
 ### Changed
+
+- `docs`: make the `apps/cloud-api/` creation timing consistent with the roadmap. The Cloud edition is scaffolded at v0.9 (after the Go/No-Go gate) and reaches Cloud Beta at v1.0, instead of being created at v1.0. The version annotations in ADR-002 and `pnpm-workspace.yaml` are made version-agnostic so the roadmap stays the single source for the timing.
 
 ### Deprecated
 
