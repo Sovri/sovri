@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // SARIF input bounds, enforced BEFORE any parsing work so a hostile artifact
 // cannot exhaust memory or the JSON.parse call stack. The byte and nesting

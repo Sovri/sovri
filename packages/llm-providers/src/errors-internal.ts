@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 /**
  * Build the `ErrorOptions` bag for a typed error, omitting `cause` entirely

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { SpanStatusCode } from "@opentelemetry/api";
 import { beforeEach, describe, expect, it, vi } from "vitest";

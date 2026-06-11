@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import type { Finding, Review, Severity } from "@sovri/core";
 import { describe, expect, it } from "vitest";

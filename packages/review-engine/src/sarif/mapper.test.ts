@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-03 (corrupt-report vs off-spec-result isolation):
 // a corrupt report is skipped whole with a typed SarifParseError; a single

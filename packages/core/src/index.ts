@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Re-export Zod so every Sovri workspace member binds to a single instance.
 export { z } from "zod";

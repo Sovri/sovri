@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { execFile } from "node:child_process";
 import { type FileHandle, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";

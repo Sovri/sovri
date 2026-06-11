@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { CategorySchema, FindingSchema, SeveritySchema, z } from "@sovri/core";
 import { recordMetric, type InstrumentDescriptor } from "@sovri/observability";

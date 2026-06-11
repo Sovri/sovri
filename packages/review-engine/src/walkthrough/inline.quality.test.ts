@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 
@@ -31,7 +31,7 @@ describe("inline renderer quality contract (R-08)", () => {
 
     // Then the package headers remain intact
     expect(lines[0]).toBe("// SPDX-License-Identifier: Apache-2.0");
-    expect(lines[1]).toBe("// Copyright 2026 Sovri SAS");
+    expect(lines[1]).toBe("// Copyright 2026 Sovri contributors");
     // And the renderer source contains no TypeScript escape hatches
     // Strip single-line comments before checking so prose in comments does not false-positive
     const codeOnly = stripSingleLineComments(source);

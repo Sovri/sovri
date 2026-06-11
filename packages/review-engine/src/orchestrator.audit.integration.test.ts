@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { MemoryAuditTrailSink, type AuditTrailLogicalEvent } from "@sovri/compliance";
 import { z, type Category, type Diff, type PullRequest, type Severity } from "@sovri/core";

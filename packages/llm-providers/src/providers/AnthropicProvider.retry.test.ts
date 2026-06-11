@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { APIConnectionError, APIConnectionTimeoutError, APIError } from "@anthropic-ai/sdk";
 import { z } from "@sovri/core";

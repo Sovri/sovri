@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -220,7 +220,9 @@ describe("the bot holds only a thin HTTP adapter — all aggregation lives in ob
   // And the source carries the two-line SPDX header and no escape hatches (R-10).
   it("carries the SPDX header and contains no @ts-ignore / @ts-expect-error / oxlint-disable", () => {
     expect(
-      routeSource.startsWith("// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS"),
+      routeSource.startsWith(
+        "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors",
+      ),
     ).toBe(true);
     for (const forbidden of ["@ts-ignore", "@ts-expect-error", "oxlint-disable"]) {
       expect(routeSource.includes(forbidden), `must not contain ${forbidden}`).toBe(false);

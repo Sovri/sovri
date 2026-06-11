@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Rule: R-06 — only the bot's own active finding comments count for
 // reconciliation. Also exercises R-05 (resolved or minimized comments are

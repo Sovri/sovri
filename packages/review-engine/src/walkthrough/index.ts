@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { brandAssetUrls } from "@sovri/brand";
 import { ReviewSchema, z, type Review } from "@sovri/core";

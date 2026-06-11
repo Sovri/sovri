@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { FindingSchema, z, type Finding } from "@sovri/core";
 import { readFileSync } from "node:fs";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Deterministic backstop (issue #2450) that drops obvious narration the prompt and schema let
 // through. A finding survives the schema by carrying a non-empty `recommendation`, yet a model can

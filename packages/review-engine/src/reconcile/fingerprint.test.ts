@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Rule: R-03 — finding identity is stable and content-derived across runs.
 // Acceptance scenarios mirrored from

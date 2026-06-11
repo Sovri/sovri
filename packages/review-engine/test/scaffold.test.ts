@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -310,9 +310,9 @@ describe("@sovri/review-engine scaffold", () => {
       expect(spdxHeader, `${relativePath} must start with the SPDX header`).toContain(
         "SPDX-License-Identifier: Apache-2.0",
       );
-      // And every new TypeScript file starts with "Copyright 2026 Sovri SAS"
+      // And every new TypeScript file starts with "Copyright 2026 Sovri contributors"
       expect(copyrightHeader, `${relativePath} must carry the Sovri copyright header`).toContain(
-        "Copyright 2026 Sovri SAS",
+        "Copyright 2026 Sovri contributors",
       );
       // And every relative TypeScript import uses an explicit ".js" extension
       for (const importSpecifier of collectRelativeImportSpecifiers(content)) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 export const RawDiffAccept = "application/vnd.github.v3.diff";
 export const DiffFetchTimeoutMs = 30_000;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // The license-scan row doubles as the scanner-ingestion row (MAT-6): neutral
 // placeholder until a SARIF report is ingested for the review, then success.

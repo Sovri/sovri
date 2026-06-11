@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-07 (CWE extraction and canonicalization across tool
 // shapes): Semgrep rule.properties.cwe, CodeQL zero-padded tags, and taxa /

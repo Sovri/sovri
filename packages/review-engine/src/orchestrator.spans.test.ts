@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for the review-engine business span tree (GitHub issue #2413, R-01..R-09).
 // Mirrors specs/task-127-review-engine-spans/review-engine-spans.feature.
@@ -832,7 +832,7 @@ describe("R-08 — the engine stays pure and never mocks @sovri/core", () => {
 describe("R-09 — new source meets the code-quality contract", () => {
   const orchestratorSource = readFileSync(new URL("./orchestrator.ts", import.meta.url), "utf8");
   const testSource = readFileSync(new URL("./orchestrator.spans.test.ts", import.meta.url), "utf8");
-  const spdx = "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS";
+  const spdx = "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors";
 
   it("the orchestrator and the spans test both carry the two-line SPDX header", () => {
     expect(orchestratorSource.startsWith(spdx)).toBe(true);

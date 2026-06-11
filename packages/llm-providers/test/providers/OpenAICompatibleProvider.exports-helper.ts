@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import type { LLMProvider } from "../../src/types/LLMProvider.js";
 import type { FakeOpenAIChatClient } from "./OpenAICompatibleProvider.mock-helper.js";

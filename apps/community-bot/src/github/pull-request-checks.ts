@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { createLogger } from "@sovri/observability";
 import type { CheckRunDescriptor, Review } from "@sovri/review-engine";

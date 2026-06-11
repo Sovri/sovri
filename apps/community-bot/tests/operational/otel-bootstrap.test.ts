@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { once } from "node:events";
 import { createServer, type Server as HttpServer } from "node:http";
@@ -337,7 +337,9 @@ describe("community bot OTel bootstrap — R-08 changelog and R-09 code quality"
       const source = readRepoFile(path);
       // Then the new file carries the two-line SPDX header
       expect(
-        source.startsWith("// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS"),
+        source.startsWith(
+          "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors",
+        ),
       ).toBe(true);
       // And contains no any / unjustified suppression / oxlint-disable
       for (const forbidden of [": any", "@ts-ignore", "@ts-expect-error", "oxlint-disable"]) {

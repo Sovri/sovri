@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Compliance mapping: deterministic finding enrichment plus the mapping schemas.
 export { enrichFindingCompliance } from "./mapping/enricher.js";

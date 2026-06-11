@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import type { GenerateStructuredParams, LLMProvider } from "../types/LLMProvider.js";
 import { OpenAIProvider, type OpenAIProviderOptions } from "./OpenAIProvider.js";

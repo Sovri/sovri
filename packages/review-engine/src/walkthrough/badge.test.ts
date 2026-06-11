@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // RED acceptance test for specs/task-117-severity-category-badges/badge-vocabulary.feature
 // Rules R-00..R-05. Resolved design (interview 2026-06-03):

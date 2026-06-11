@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-05 (safe file resolution from a SARIF physical
 // location): the uri chain is resolved, uriBaseId resolved or refused,

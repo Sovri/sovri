@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Unit test for the SARIF ingestion conductor: the single composition that turns
 // one untrusted SARIF report string into core Findings, applying the bounds

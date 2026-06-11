@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -936,8 +936,8 @@ describe("buildSystemPrompt", () => {
     // When the first two lines are read.
     // Then one line contains "SPDX-License-Identifier: Apache-2.0".
     expect([firstLine, secondLine]).toContain("// SPDX-License-Identifier: Apache-2.0");
-    // And one line contains "Copyright 2026 Sovri SAS".
-    expect([firstLine, secondLine]).toContain("// Copyright 2026 Sovri SAS");
+    // And one line contains "Copyright 2026 Sovri contributors".
+    expect([firstLine, secondLine]).toContain("// Copyright 2026 Sovri contributors");
     // And the only external import is "zod".
     expect(BuilderSource).toContain('import { z } from "zod";');
     expect(BuilderSource.match(/^import .* from "(?!zod")/gm)).toBeNull();

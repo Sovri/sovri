@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Rule: R-01 — a still-valid finding already posted is not posted again, and
 // duplicates produced within one run are collapsed.

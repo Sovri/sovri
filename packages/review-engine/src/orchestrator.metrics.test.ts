@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for the Sovri business metrics emitted by the orchestrator (GitHub issue #2419,
 // R-01..R-10). Mirrors specs/task-128-business-metrics/business-metrics.feature.
@@ -554,7 +554,9 @@ describe("R-02/R-03/R-08/R-10 — the review-engine metric registry and typed wr
     const { readFileSync } = await import("node:fs");
     const source = readFileSync(new URL("./metrics.ts", import.meta.url), "utf8");
     expect(
-      source.startsWith("// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS"),
+      source.startsWith(
+        "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors",
+      ),
     ).toBe(true);
     expect(source).not.toMatch(/@ts-(ignore|expect-error)/u);
     expect(source).not.toMatch(/oxlint-disable/u);

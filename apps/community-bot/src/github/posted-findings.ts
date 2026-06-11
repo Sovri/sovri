@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { extractFindingFingerprint, type PostedComment } from "@sovri/review-engine";
 import { z } from "zod";
