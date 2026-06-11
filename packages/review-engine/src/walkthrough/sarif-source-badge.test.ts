@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-10 (SARIF findings surfaced in Checks rows and the
 // walkthrough): SARIF findings are counted in the "Sovri / review" row, the

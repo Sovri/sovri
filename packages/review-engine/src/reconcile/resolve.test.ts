@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Rule: R-04 — a finding the bot previously posted that the current review run
 // no longer produces is classified as resolved (its comment is marked

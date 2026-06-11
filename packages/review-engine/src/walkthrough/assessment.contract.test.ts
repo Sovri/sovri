@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 
@@ -63,8 +63,8 @@ describe("assessment quality contract (R-09)", () => {
 
     // Then the first line is "// SPDX-License-Identifier: Apache-2.0"
     expect(lines[0]).toBe("// SPDX-License-Identifier: Apache-2.0");
-    // And the second line is "// Copyright 2026 Sovri SAS"
-    expect(lines[1]).toBe("// Copyright 2026 Sovri SAS");
+    // And the second line is "// Copyright 2026 Sovri contributors"
+    expect(lines[1]).toBe("// Copyright 2026 Sovri contributors");
     // And every internal relative import uses an explicit ".js" extension
     const internalImports = extractInternalRelativeImports(source);
     expect(internalImports).toContain("./badge.js");

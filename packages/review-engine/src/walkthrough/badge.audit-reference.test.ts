@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // RED acceptance test for specs/task-117-severity-category-badges/audit-reference.feature
 // Rules R-06, R-07. Mirrors the existing convention at inline.ts:91-93 —

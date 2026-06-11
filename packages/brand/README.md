@@ -19,4 +19,4 @@ literal colours and emoji glyphs rather than class names.
 
 ## License
 
-Apache-2.0 — Copyright 2026 Sovri SAS.
+Apache-2.0 — Copyright 2026 Sovri contributors.

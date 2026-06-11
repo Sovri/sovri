@@ -44,6 +44,12 @@ pre-commit:
       skip: [merge, rebase]
       fail_text: "Import from apps/cloud-api/ in public surface (ADR-010 breach)."
 
+    license-headers:
+      glob: "{packages/**/*.{ts,tsx},apps/**/*.{ts,tsx}}"
+      run: node ./scripts/check-headers.mjs --staged
+      skip: [merge, rebase]
+      fail_text: "Missing or wrong license header (ADR-010): packages/+community-bot -> Apache 2.0, cloud-api -> Proprietary."
+
     changelog-updated:
       run: |
         if git diff --cached --name-only | grep -qE '\.(ts|tsx)$'; then

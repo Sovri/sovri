@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-02 (SARIF input bounds enforced before parsing):
 // raw byte cap per report (10 MiB inclusive), JSON nesting-depth bound (64

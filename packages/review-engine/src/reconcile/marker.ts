@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // The hidden marker embedded in every inline finding comment so a later review
 // run can recover the finding's stable identity from the GitHub API. The name

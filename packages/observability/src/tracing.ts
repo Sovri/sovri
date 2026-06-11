@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import type { Counter, Histogram, MetricOptions } from "@opentelemetry/api";

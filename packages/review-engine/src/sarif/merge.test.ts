@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-09 (merge, dedup, diff-scope and stable ordering of
 // SARIF with LLM findings): SARIF is merged after the LLM findings, cross-source

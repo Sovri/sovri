@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { existsSync, readFileSync } from "node:fs";
 import { HttpResponse, http } from "msw";

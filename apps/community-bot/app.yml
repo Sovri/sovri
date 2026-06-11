@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Copyright 2026 Sovri SAS
+# Copyright 2026 Sovri contributors
 
 name: Sovri Community Bot
 description: EU-sovereign AI code review bot for GitHub pull requests.

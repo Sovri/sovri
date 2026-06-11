@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { parseConfigContent, type SovriConfig } from "@sovri/config";
 import { createProviderFromConfig } from "@sovri/llm-providers";

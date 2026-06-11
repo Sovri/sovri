@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { categoryPalette, severityPalette } from "@sovri/brand";
 import type { Category, Finding, Severity } from "@sovri/core";

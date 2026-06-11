@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { configDefaults, defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";

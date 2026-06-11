@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Acceptance test for rule R-01 (SARIF report acceptance at the boundary):
 // a SARIF report is accepted only if it is valid JSON and version === "2.1.0"

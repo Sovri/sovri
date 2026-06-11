@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Integration test: SARIF reports flow through reviewPullRequest end to end —
 // ingested, merged with the LLM findings (deduped, changed-files gated), surfaced

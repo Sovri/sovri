@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Barrel for @sovri/config. v0.1 ships `SovriConfigSchema` (the `.sovri.yml`
 // shape), the inferred `SovriConfig` type, and `loadConfig` to read+validate

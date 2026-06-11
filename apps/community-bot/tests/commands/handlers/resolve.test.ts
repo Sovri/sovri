@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
@@ -313,8 +313,11 @@ describe("resolve command handler", () => {
   it("keeps the resolve handler source under the Community license header", () => {
     const source = readFileSync(ResolveHandlerSourceUrl, "utf8");
 
-    expect(source.startsWith("// Copyright 2026 Sovri contributors\n")).toBe(true);
-    expect(source).toContain("// SPDX-License-Identifier: Apache-2.0");
+    expect(
+      source.startsWith(
+        "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors\n",
+      ),
+    ).toBe(true);
   });
 
   it("includes reachable arrow-function helpers in the stateless source graph", () => {

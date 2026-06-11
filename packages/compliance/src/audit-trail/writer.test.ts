@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { generateKeyPairSync, randomUUID, verify, type KeyObject } from "node:crypto";
 import { existsSync } from "node:fs";

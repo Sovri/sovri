@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // The review pipeline as a GitHub-native mermaid fence. GitHub strips CSS in PR comments (ADR-016),
 // so the flow is expressed as a ```mermaid block — never a styled diagram. It is optional and off by

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -29,8 +29,10 @@ describe("checks implementation code-quality contract (R-10)", () => {
     expect(
       sources.every((source) => source.startsWith("// SPDX-License-Identifier: Apache-2.0")),
     ).toBe(true);
-    // And each file includes "// Copyright 2026 Sovri SAS"
-    expect(sources.every((source) => source.includes("// Copyright 2026 Sovri SAS"))).toBe(true);
+    // And each file includes "// Copyright 2026 Sovri contributors"
+    expect(sources.every((source) => source.includes("// Copyright 2026 Sovri contributors"))).toBe(
+      true,
+    );
     // And every internal import uses an explicit ".js" extension
     expect(sources.flatMap((source) => internalImportsWithoutJsExtension(source))).toEqual([]);
   });

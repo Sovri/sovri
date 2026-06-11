@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,7 +12,8 @@ import { inspectParsingSourceConventions } from "./syntax-source-conventions.js"
 
 const CurrentDirectory = dirname(fileURLToPath(import.meta.url));
 const WorkspaceRoot = join(CurrentDirectory, "../../../..");
-const SourceHeader = "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri SAS\n\n";
+const SourceHeader =
+  "// SPDX-License-Identifier: Apache-2.0\n// Copyright 2026 Sovri contributors\n\n";
 const ProductionParsingSourceFiles: readonly string[] = [
   "packages/review-engine/src/parsing/index.ts",
   "packages/review-engine/src/parsing/parser.ts",

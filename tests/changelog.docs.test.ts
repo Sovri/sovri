@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 // Documentation-contract test for CHANGELOG.md. The Community changelog is a
 // monorepo-wide document owned by no single package, so this acceptance test lives at

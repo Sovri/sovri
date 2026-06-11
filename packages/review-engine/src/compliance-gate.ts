@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { COMPLIANCE_MIN_CONFIDENCE, type Category } from "@sovri/core";
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -33,7 +33,7 @@ describe("compliance provenance implementation quality contract (R-11)", () => {
 
       // Then the Apache 2.0 public package headers remain intact
       expect(lines[0]).toBe("// SPDX-License-Identifier: Apache-2.0");
-      expect(lines[1]).toBe("// Copyright 2026 Sovri SAS");
+      expect(lines[1]).toBe("// Copyright 2026 Sovri contributors");
       // And every internal relative import uses an explicit ".js" extension
       const internalImports = extractInternalRelativeImports(source.text);
       expect(internalImports.length, source.label).toBeGreaterThan(0);

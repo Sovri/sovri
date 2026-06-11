@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Sovri SAS
+// Copyright 2026 Sovri contributors
 
 import { DiffSchema, z, type Diff } from "@sovri/core";
 import { parseUnifiedDiff } from "@sovri/review-engine";
