@@ -6,6 +6,43 @@ repository-level [`.sovri.yml`](./sovri-yml-reference.md): the file is an
 optional per-repository override, while the variables below define the defaults
 used when a repository has no (or an empty) `.sovri.yml`.
 
+## Required GitHub App webhook events
+
+The bot only receives the GitHub events its registered handlers listen to. The
+GitHub App **must** be subscribed to both of these events:
+
+| Webhook event   | Why it is required                                                                |
+| --------------- | --------------------------------------------------------------------------------- |
+| `pull_request`  | Triggers a review when a PR is opened or updated (`opened`, `synchronize`).       |
+| `issue_comment` | Delivers `@sovri-bot` commands (`re-review`, `dismiss`, `resolve`) posted on PRs. |
+
+If `issue_comment` is not subscribed, GitHub never delivers comment payloads, so
+every `@sovri-bot` command is silently ignored: no webhook delivery, no log line,
+no error. This was the failure mode behind bug #2504.
+
+### Set the subscriptions
+
+In the GitHub App settings (**Settings → Developer settings → GitHub Apps → your
+app → Permissions & events**), under **Subscribe to events**, enable **Pull
+request** and **Issue comment**. The matching repository permissions are **Pull
+requests: Read & write** (post reviews and inline comments) and **Issues: Read**
+(receive issue-comment events).
+
+### Boot self-check
+
+At startup the bot fetches its own subscribed events from the GitHub App API
+(`GET /app`) and compares them against the events its handlers require. When one
+is missing it logs a warning naming the gap, for example:
+
+```text
+GitHub App is not subscribed to required webhook event(s): issue_comment. @sovri-bot commands depending on them will be silently ignored until the subscription is added.
+```
+
+The check fails open: if the subscribed events cannot be fetched (API error or
+timeout), the bot logs that the check could not run and continues to start. Treat
+either warning as an operator action item and add the missing subscription in the
+App settings.
+
 ## Why deployment defaults exist
 
 `.sovri.yml` is optional. An operator configures the default LLM provider once,
