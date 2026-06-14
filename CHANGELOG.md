@@ -38,6 +38,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `bot`: detect at boot when the GitHub App is not subscribed to a webhook event the registered
+  handlers require, and log a warning naming the missing event(s) instead of failing silently.
+  Previously a deployment subscribed only to `issues` + `pull_request` (missing `issue_comment`)
+  would drop every `@sovri-bot` command with no delivery, no log, and no error. Startup still
+  continues, and the check itself fails open: if the App's subscribed events cannot be fetched, the
+  bot warns that the check could not run rather than aborting (bug #2504, rules R-01..R-04).
+
 ### Security
 
 - `deps`: pin `esbuild` to `0.28.1` via a `pnpm.overrides` entry to patch GHSA-gv7w-rqvm-qjhr
