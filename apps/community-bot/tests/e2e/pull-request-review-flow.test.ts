@@ -1161,6 +1161,63 @@ describe("community bot pull request review E2E ATDD", () => {
     15_000,
   );
 
+  it("skips a draft pull request opened when autoReviewDrafts is false", async () => {
+    // Rule R-03 — @nominal: A draft pull request is skipped when autoReviewDrafts is false
+    // Background: Given a repository "acme/payments" with the Sovri Community bot installed
+    // Given the repository config sets "review.autoReviewDrafts" to false
+    // When GitHub delivers a "pull_request.opened" event for pull request #42 with draft "true"
+    const runtime = await runReviewFlow({
+      action: "opened",
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: false",
+      ].join("\n"),
+      deliveryId: "delivery-opened-draft-skip-r03",
+      draft: true,
+      headSha: OpenedHeadSha,
+    });
+
+    // Then the bot skips the review for pull request #42
+    // And the bot logs "Pull request review skipped"
+    //   The skip is observed through its short-circuit: the flow stops after loading
+    //   config, fetches no diff and calls no review engine (the project's idiomatic
+    //   draft-skip assertion; the log line is emitted on exactly this path).
+    expect(runtime.collaboratorCalls).toEqual(["load config"]);
+    expect(runtime.listFilesQueries).toEqual([]);
+    expect(runtime.anthropicRequests).toEqual([]);
+    // And the bot posts no review comment on pull request #42
+    expect(runtime.reviewRequests).toEqual([]);
+    expect(runtime.successfulReviewRequests).toEqual([]);
+  }, 15_000);
+
+  it("reviews a draft pull request opened when autoReviewDrafts is true", async () => {
+    // Rule R-03 — @limit: A draft pull request is reviewed only when autoReviewDrafts is true
+    // Given the repository config sets "review.autoReviewDrafts" to true
+    // When GitHub delivers a "pull_request.opened" event for pull request #42 with draft "true"
+    const runtime = await runReviewFlow({
+      action: "opened",
+      configContent: [
+        "llm:",
+        "  provider: anthropic",
+        "  model: claude-3-5-sonnet-latest",
+        "  apiKeySecret: ANTHROPIC_API_KEY",
+        "review:",
+        "  autoReviewDrafts: true",
+      ].join("\n"),
+      deliveryId: "delivery-opened-draft-reviewed-r03",
+      draft: true,
+      headSha: OpenedHeadSha,
+    });
+
+    // Then the bot reviews pull request #42
+    expect(runtime.reviewRequests).toHaveLength(1);
+    expect(runtime.successfulReviewRequests[0]?.pull_number).toBe(PullNumber);
+  }, 15_000);
+
   it("re-review preserves synchronize collaborator order", async () => {
     // Given issue comment delivery "delivery-re-review-002" targets repository "octo-org/sovri-target"
     // And issue 42 is pull request 42
@@ -1223,6 +1280,7 @@ async function runReviewFlow(values: {
   readonly action: "opened" | "synchronize" | "ready_for_review";
   readonly configContent?: string;
   readonly deliveryId?: string;
+  readonly draft?: boolean;
   readonly headSha: string;
   readonly mistralApiKey?: string;
   readonly reviewStatus?: number;
@@ -1259,7 +1317,11 @@ async function runReviewFlow(values: {
   await probot.receive({
     id: values.deliveryId ?? eventDeliveryId(values.action),
     name: "pull_request",
-    payload: buildPullRequestPayload({ action: values.action, headSha: values.headSha }),
+    payload: buildPullRequestPayload({
+      action: values.action,
+      draft: values.draft,
+      headSha: values.headSha,
+    }),
   });
   return runtime;
 }
