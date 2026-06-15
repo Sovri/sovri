@@ -657,6 +657,69 @@ describe("pull request handlers - remaining ATDD scenarios", () => {
     expect(commentOutput(dependencies)).not.toContain(secretReviewText);
   });
 
+  it("posts the limit-exceeded reason instead of the generic failure", async () => {
+    const limitMessage = "Pull request exceeds review limits: 77 files changed, max 50.";
+    const dependencies = buildDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff: buildDiff(),
+      review: buildReview({
+        commitSha: OPENED_HEAD_SHA,
+        error: limitMessage,
+        failureReason: "limit_exceeded",
+        findings: 0,
+        status: "failed",
+        walkthrough: limitMessage,
+      }),
+    });
+
+    // Given the review engine declines the PR because it exceeds the configured file limit
+    // When the opened pull request handler receives the limit-exceeded review
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    // Then the actionable reason reaches the PR comment, not the bare generic string
+    expect(dependencies.postErrorComment).toHaveBeenCalledTimes(1);
+    expect(commentOutput(dependencies)).toContain("exceeds review limits");
+    expect(commentOutput(dependencies)).toContain("max 50");
+    expect(dependencies.postErrorComment).not.toHaveBeenCalledWith(
+      expect.any(Object),
+      "review failed",
+    );
+    // And no walkthrough review is posted for a failed review
+    expect(dependencies.postReview).not.toHaveBeenCalled();
+  });
+
+  it("keeps a provider-error failure generic and never echoes its summary", async () => {
+    const secretProviderText = "secret-provider-output-41";
+    const dependencies = buildDependencies({
+      config: buildConfig({ autoReviewDrafts: false }),
+      diff: buildDiff(),
+      review: buildReview({
+        commitSha: OPENED_HEAD_SHA,
+        error: secretProviderText,
+        failureReason: "provider_error",
+        findings: 0,
+        status: "failed",
+        walkthrough: secretProviderText,
+      }),
+    });
+
+    // Given the review failed inside the provider with potentially sensitive output
+    // When the opened pull request handler receives the provider-error review
+    await handlePullRequestOpened(
+      buildContext({ event: "pull_request.opened", headSha: OPENED_HEAD_SHA }),
+      dependencies,
+    );
+
+    // Then the comment stays generic and never echoes the untrusted provider summary
+    expect(dependencies.postErrorComment).toHaveBeenCalledTimes(1);
+    expect(commentOutput(dependencies)).toContain("review failed");
+    expect(commentOutput(dependencies)).not.toContain(secretProviderText);
+    expect(logOutput(dependencies)).not.toContain(secretProviderText);
+  });
+
   it("does not call the engine when diff fetch fails", async () => {
     const dependencies = buildDependencies({
       config: buildConfig({ autoReviewDrafts: false }),
@@ -1163,12 +1226,15 @@ function buildDiff(
 function buildReview(values: {
   readonly commitSha: string;
   readonly error?: string;
+  readonly failureReason?: Review["failure_reason"];
   readonly findings?: number;
   readonly status?: Review["status"];
   readonly tokenUsageReported?: boolean;
   readonly walkthrough?: string;
 }): Review {
   const errorFields = values.error === undefined ? {} : { error: values.error };
+  const failureReasonFields =
+    values.failureReason === undefined ? {} : { failure_reason: values.failureReason };
 
   return {
     completed_at: new Date("2026-05-18T10:00:01.000Z"),
@@ -1207,6 +1273,7 @@ function buildReview(values: {
     },
     walkthrough_markdown: values.walkthrough ?? "Review complete",
     ...errorFields,
+    ...failureReasonFields,
   };
 }
 

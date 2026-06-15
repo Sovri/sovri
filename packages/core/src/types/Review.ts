@@ -31,6 +31,12 @@ export const ReviewSchema = z
     walkthrough_markdown: z.string(),
     status: z.enum(["success", "partial", "failed"]),
     error: z.string().optional(),
+    // Machine-readable classification of a failed review. Lets a caller decide whether the
+    // human-readable `summary` is safe to surface: `limit_exceeded` is built from PR metadata
+    // only, whereas `provider_error`/`parse_error` may carry untrusted provider output.
+    failure_reason: z
+      .enum(["limit_exceeded", "provider_error", "parse_error", "unexpected_error"])
+      .optional(),
   })
   .superRefine((review, context) => {
     if (review.started_at.getTime() > review.completed_at.getTime()) {

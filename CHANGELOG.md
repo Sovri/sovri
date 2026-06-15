@@ -19,6 +19,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- `bot`: when a review is declined because the PR exceeds the configured size limit (`maxFilesPerReview` / `maxLinesPerReview`), post the actionable reason on the PR (e.g. `Pull request exceeds review limits: 77 files changed, max 50.`) instead of a bare `review failed`. Previously the handler treated every failed-status review identically and discarded the limit message, so re-reviewing an oversized PR looped on an unexplained `review failed`. Failures that may carry untrusted provider output (`provider_error`, `parse_error`) still post the generic message and never echo the review summary. Backed by a new machine-readable `failure_reason` on the `Review` contract (`@sovri/core`), set by the review engine and consumed by the bot.
+
+### Added
+
+- `core`: optional `failure_reason` field on `ReviewSchema` (`limit_exceeded` / `provider_error` / `parse_error` / `unexpected_error`) classifying why a review failed, so callers can decide whether the human-readable summary is safe to surface.
+
 
 ## [0.9.0] - 2026-06-14
 ### Added

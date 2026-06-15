@@ -72,6 +72,29 @@ describe("ReviewSchema — happy paths", () => {
 
     expect(parsed.token_usage_reported).toBe(true);
   });
+
+  it.each(["limit_exceeded", "provider_error", "parse_error", "unexpected_error"] as const)(
+    "accepts a %s failure reason on a failed review",
+    (reason) => {
+      const parsed = ReviewSchema.parse({
+        ...baseReview,
+        status: "failed",
+        error: "Pull request exceeds review limits: 77 files changed, max 50.",
+        failure_reason: reason,
+      });
+
+      expect(parsed.failure_reason).toBe(reason);
+    },
+  );
+});
+
+describe("ReviewSchema — failure_reason", () => {
+  it("rejects an unknown failure reason", () => {
+    expect(
+      ReviewSchema.safeParse({ ...baseReview, status: "failed", failure_reason: "rate_limited" })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("ReviewSchema — commit_sha", () => {

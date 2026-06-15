@@ -741,6 +741,8 @@ describe("reviewPullRequest config filters", () => {
     expect(review.summary).toContain("exceeds review limits");
     // And the returned Review error contains "exceeds review limits"
     expect(review.error).toContain("exceeds review limits");
+    // And the returned Review is classified as a limit-exceeded failure
+    expect(review.failure_reason).toBe("limit_exceeded");
   });
 
   it("drops narration findings through the full review path while keeping real issues (issue #2450)", async () => {
