@@ -41,7 +41,7 @@ RUN pnpm deploy --filter @sovri/community-bot --prod /app/deploy/community-bot
 # providers. A missing SDK otherwise surfaces only at review time as a swallowed
 # ERR_MODULE_NOT_FOUND, i.e. every review returns a bare "review failed".
 RUN cd /app/deploy/community-bot \
- && node --input-type=module -e "import { createProviderFromConfig } from '@sovri/llm-providers'; const env = { K: 'x'.repeat(40) }; for (const provider of ['mistral', 'anthropic', 'openai']) createProviderFromConfig({ llm: { provider, apiKeySecret: 'K', model: 'verify' } }, env); console.log('community-bot: LLM provider SDKs resolve');"
+ && node --input-type=module -e "import { createProviderFromConfig } from '@sovri/llm-providers'; const env = { K: 'smoke-test-placeholder' }; for (const provider of ['mistral', 'anthropic', 'openai']) { try { createProviderFromConfig({ llm: { provider, apiKeySecret: 'K', model: 'verify' } }, env); } catch (error) { console.error('community-bot: provider ' + provider + ' failed to load:', error instanceof Error ? error.message : error); process.exit(1); } } console.log('community-bot: LLM provider SDKs resolve');"
 
 FROM node:24-alpine AS runtime
 
