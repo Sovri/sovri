@@ -307,6 +307,7 @@ export async function reviewPullRequest(
               provider,
               startedAt,
               limitError,
+              { failureReason: "limit_exceeded" },
             );
             return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
           }
@@ -411,6 +412,8 @@ export async function reviewPullRequest(
                   : { promptSha256: generation.promptSha256 }),
                 tokenUsage: generation.tokenUsage,
                 tokenUsageReported: generation.tokenUsageReported,
+                failureReason:
+                  generation.failureKind === "parse" ? "parse_error" : "provider_error",
               },
             );
             return stampFindingsCount(reviewSpan, attachCheckRunDescriptors(failedReview));
@@ -897,6 +900,7 @@ function buildFailedReview(
     readonly promptSha256?: string;
     readonly tokenUsage?: TokenUsage;
     readonly tokenUsageReported?: boolean;
+    readonly failureReason?: Review["failure_reason"];
   } = {},
 ): Review {
   const review = ReviewSchema.parse({
@@ -915,6 +919,7 @@ function buildFailedReview(
     walkthrough_markdown: `## Sovri review\n\n${error}`,
     status: "failed",
     error,
+    ...(options.failureReason === undefined ? {} : { failure_reason: options.failureReason }),
   });
 
   if (options.promptSha256 === undefined) {

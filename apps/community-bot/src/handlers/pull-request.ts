@@ -166,6 +166,7 @@ export type PullRequestReviewFailureStage =
 
 type FailedReviewDiagnostics = {
   readonly completion_tokens: number;
+  readonly failure_reason: Review["failure_reason"];
   readonly finding_count: number;
   readonly llm_model: string;
   readonly llm_provider: string;
@@ -199,15 +200,37 @@ class PullRequestHandlerDependencyError extends Error {
   public override readonly name = "PullRequestHandlerDependencyError";
 }
 
+// Failure reasons whose human-readable summary is built only from PR metadata and is therefore
+// safe to surface to the PR author. Provider/parse failures may carry untrusted provider output,
+// so they keep the generic message and never echo the review summary.
+const SurfaceableFailureReasons: ReadonlySet<NonNullable<Review["failure_reason"]>> = new Set([
+  "limit_exceeded",
+]);
+
+const GenericReviewFailureMessage = "review failed";
+
 class PullRequestReviewFailedError extends Error {
   public override readonly name = "PullRequestReviewFailedError";
 
   public readonly diagnostics: FailedReviewDiagnostics;
 
+  // Pre-computed at construction so the failure reporter posts the right body without re-deriving
+  // the safe/unsafe decision: the actionable reason for a surfaceable failure, generic otherwise.
+  public readonly commentMessage: string;
+
   public constructor(review: Review) {
     super("Review engine returned failed status");
     this.diagnostics = buildFailedReviewDiagnostics(review);
+    this.commentMessage = failedReviewCommentMessage(review);
   }
+}
+
+function failedReviewCommentMessage(review: Review): string {
+  if (review.failure_reason !== undefined && SurfaceableFailureReasons.has(review.failure_reason)) {
+    return sanitizeErrorMessage(review.summary);
+  }
+
+  return GenericReviewFailureMessage;
 }
 
 export async function handlePullRequestOpened(
@@ -440,6 +463,7 @@ function requireSuccessfulReview(review: Review): void {
 function buildFailedReviewDiagnostics(review: Review): FailedReviewDiagnostics {
   return {
     completion_tokens: review.tokens_used.completion,
+    failure_reason: review.failure_reason,
     finding_count: review.findings.length,
     llm_model: review.llm_model,
     llm_provider: review.llm_provider,
@@ -568,7 +592,7 @@ function describeReviewFailure(error: unknown): {
 
   if (error instanceof PullRequestReviewFailedError) {
     return {
-      commentMessage: "review failed",
+      commentMessage: error.commentMessage,
       logFields: {
         error_type: error.name,
         ...error.diagnostics,
