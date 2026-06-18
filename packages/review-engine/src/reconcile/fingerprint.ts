@@ -34,13 +34,15 @@ export function computeFindingFingerprint(finding: Finding, diff: Diff): string 
 
 function computeAnchor(finding: Finding, diff: Diff): string {
   const anchor = extractAnchorSource(finding, diff);
-  if (anchor.kind === "source") {
-    return `code:${normalizeCode(anchor.text)}`;
+
+  switch (anchor.kind) {
+    case "source":
+      return `code:${normalizeCode(anchor.text)}`;
+    case "blank-source":
+      return `blank:${anchor.lineStart}:${anchor.lineEnd}`;
+    case "missing":
+      return `body:${normalizeProse(finding.body)}`;
   }
-  if (anchor.kind === "blank-source") {
-    return `blank:${anchor.lineStart}:${anchor.lineEnd}`;
-  }
-  return `body:${normalizeProse(finding.body)}`;
 }
 
 // Source code is case- and character-sensitive: canonical-normalize (NFC) and
