@@ -9,6 +9,8 @@ import type { Diff, Finding } from "@sovri/core";
 import { describe, expect, it } from "vitest";
 
 import { computeFindingFingerprint } from "./fingerprint.js";
+import { reconcileFindings } from "./reconcile.js";
+import { classifyResolvedComments, type PostedComment } from "./resolve.js";
 
 const SHA = "1".repeat(40);
 
@@ -106,18 +108,6 @@ describe("computeFindingFingerprint", () => {
         body: "User input flows into the query unescaped.",
       }),
       variantDiff: makeDiff("src/db/other.ts", 42, ["db.query(userInput)"]),
-    },
-    {
-      changed: 'category ("maintainability")',
-      variant: makeFinding({
-        file: "src/db/query.ts",
-        line_start: 42,
-        line_end: 42,
-        category: "maintainability",
-        title: "SQL injection risk",
-        body: "User input flows into the query unescaped.",
-      }),
-      variantDiff: makeDiff("src/db/query.ts", 42, ["db.query(userInput)"]),
     },
     {
       changed: 'source text ("db.query(escape(userInput))")',
@@ -250,6 +240,183 @@ describe("computeFindingFingerprint", () => {
 
     // Then the two fingerprints are different (code identity is case-sensitive)
     expect(lowerFp).not.toBe(casedFp);
+  });
+
+  it.each([
+    {
+      drift: "reported line span",
+      variant: makeFinding({
+        file: "src/db/query.ts",
+        line_start: 50,
+        line_end: 52,
+        category: "security",
+        cwe: "CWE-89",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      }),
+      variantDiff: makeDiff("src/db/query.ts", 50, ["db.query(userInput)", "", "return row;"]),
+    },
+    {
+      drift: "blank line before the first non-blank source anchor",
+      variant: makeFinding({
+        file: "src/db/query.ts",
+        line_start: 49,
+        line_end: 51,
+        category: "security",
+        cwe: "CWE-89",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      }),
+      variantDiff: makeDiff("src/db/query.ts", 49, ["", "db.query(userInput)", "return row;"]),
+    },
+    {
+      drift: 'category ("maintainability")',
+      variant: makeFinding({
+        file: "src/db/query.ts",
+        line_start: 50,
+        line_end: 50,
+        category: "maintainability",
+        cwe: "CWE-89",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      }),
+      variantDiff: makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]),
+    },
+    {
+      drift: "missing CWE",
+      variant: makeFinding({
+        file: "src/db/query.ts",
+        line_start: 50,
+        line_end: 50,
+        category: "security",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      }),
+      variantDiff: makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]),
+    },
+    {
+      drift: 'different CWE ("CWE-20")',
+      variant: makeFinding({
+        file: "src/db/query.ts",
+        line_start: 50,
+        line_end: 50,
+        category: "security",
+        cwe: "CWE-20",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      }),
+      variantDiff: makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]),
+    },
+  ])(
+    "keeps identity stable when $drift drifts over the same source anchor",
+    ({ variant, variantDiff }) => {
+      // Given a finding in "src/db/query.ts" with category "security" and cwe
+      //   "CWE-89" anchored on source text "db.query(userInput)"
+      const baseline = makeFinding({
+        file: "src/db/query.ts",
+        line_start: 50,
+        line_end: 50,
+        category: "security",
+        cwe: "CWE-89",
+        title: "SQL injection risk",
+        body: "User input flows into the query unescaped.",
+      });
+      const baselineDiff = makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]);
+
+      // When the bot computes both finding fingerprints
+      const baselineFp = computeFindingFingerprint(baseline, baselineDiff);
+      const variantFp = computeFindingFingerprint(variant, variantDiff);
+
+      // Then both fingerprints are equal
+      expect(variantFp).toBe(baselineFp);
+    },
+  );
+
+  it("reconciles a still-open finding despite normal model drift", () => {
+    // Given the bot already posted an inline finding in "src/db/query.ts" for
+    //   source text "db.query(userInput)"
+    const posted = makeFinding({
+      file: "src/db/query.ts",
+      line_start: 50,
+      line_end: 50,
+      category: "security",
+      cwe: "CWE-89",
+      title: "SQL injection risk",
+      body: "User input flows into the query unescaped.",
+    });
+    const postedDiff = makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]);
+    const postedFingerprint = computeFindingFingerprint(posted, postedDiff);
+    const postedFingerprints = new Set([postedFingerprint]);
+    const postedComments: PostedComment[] = [
+      { nodeId: "RC_node_A", fingerprint: postedFingerprint },
+    ];
+
+    // And a synchronize re-review produces the same finding with category
+    //   "maintainability" and no cwe over source text "db.query(userInput)"
+    const current = makeFinding({
+      file: "src/db/query.ts",
+      line_start: 49,
+      line_end: 51,
+      category: "maintainability",
+      title: "SQL injection risk",
+      body: "User input flows into the query unescaped.",
+    });
+    const currentDiff = makeDiff("src/db/query.ts", 49, ["", "db.query(userInput)", "return row;"]);
+    const currentFingerprint = computeFindingFingerprint(current, currentDiff);
+
+    // When the bot reconciles the re-review findings against the active posted
+    //   fingerprints
+    const kept = reconcileFindings([current], currentDiff, postedFingerprints);
+    const resolved = classifyResolvedComments(postedComments, new Set([currentFingerprint]));
+
+    // Then the finding is not kept for posting
+    expect(kept).toHaveLength(0);
+    // And no duplicate inline comment is created for "db.query(userInput)"
+    expect(resolved).toHaveLength(0);
+  });
+
+  it("keeps real source changes identity-bearing", () => {
+    // Given a posted finding in "src/db/query.ts" anchored on source text
+    //   "db.query(userInput)"
+    const posted = makeFinding({
+      file: "src/db/query.ts",
+      line_start: 50,
+      line_end: 50,
+      category: "security",
+      cwe: "CWE-89",
+      title: "SQL injection risk",
+      body: "User input flows into the query unescaped.",
+    });
+    const postedDiff = makeDiff("src/db/query.ts", 50, ["db.query(userInput)"]);
+    const postedFingerprint = computeFindingFingerprint(posted, postedDiff);
+    const postedFingerprints = new Set([postedFingerprint]);
+    const postedComments: PostedComment[] = [
+      { nodeId: "RC_node_A", fingerprint: postedFingerprint },
+    ];
+
+    // And a later finding in "src/db/query.ts" anchored on source text
+    //   "db.exec(otherInput)"
+    const changed = makeFinding({
+      file: "src/db/query.ts",
+      line_start: 50,
+      line_end: 50,
+      category: "maintainability",
+      cwe: "CWE-20",
+      title: "SQL injection risk",
+      body: "User input flows into the query unescaped.",
+    });
+    const changedDiff = makeDiff("src/db/query.ts", 50, ["db.exec(otherInput)"]);
+    const changedFingerprint = computeFindingFingerprint(changed, changedDiff);
+
+    // When the bot reconciles the later finding against the active posted
+    //   fingerprints
+    const kept = reconcileFindings([changed], changedDiff, postedFingerprints);
+    const resolved = classifyResolvedComments(postedComments, new Set([changedFingerprint]));
+
+    // Then the later finding is kept for posting
+    expect(kept).toHaveLength(1);
+    // And the previous comment for "db.query(userInput)" is marked resolved
+    expect(resolved).toEqual(["RC_node_A"]);
   });
 
   it("falls back to a stable 16-char hex fingerprint when the anchor normalizes to empty", () => {

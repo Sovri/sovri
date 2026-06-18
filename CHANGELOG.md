@@ -19,6 +19,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- `review-engine`: keep re-review finding identity stable under normal model
+  drift in span, category, and CWE metadata so still-open inline findings are
+  not re-posted as duplicates while changed source still receives a new finding.
+
 ## [0.9.2] - 2026-06-16
 
 ### Fixed
