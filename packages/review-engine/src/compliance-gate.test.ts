@@ -44,7 +44,7 @@ describe("shouldEnrichCompliance", () => {
     expect(shouldEnrichCompliance(finding({ category: "maintainability" }))).toBe(false);
   });
 
-  it("skips when no CWE is present", () => {
-    expect(shouldEnrichCompliance(finding({ cwe: undefined }))).toBe(false);
+  it("admits an eligible finding with no CWE so the enricher can derive one (ADR-020)", () => {
+    expect(shouldEnrichCompliance(finding({ cwe: undefined }))).toBe(true);
   });
 });
