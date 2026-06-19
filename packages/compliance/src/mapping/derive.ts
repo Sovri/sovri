@@ -36,7 +36,7 @@ const DERIVATION_RULES: readonly DerivationRule[] = [
     // CWE-79 Cross-site Scripting: unescaped user input rendered into HTML/markup.
     cwe: "CWE-79",
     matches: (text) =>
-      /(unescaped|not escaped|without escaping)/u.test(text) && /(html|markup|dom)/u.test(text),
+      /(unescaped|not escaped|without escaping)/u.test(text) && /(html|markup|\bdom\b)/u.test(text),
   },
 ];
 

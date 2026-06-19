@@ -51,4 +51,13 @@ describe("deriveCwe — deterministic CWE derivation from finding signals (ADR-0
       }),
     ).toBeUndefined();
   });
+
+  it("does not derive CWE-79 when 'dom' only appears inside an unrelated word (precision)", () => {
+    expect(
+      deriveCwe({
+        title: "unescaped value written to a random buffer",
+        body: "The finding describes an unescaped value written to a random buffer.",
+      }),
+    ).toBeUndefined();
+  });
 });

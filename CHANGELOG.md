@@ -33,8 +33,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   a security or bug finding the model returned without a CWE now derives a mapped
   CWE from its own signals (e.g. raw SQL string concatenation → CWE-89 → GDPR
   Art. 32) and surfaces informational framework references with no second LLM
-  call; ambiguous, low-confidence, or ineligible findings still decline
-  (ADR-020, #2610, #2616).
+  call; ambiguous, low-confidence, or ineligible findings still decline. The XSS
+  signal is word-boundaried so derivation never fires on an unrelated word that
+  merely contains "dom" (ADR-020, #2610, #2616, #2622).
 - `review-engine`: regression guard for the model-supplied CWE path — a finding
   that already carries a CWE renders exactly as before; derivation never
   overrides it (CWE-79 / CWE-256 kept, CWE-89 never derived over them) and does
