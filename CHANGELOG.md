@@ -19,6 +19,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `review-engine`: regression guard for the compliance-reference contract — a
+  security/bug finding with a mapped CWE renders its framework references
+  (e.g. CWE-89 → GDPR Art. 32) in the walkthrough "Compliance & provenance"
+  section, only when the enrichment gate is satisfied (#2611, bug-2606 R-01).
+- `review-engine`: regression guard for the compliance gate's negative path — a
+  finding that does not clear the gate (ineligible category, unmapped CWE, or
+  confidence < 0.7) renders no framework reference, preventing false regulatory
+  attribution (#2612, bug-2606 R-03).
+
 ### Fixed
 
 - `review-engine`: keep re-review finding identity stable under normal model
