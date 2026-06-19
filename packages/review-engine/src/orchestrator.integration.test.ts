@@ -13,7 +13,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { server } from "../../../tests/msw/server.js";
 import { parseUnifiedDiff } from "./diff/index.js";
 import { reviewPullRequest } from "./orchestrator.js";
-import { buildInlineComments } from "./walkthrough/index.js";
+import { buildInlineComments, composeWalkthrough } from "./walkthrough/index.js";
 
 const ProviderUrl = "https://llm.test/v1/messages";
 
@@ -583,3 +583,141 @@ const deletedFileDiff: Diff = {
     },
   ],
 };
+
+// Acceptance test for bug-2606 R-01 (scenario sub-issue #2611): a security or bug finding on
+// regulated code that maps to a known CWE renders its framework references in the walkthrough
+// "Compliance & provenance" section. Drives the real gate + enricher through reviewPullRequest, then
+// renders the public walkthrough composer — only the LLM is mocked, at the provider boundary.
+describe("reviewPullRequest renders compliance references in the walkthrough (bug-2606 R-01)", () => {
+  const config = {
+    review: { severityThreshold: "nitpick" as const },
+    ignores: [] as readonly string[],
+    limits: { maxFilesPerReview: 5, maxLinesPerReview: 50 },
+  };
+
+  // Background: a pull request that adds raw SQL string concatenation against the "users" table in
+  // "src/users/repository.ts". The added SQL line is new-file line 11, where the findings anchor.
+  const regulatedSqlDiff = `diff --git a/src/users/repository.ts b/src/users/repository.ts
+index 1111111..2222222 100644
+--- a/src/users/repository.ts
++++ b/src/users/repository.ts
+@@ -10,3 +10,3 @@ export class UserRepository {
+   async findByEmail(email: string) {
+-    return this.db.query(buildParameterizedUserQuery(email));
++    return this.db.query("SELECT * FROM users WHERE email = '" + email + "'");
+   }
+`;
+
+  const regulatedFinding = (
+    cwe: string | undefined,
+    category: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    ...findingFor(cwe, category, "major"),
+    file: "src/users/repository.ts",
+    line_start: 11,
+    line_end: 11,
+    confidence: 0.9,
+    ...overrides,
+  });
+
+  // @nominal Scenario: an SQL-injection finding tagged CWE-89 shows its GDPR reference
+  it("shows the GDPR and CWE references for a CWE-89 security finding", async () => {
+    // Given the configured LLM returns one finding with category "security", cwe "CWE-89", confidence 0.9
+    mockProviderFindings([regulatedFinding("CWE-89", "security")]);
+    const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+    expect(walkthrough).toContain("### Compliance & audit");
+    expect(walkthrough).toContain("GDPR: Art. 32");
+    // And it also lists the "CWE: CWE-89" reference
+    expect(walkthrough).toContain("CWE: CWE-89");
+    // And the GDPR line is flagged "applicable if" the system processes personal data
+    expect(walkthrough).toMatch(/applicable if:.*personal data/i);
+  });
+
+  // @nominal Scenario Outline: every web-injection CWE in the map renders the GDPR duty
+  it.each([
+    { category: "security", cwe: "CWE-89" },
+    { category: "security", cwe: "CWE-79" },
+    { category: "bug", cwe: "CWE-89" },
+  ])(
+    "renders the GDPR Art. 32 duty for a $category finding tagged $cwe",
+    async ({ category, cwe }) => {
+      // Given the configured LLM returns one finding with category "<category>", cwe "<cwe>", confidence 0.9
+      mockProviderFindings([regulatedFinding(cwe, category)]);
+      const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+      // When the review runs
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider: createHttpProvider() },
+      );
+      expect(review.status).toBe("success");
+
+      // Then the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+      expect(composeWalkthrough(review)).toContain("GDPR: Art. 32");
+    },
+  );
+
+  // @technical Scenario: references render inside the collapsible compliance section
+  it("renders the references under the Compliance & audit heading", async () => {
+    // Given the configured LLM returns one finding with category "security", cwe "CWE-89", confidence 0.9
+    mockProviderFindings([regulatedFinding("CWE-89", "security")]);
+    const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the walkthrough shows "Potential compliance references" under the "Compliance & audit" heading
+    const auditIdx = walkthrough.indexOf("### Compliance & audit");
+    const refsIdx = walkthrough.indexOf("Potential compliance references");
+    expect(auditIdx).toBeGreaterThanOrEqual(0);
+    expect(refsIdx).toBeGreaterThan(auditIdx);
+  });
+
+  // @technical Scenario: in a mixed review only the eligible finding carries a reference
+  it("attaches a reference only to the eligible finding in a mixed review", async () => {
+    // Given the configured LLM returns two findings (security/CWE-89 and style/no-cwe)
+    mockProviderFindings([
+      regulatedFinding("CWE-89", "security", { title: "SQL injection in query" }),
+      regulatedFinding(undefined, "style", {
+        title: "Inconsistent quotes",
+        severity: "minor",
+        confidence: 0.95,
+      }),
+    ]);
+    const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the compliance block for "SQL injection in query" lists a "GDPR: Art. 32" reference
+    const sqlIdx = walkthrough.indexOf("#### SQL injection in query");
+    const styleIdx = walkthrough.indexOf("#### Inconsistent quotes");
+    expect(sqlIdx).toBeGreaterThanOrEqual(0);
+    expect(styleIdx).toBeGreaterThan(sqlIdx);
+    const sqlBlock = walkthrough.slice(sqlIdx, styleIdx);
+    const styleBlock = walkthrough.slice(styleIdx);
+    expect(sqlBlock).toContain("GDPR: Art. 32");
+    // And the compliance block for "Inconsistent quotes" lists no framework reference
+    expect(styleBlock).not.toContain("GDPR");
+    expect(styleBlock).not.toContain("Potential compliance references");
+  });
+});
