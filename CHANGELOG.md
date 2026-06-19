@@ -29,6 +29,22 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   finding that does not clear the gate (ineligible category, unmapped CWE, or
   confidence < 0.7) renders no framework reference, preventing false regulatory
   attribution (#2612, bug-2606 R-03).
+- `compliance` / `review-engine`: deterministic compliance reference derivation —
+  a security or bug finding the model returned without a CWE now derives a mapped
+  CWE from its own signals (e.g. raw SQL string concatenation → CWE-89 → GDPR
+  Art. 32) and surfaces informational framework references with no second LLM
+  call; ambiguous, low-confidence, or ineligible findings still decline. The XSS
+  signal is word-boundaried so derivation never fires on an unrelated word that
+  merely contains "dom" (ADR-020, #2610, #2616, #2622).
+- `review-engine`: regression guard for the model-supplied CWE path — a finding
+  that already carries a CWE renders exactly as before; derivation never
+  overrides it (CWE-79 / CWE-256 kept, CWE-89 never derived over them) and does
+  not rescue an unmapped model CWE (feat-2610 R-02, #2617).
+- `review-engine` / `compliance`: regression guard for the derivation decline path
+  — a no-cwe finding emits no framework reference when its content maps to no
+  vulnerability class, when confidence is below 0.70, or when the category is not
+  security/bug; the deriver also declines when content is ambiguous across rules
+  (feat-2610 R-03, #2618).
 
 ### Fixed
 

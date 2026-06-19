@@ -800,3 +800,433 @@ describe("reviewPullRequest withholds compliance references when the gate is unm
     }
   });
 });
+
+// Acceptance test for feat-2610 R-01 (scenario sub-issue #2616): a security or bug finding the model
+// returned with NO cwe, but whose content maps unambiguously to a mapped CWE, surfaces at least one
+// informational framework reference derived deterministically from finding signals (category +
+// title/body keywords), with no second LLM call. Implements ADR-020. Drives the real gate + enricher
+// + walkthrough composer through reviewPullRequest; only the LLM is mocked, at the provider boundary.
+describe("reviewPullRequest derives a compliance reference from finding content when CWE omitted (feat-2610 R-01)", () => {
+  const config = {
+    review: { severityThreshold: "nitpick" as const },
+    ignores: [] as readonly string[],
+    limits: { maxFilesPerReview: 5, maxLinesPerReview: 50 },
+  };
+
+  // Background: a pull request whose diff touches code that processes personal data — raw SQL string
+  // concatenation against the "users" table in "src/users/repository.ts" (added new-file line 11).
+  const regulatedDiff = `diff --git a/src/users/repository.ts b/src/users/repository.ts
+index 1111111..2222222 100644
+--- a/src/users/repository.ts
++++ b/src/users/repository.ts
+@@ -10,3 +10,3 @@ export class UserRepository {
+   async findByEmail(email: string) {
+-    return this.db.query(buildParameterizedUserQuery(email));
++    return this.db.query("SELECT * FROM users WHERE email = '" + email + "'");
+   }
+`;
+
+  // A finding the model returned with NO cwe field. Its `body` carries the content the scenario
+  // describes — the title/body keyword signal the deterministic deriver reads.
+  const noCweFinding = (
+    category: string,
+    content: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    ...findingFor(undefined, category, "major"),
+    file: "src/users/repository.ts",
+    line_start: 11,
+    line_end: 11,
+    title: content,
+    body: `The finding describes ${content}.`,
+    confidence: 0.9,
+    ...overrides,
+  });
+
+  // @nominal Scenario Outline: a regulated finding with no cwe but unambiguous content derives its reference
+  it.each([
+    { content: "raw SQL string concatenation against the users table" },
+    { content: "unescaped user input rendered into an HTML response" },
+  ])("derives GDPR: Art. 32 for a security finding describing $content", async ({ content }) => {
+    // Given the configured LLM returns one finding with category "security" and confidence 0.9
+    // And the finding carries no cwe field
+    // And the finding describes "<content>"
+    mockProviderFindings([noCweFinding("security", content)]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+
+    // Then the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+    expect(composeWalkthrough(review)).toContain("GDPR: Art. 32");
+  });
+
+  // @nominal Scenario: a bug-category finding with no cwe derives the same reference as a security one
+  it("derives GDPR: Art. 32 for a bug-category finding with no cwe", async () => {
+    // Given the configured LLM returns one finding with category "bug" and confidence 0.9
+    // And the finding carries no cwe field
+    // And the finding describes "raw SQL string concatenation against the users table"
+    mockProviderFindings([
+      noCweFinding("bug", "raw SQL string concatenation against the users table"),
+    ]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+
+    // Then the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+    expect(composeWalkthrough(review)).toContain("GDPR: Art. 32");
+  });
+
+  // @technical Scenario: a derived reference renders informational, never confirmed
+  it("flags the derived reference applicable if, never confirmed", async () => {
+    // Given the configured LLM returns one finding with category "security" and confidence 0.9
+    // And the finding carries no cwe field
+    // And the finding describes "raw SQL string concatenation against the users table"
+    mockProviderFindings([
+      noCweFinding("security", "raw SQL string concatenation against the users table"),
+    ]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the derived "GDPR: Art. 32" line is flagged "applicable if" the system processes personal data
+    expect(walkthrough).toContain("GDPR: Art. 32");
+    expect(walkthrough).toMatch(/applicable if:.*personal data/i);
+    // And the derived reference is not flagged "confirmed"
+    expect(walkthrough).not.toMatch(/confirmed/i);
+  });
+
+  // @technical Scenario: derivation adds no second LLM call on the hot path
+  it("issues exactly one LLM completion call while emitting the derived reference", async () => {
+    // Given the configured LLM returns one finding with category "security" and confidence 0.9
+    // And the finding carries no cwe field, describing raw SQL string concatenation against the users table
+    let observedProviderRequests = 0;
+    server.use(
+      http.post(ProviderUrl, () => {
+        observedProviderRequests += 1;
+
+        return HttpResponse.json({
+          data: {
+            summary: "Compliance review.",
+            findings: [
+              noCweFinding("security", "raw SQL string concatenation against the users table"),
+            ],
+            walkthrough_markdown: "## Sovri review\n\nCompliance review.",
+          },
+          tokenUsage: { prompt: 100, completion: 20 },
+        });
+      }),
+    );
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+
+    // Then the review issues exactly one LLM completion call
+    expect(observedProviderRequests).toBe(1);
+    // And the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+    expect(composeWalkthrough(review)).toContain("GDPR: Art. 32");
+  });
+
+  // @technical Scenario: in a mixed review derivation fires only on the eligible no-cwe finding
+  it("attaches the derived reference only to the eligible no-cwe finding in a mixed review", async () => {
+    // Given the configured LLM returns two findings, each with no cwe field:
+    //   | security | 0.9  | raw SQL string concatenation against the users table |
+    //   | style    | 0.95 | inconsistent quote style in the same file            |
+    mockProviderFindings([
+      noCweFinding("security", "raw SQL string concatenation against the users table", {
+        title: "Raw SQL concatenation against users",
+      }),
+      noCweFinding("style", "inconsistent quote style in the same file", {
+        title: "Inconsistent quote style",
+        severity: "minor",
+        confidence: 0.95,
+      }),
+    ]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the compliance block for the security finding lists a "GDPR: Art. 32" reference
+    const securityIdx = walkthrough.indexOf("#### Raw SQL concatenation against users");
+    const styleIdx = walkthrough.indexOf("#### Inconsistent quote style");
+    expect(securityIdx).toBeGreaterThanOrEqual(0);
+    expect(styleIdx).toBeGreaterThan(securityIdx);
+    const securityBlock = walkthrough.slice(securityIdx, styleIdx);
+    const styleBlock = walkthrough.slice(styleIdx);
+    expect(securityBlock).toContain("GDPR: Art. 32");
+    // And the compliance block for the style finding lists no framework reference
+    expect(styleBlock).not.toContain("GDPR");
+    expect(styleBlock).not.toContain("Potential compliance references");
+  });
+});
+
+// Acceptance test for feat-2610 R-02 (scenario sub-issue #2617): a finding that already carries a
+// model cwe behaves exactly as today. Derivation only fills the no-cwe path; it never overrides or
+// alters an existing model CWE (no regression). Drives the real gate + enricher + composer through
+// reviewPullRequest with the LLM mocked at the provider boundary.
+describe("reviewPullRequest leaves the model-supplied CWE path unchanged (feat-2610 R-02)", () => {
+  const config = {
+    review: { severityThreshold: "nitpick" as const },
+    ignores: [] as readonly string[],
+    limits: { maxFilesPerReview: 5, maxLinesPerReview: 50 },
+  };
+
+  // Background: a pull request that adds raw SQL string concatenation against the "users" table in
+  // "src/users/repository.ts" — content that WOULD derive CWE-89 on the no-cwe path.
+  const regulatedSqlDiff = `diff --git a/src/users/repository.ts b/src/users/repository.ts
+index 1111111..2222222 100644
+--- a/src/users/repository.ts
++++ b/src/users/repository.ts
+@@ -10,3 +10,3 @@ export class UserRepository {
+   async findByEmail(email: string) {
+-    return this.db.query(buildParameterizedUserQuery(email));
++    return this.db.query("SELECT * FROM users WHERE email = '" + email + "'");
+   }
+`;
+
+  // A finding the model returned WITH a cwe. Its content would derive CWE-89 on the no-cwe path, so
+  // any "CWE: CWE-89" leaking in would prove derivation wrongly overrode the model-supplied cwe.
+  const modelCweFinding = (cwe: string | undefined, overrides: Record<string, unknown> = {}) => ({
+    ...findingFor(cwe, "security", "major"),
+    file: "src/users/repository.ts",
+    line_start: 11,
+    line_end: 11,
+    confidence: 0.9,
+    title: "raw SQL string concatenation against the users table",
+    body: "The finding describes raw SQL string concatenation against the users table.",
+    ...overrides,
+  });
+
+  // @nominal Scenario: a finding that already carries a model CWE renders exactly as before
+  it("renders the GDPR and CWE references for a model-supplied CWE-89, unchanged", async () => {
+    // Given the configured LLM returns one finding with category "security", cwe "CWE-89", confidence 0.9
+    mockProviderFindings([modelCweFinding("CWE-89")]);
+    const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the "Compliance & provenance" section lists a "GDPR: Art. 32" reference
+    expect(walkthrough).toContain("GDPR: Art. 32");
+    // And it also lists the "CWE: CWE-89" reference
+    expect(walkthrough).toContain("CWE: CWE-89");
+  });
+
+  // @violation Scenario Outline: derivation never overrides a model-supplied CWE
+  it.each([{ cwe: "CWE-79" }, { cwe: "CWE-256" }])(
+    "keeps the model CWE $cwe and never derives CWE-89 from the content",
+    async ({ cwe }) => {
+      // Given the configured LLM returns one finding with category "security", cwe "<cwe>", confidence 0.9
+      // And the finding describes "raw SQL string concatenation against the users table"
+      mockProviderFindings([modelCweFinding(cwe)]);
+      const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+      // When the review runs
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider: createHttpProvider() },
+      );
+      expect(review.status).toBe("success");
+      const walkthrough = composeWalkthrough(review);
+
+      // Then the "Compliance & provenance" section lists the "CWE: <cwe>" reference
+      expect(walkthrough).toContain(`CWE: ${cwe}`);
+      // And it lists no "CWE: CWE-89" reference (derivation did not override the model CWE)
+      expect(walkthrough).not.toContain("CWE: CWE-89");
+    },
+  );
+
+  // @violation Scenario: a model-supplied unmapped CWE is not rescued by derivation
+  it("does not rescue a model-supplied unmapped CWE through derivation", async () => {
+    // Given the configured LLM returns one finding with category "security", cwe "CWE-99999", confidence 0.9
+    // And the finding describes "raw SQL string concatenation against the users table"
+    mockProviderFindings([modelCweFinding("CWE-99999")]);
+    const diff = parseUnifiedDiff(regulatedSqlDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the "Compliance & provenance" section lists no framework reference for that finding
+    expect(walkthrough).not.toContain("Potential compliance references");
+    expect(walkthrough).not.toContain("GDPR");
+  });
+});
+
+// Acceptance test for feat-2610 R-03 (scenario sub-issue #2618): derivation declines when content
+// maps to no specific mapped CWE, when confidence is below 0.7, or when the category is not
+// security/bug. No guess, no false attribution — a wrong GDPR/DORA citation is worse than none.
+// Drives the real gate + enricher + composer through reviewPullRequest with the LLM mocked at the
+// provider boundary.
+describe("reviewPullRequest declines derivation rather than guess a framework reference (feat-2610 R-03)", () => {
+  const config = {
+    review: { severityThreshold: "nitpick" as const },
+    ignores: [] as readonly string[],
+    limits: { maxFilesPerReview: 5, maxLinesPerReview: 50 },
+  };
+
+  // Background: a pull request whose diff touches code that processes personal data.
+  const regulatedDiff = `diff --git a/src/users/repository.ts b/src/users/repository.ts
+index 1111111..2222222 100644
+--- a/src/users/repository.ts
++++ b/src/users/repository.ts
+@@ -10,3 +10,3 @@ export class UserRepository {
+   async findByEmail(email: string) {
+-    return this.db.query(buildParameterizedUserQuery(email));
++    return this.db.query("SELECT * FROM users WHERE email = '" + email + "'");
+   }
+`;
+
+  const noCweFinding = (
+    category: string,
+    content: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    ...findingFor(undefined, category, "major"),
+    file: "src/users/repository.ts",
+    line_start: 11,
+    line_end: 11,
+    title: content,
+    body: `The finding describes ${content}.`,
+    confidence: 0.9,
+    ...overrides,
+  });
+
+  // @violation Scenario: derivation declines when content maps to no specific vulnerability class
+  it("declines when the content maps to no specific vulnerability class", async () => {
+    // Given a security finding with no cwe describing a generic concern with no vulnerability class
+    mockProviderFindings([
+      noCweFinding("security", "possible security concern", {
+        body: "A generic possible security concern with no identifiable vulnerability class.",
+      }),
+    ]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+    const walkthrough = composeWalkthrough(review);
+
+    // Then the "Compliance & provenance" section lists no framework reference for that finding
+    expect(walkthrough).not.toContain("Potential compliance references");
+    expect(walkthrough).not.toContain("GDPR");
+  });
+
+  // @violation Scenario: derivation respects the confidence floor on the no-cwe path
+  it("declines on the no-cwe path when confidence is below the floor", async () => {
+    // Given a security finding with no cwe, confidence 0.5, describing raw SQL string concatenation
+    mockProviderFindings([
+      noCweFinding("security", "raw SQL string concatenation against the users table", {
+        confidence: 0.5,
+      }),
+    ]);
+    const diff = parseUnifiedDiff(regulatedDiff);
+
+    // When the review runs
+    const review = await reviewPullRequest(
+      { pullRequest, diff, config },
+      { provider: createHttpProvider() },
+    );
+    expect(review.status).toBe("success");
+    const walkthrough = composeWalkthrough(review);
+
+    // Then no framework reference is emitted for that finding
+    expect(walkthrough).not.toContain("Potential compliance references");
+    expect(walkthrough).not.toContain("GDPR");
+  });
+
+  // @violation Scenario Outline: a non-eligible category never derives a reference, even with derivable content
+  it.each([{ category: "style" }, { category: "performance" }, { category: "maintainability" }])(
+    "never derives a reference for a $category finding even with derivable content",
+    async ({ category }) => {
+      // Given a no-cwe finding of an ineligible category at confidence 0.95 with derivable content
+      mockProviderFindings([
+        noCweFinding(category, "raw SQL string concatenation against the users table", {
+          confidence: 0.95,
+          severity: "minor",
+        }),
+      ]);
+      const diff = parseUnifiedDiff(regulatedDiff);
+
+      // When the review runs
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider: createHttpProvider() },
+      );
+      expect(review.status).toBe("success");
+      const walkthrough = composeWalkthrough(review);
+
+      // Then no framework reference is emitted for that finding
+      expect(walkthrough).not.toContain("Potential compliance references");
+      expect(walkthrough).not.toContain("GDPR");
+    },
+  );
+
+  // @limit Scenario Outline: the confidence floor of 0.70 decides derivation on the no-cwe path
+  it.each([
+    { confidence: 0.7, present: true },
+    { confidence: 0.69, present: false },
+  ])(
+    "derives on the no-cwe path at confidence $confidence only when it meets the 0.70 floor",
+    async ({ confidence, present }) => {
+      // Given a security finding with no cwe at the given confidence describing raw SQL string concatenation
+      mockProviderFindings([
+        noCweFinding("security", "raw SQL string concatenation against the users table", {
+          confidence,
+        }),
+      ]);
+      const diff = parseUnifiedDiff(regulatedDiff);
+
+      // When the review runs
+      const review = await reviewPullRequest(
+        { pullRequest, diff, config },
+        { provider: createHttpProvider() },
+      );
+      expect(review.status).toBe("success");
+      const walkthrough = composeWalkthrough(review);
+
+      // Then the finding's framework references are present at >= 0.70 and absent below it
+      if (present) {
+        expect(walkthrough).toContain("GDPR: Art. 32");
+      } else {
+        expect(walkthrough).not.toContain("GDPR");
+      }
+    },
+  );
+});
