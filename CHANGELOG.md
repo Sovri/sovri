@@ -29,6 +29,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   finding that does not clear the gate (ineligible category, unmapped CWE, or
   confidence < 0.7) renders no framework reference, preventing false regulatory
   attribution (#2612, bug-2606 R-03).
+- `compliance` / `review-engine`: deterministic compliance reference derivation —
+  a security or bug finding the model returned without a CWE now derives a mapped
+  CWE from its own signals (e.g. raw SQL string concatenation → CWE-89 → GDPR
+  Art. 32) and surfaces informational framework references with no second LLM
+  call; ambiguous, low-confidence, or ineligible findings still decline
+  (ADR-020, #2610, #2616).
 
 ### Fixed
 

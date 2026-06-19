@@ -71,8 +71,23 @@ describe("enrichFindingCompliance — lookup by CWE", () => {
     ).toHaveLength(0);
   });
 
-  it("returns no references when the finding has no CWE (R-03)", () => {
+  it("returns no references when the finding has no CWE and no derivable signal (R-03)", () => {
     expect(enrichFindingCompliance(makeFinding()).compliance_references).toHaveLength(0);
+  });
+
+  it("derives references from finding content when the model omits the CWE (feat-2610 R-01)", () => {
+    const result = enrichFindingCompliance(
+      makeFinding({
+        cwe: undefined,
+        title: "raw SQL string concatenation against the users table",
+        body: "The finding describes raw SQL string concatenation against the users table.",
+      }),
+    );
+
+    expect(result.compliance_references).toHaveLength(2);
+    expect(result.compliance_references).toContainEqual(
+      expect.objectContaining({ framework: "GDPR", identifier: "Art. 32" }),
+    );
   });
 
   it("is idempotent when re-enriching a mapped finding (overwrite from map)", () => {
