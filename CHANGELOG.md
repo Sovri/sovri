@@ -45,9 +45,29 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   vulnerability class, when confidence is below 0.70, or when the category is not
   security/bug; the deriver also declines when content is ambiguous across rules
   (feat-2610 R-03, #2618).
+- `review-engine`: regression guard for the 1024-byte system-prompt cap — every
+  review mode (enumerated from the schema, so new modes are covered) stays
+  within the cap and `validateSystemTemplateSize` accepts a
+  1024-byte template while rejecting 1025, so the CWE-directive growth (mappable
+  CWE, positive instruction, framework names) cannot silently overflow the
+  system template (#2607, bug-2607 R-04).
 
 ### Fixed
 
+- `review-engine`: the LLM review prompt now only shows CWE ids the compliance
+  map resolves — the few-shot worked example (now a SQL-injection finding) and
+  the directive's "for example" use CWE-89 (mapped) instead of the unmapped
+  CWE-287, so a model imitating the example emits a mappable CWE instead of one
+  that renders no compliance reference (#2607, bug-2607 R-01).
+- `review-engine`: the CWE directive now positively requires a CWE on every
+  security or bug finding tied to a known weakness, replacing the soft "omit
+  otherwise" escape hatch with an omission scoped to style and performance
+  findings, so the model is biased to emit a mappable CWE exactly where
+  compliance enrichment can fire (#2607, bug-2607 R-02).
+- `review-engine`: the CWE directive now names the target compliance frameworks
+  (GDPR, DORA, AI Act, NIS2) so the model understands why a CWE is load-bearing
+  on a regulated finding, kept within the 1024-byte system-prompt cap
+  (#2607, bug-2607 R-03).
 - `review-engine`: keep re-review finding identity stable under normal model
   drift in span, category, and CWE metadata so still-open inline findings are
   not re-posted as duplicates while changed source still receives a new finding;
