@@ -46,7 +46,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   security/bug; the deriver also declines when content is ambiguous across rules
   (feat-2610 R-03, #2618).
 - `review-engine`: regression guard for the 1024-byte system-prompt cap — every
-  review mode stays within the cap and `validateSystemTemplateSize` accepts a
+  review mode (enumerated from the schema, so new modes are covered) stays
+  within the cap and `validateSystemTemplateSize` accepts a
   1024-byte template while rejecting 1025, so the CWE-directive growth (mappable
   CWE, positive instruction, framework names) cannot silently overflow the
   system template (#2607, bug-2607 R-04).

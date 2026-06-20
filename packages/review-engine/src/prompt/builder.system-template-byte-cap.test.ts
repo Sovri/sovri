@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSystemPrompt,
   PromptTemplateSizeError,
+  ReviewPromptModeSchema,
   SYSTEM_PROMPT_MAX_BYTES,
   validateSystemTemplateSize,
 } from "./builder.js";
@@ -23,7 +24,7 @@ describe("R-04: the system prompt template stays within the 1024-byte cap", () =
   // Background: Sovri's review engine assembles the LLM review prompt.
 
   describe("Scenario Outline: every review mode builds a system prompt within the cap", () => {
-    it.each(["full", "bugs-only", "strict", "minimal"] as const)(
+    it.each(ReviewPromptModeSchema.options)(
       'the "%s" mode system prompt stays within the cap',
       (mode) => {
         // When the review engine builds the system prompt for the "<mode>" mode
