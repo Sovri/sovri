@@ -54,9 +54,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   CWE-287, so a model imitating the example emits a mappable CWE instead of one
   that renders no compliance reference (#2607, bug-2607 R-01).
 - `review-engine`: the CWE directive now positively requires a CWE on every
-  security or bug finding tied to a known weakness, scoping the omission to
-  style and performance findings, so the model is biased to emit a mappable CWE
-  exactly where compliance enrichment can fire (#2607, bug-2607 R-02).
+  security or bug finding tied to a known weakness, replacing the soft "omit
+  otherwise" escape hatch with an omission scoped to style and performance
+  findings, so the model is biased to emit a mappable CWE exactly where
+  compliance enrichment can fire (#2607, bug-2607 R-02).
 - `review-engine`: keep re-review finding identity stable under normal model
   drift in span, category, and CWE metadata so still-open inline findings are
   not re-posted as duplicates while changed source still receives a new finding;
