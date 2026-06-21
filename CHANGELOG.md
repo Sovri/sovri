@@ -19,6 +19,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-21
+
 ### Added
 
 - `review-engine`: regression guard for the compliance-reference contract — a
