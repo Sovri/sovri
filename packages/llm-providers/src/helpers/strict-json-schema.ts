@@ -18,7 +18,7 @@ export function normalizeStrictObjectShapes(
 ): Record<string, unknown> {
   const normalized = normalizeValue(jsonSchema);
   if (!isRecord(normalized)) {
-    throw new Error("strict JSON schema root must be an object schema");
+    throw new Error("strict JSON schema root must be an object schema (received non-object root)");
   }
 
   return normalized;

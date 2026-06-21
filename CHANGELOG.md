@@ -59,7 +59,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   finding fields (notably `cwe`) out of `required`, so the model was never forced to
   decide them; optional fields are now promoted into every object node's `required`
   array and made nullable, so a strict-mode Mistral model must decide `cwe` on every finding
-  instead of silently omitting it and starving compliance enrichment (#2638, bug-2609 R-01).
+  instead of silently omitting it, which previously starved compliance enrichment on Mistral
+  relative to OpenAI (#2638, bug-2609 R-01).
 - `review-engine`: the provider finding schema now documents the `cwe` field — the
   generated provider JSON schema exposes a non-empty `description` telling the model
   to emit a CWE for any security or correctness weakness in `CWE-<number>` format.

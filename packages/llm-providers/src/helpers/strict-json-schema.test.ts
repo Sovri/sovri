@@ -135,6 +135,15 @@ describe("normalizeStrictObjectShapes", () => {
     });
   });
 
+  it("treats a non-record properties value (e.g. an array) as a property-less object node", () => {
+    expect(normalizeStrictObjectShapes({ type: "object", properties: [], required: [] })).toEqual({
+      type: "object",
+      properties: [],
+      required: [],
+      additionalProperties: false,
+    });
+  });
+
   it("passes non-record property values through untouched", () => {
     expect(
       normalizeStrictObjectShapes({
