@@ -608,7 +608,10 @@ function describeReviewFailure(error: unknown): {
       .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
       .join("; ");
     return {
-      commentMessage: `Config error in ${error.filePath}: ${details}`,
+      // Capped at MaxLoggedErrorMessageLength so a config with many issues cannot
+      // post an oversized comment; the same pass also redacts any secret-shaped
+      // fragment as defense in depth.
+      commentMessage: sanitizeErrorMessage(`Config error in ${error.filePath}: ${details}`),
       logFields: {
         error_message: error.message,
         error_type: error.name,

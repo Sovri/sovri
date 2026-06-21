@@ -105,3 +105,46 @@ describe("describeReviewFailure — SovriConfigParseError", () => {
     expect(comment).not.toBe("review failed");
   });
 });
+
+// Builds a validation error whose rendered comment (before any cap) is exactly
+// `length` characters, padded with a plain ASCII message so no secret-shaped
+// fragment is present to skew the length via redaction.
+function validationErrorRenderingTo(length: number): SovriConfigValidationError {
+  const prefix = "Config error in .sovri.yml: field: ";
+  return validationError([{ message: "a".repeat(length - prefix.length), path: ["field"] }]);
+}
+
+// Rule R-03 — the actionable comment is length-capped at MaxLoggedErrorMessageLength (240)
+describe("describeReviewFailure — actionable comment length cap", () => {
+  // Given a review fails at the config_load stage
+  // And the cause is a SovriConfigValidationError for ".sovri.yml"
+
+  it("posts a message at the 240-char cap whole", async () => {
+    // Given the rendered failure comment is 240 characters long
+    const error = validationErrorRenderingTo(240);
+
+    // When the bot describes the review failure
+    const comment = await failureCommentFor(error);
+
+    // Then the failure comment is 240 characters long
+    expect(comment).toHaveLength(240);
+    // And the failure comment does not end with "..."
+    expect(comment?.endsWith("...")).toBe(false);
+  });
+
+  it.each([241, 600])(
+    "truncates a rendered %i-char message to 240 + ellipsis",
+    async (rendered) => {
+      // Given the rendered failure comment would be <rendered> characters long
+      const error = validationErrorRenderingTo(rendered);
+
+      // When the bot describes the review failure
+      const comment = await failureCommentFor(error);
+
+      // Then the failure comment is 243 characters long
+      expect(comment).toHaveLength(243);
+      // And the failure comment ends with "..."
+      expect(comment?.endsWith("...")).toBe(true);
+    },
+  );
+});
