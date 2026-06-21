@@ -32,6 +32,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `review failed`, without echoing the raw parser cause (which may quote
   untrusted file bytes); the surfaced message passes through the module's
   redaction + length cap as defense in depth (#2644, R-02).
+- `bot`: the actionable `.sovri.yml` config-error comment is capped at 240
+  characters (`MaxLoggedErrorMessageLength`), so a config with many schema issues
+  truncates to 240 chars plus `...` rather than posting an oversized comment
+  (#2644, R-03).
 
 ## [0.10.0] - 2026-06-21
 
