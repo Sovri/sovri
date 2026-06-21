@@ -184,4 +184,19 @@ describe("describeReviewFailure — secret-shaped fragment redaction", () => {
     // And the failure comment does not contain "<fragment>"
     expect(comment).not.toContain(fragment);
   });
+
+  it("redacts only the secret-shaped path when ordinary and secret paths are mixed", async () => {
+    const error = validationError([
+      { message: "Unrecognized key", path: ["limits"] },
+      { message: "Required", path: ["llm", "apiKey"] },
+    ]);
+
+    const comment = await failureCommentFor(error);
+
+    // The ordinary path is echoed unchanged...
+    expect(comment).toContain("limits: Unrecognized key");
+    // ...while the secret-shaped path in the same comment is redacted.
+    expect(comment).toContain("[Redacted]");
+    expect(comment).not.toContain("apiKey");
+  });
 });

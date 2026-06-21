@@ -42,7 +42,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `bot`: the actionable `.sovri.yml` config-error comment redacts any
   secret-shaped fragment (a field path matching api-key / token / secret) to
   `[Redacted]` via the shared `sanitizeErrorMessage` pass, so a credential-named
-  config key is never echoed verbatim to the PR author (#2644, R-04).
+  config key is never echoed verbatim to the PR author — including when a comment
+  mixes ordinary and secret-shaped paths, where only the secret-shaped one is
+  redacted (#2644, R-04).
 
 ## [0.10.0] - 2026-06-21
 
