@@ -7,7 +7,7 @@ import { z } from "zod";
 export const ProviderFindingSchema = z
   .strictObject({
     severity: z.enum(["blocker", "major", "minor", "info", "nitpick"]),
-    category: CategorySchema.default("maintainability"),
+    category: CategorySchema,
     file: z.string().min(1),
     line_start: z.number().int().positive(),
     line_end: z.number().int().positive(),
@@ -21,6 +21,9 @@ export const ProviderFindingSchema = z
     cwe: z
       .string()
       .regex(/^CWE-\d+$/)
+      .describe(
+        "Emit a CWE for any security or correctness weakness, in CWE-<number> format (e.g. CWE-89). Omit it when the finding has no associated weakness.",
+      )
       .optional(),
   })
   .refine(({ line_start, line_end }) => line_end >= line_start, {

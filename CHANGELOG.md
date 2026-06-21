@@ -54,6 +54,19 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: the provider finding schema now documents the `cwe` field — the
+  generated provider JSON schema exposes a non-empty `description` telling the model
+  to emit a CWE for any security or correctness weakness in `CWE-<number>` format.
+  The field stays optional, so a finding without a CWE still parses; providers just
+  no longer receive it with zero guidance on when to populate it (#2608, bug-2608 R-01).
+- `review-engine`: the provider finding schema now requires a `category` — the
+  `.default("maintainability")` is dropped, so a finding the model returns without a
+  category fails validation (a Zod error on `category`) and re-prompts through the
+  existing schema-retry re-prompt instead of being silently coerced to
+  `maintainability`, an ineligible category that would downgrade a real security
+  finding out of compliance enrichment. Aligns the provider schema with the sibling
+  raw-finding schema, which already required `category`; the regression test covers
+  every `CategorySchema` member (#2608, bug-2608 R-02).
 - `review-engine`: the LLM review prompt now only shows CWE ids the compliance
   map resolves — the few-shot worked example (now a SQL-injection finding) and
   the directive's "for example" use CWE-89 (mapped) instead of the unmapped
