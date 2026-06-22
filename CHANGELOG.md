@@ -19,6 +19,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-06-22
+
 ### Fixed
 
 - `bot`: `.sovri.yml` is now read from the base branch tip (`heads/<base.ref>`)

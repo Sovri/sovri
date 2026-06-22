@@ -50,10 +50,10 @@ A pull request opens. Sovri reads the diff, runs it through the review engine wi
 
 ## Install
 
-The Community bot ships as a multi-arch container image on the GitHub Container Registry. The current published pre-alpha release is `v0.10.0`:
+The Community bot ships as a multi-arch container image on the GitHub Container Registry. The current published pre-alpha release is `v0.10.1`:
 
 ```bash
-docker pull ghcr.io/mpiton/sovri/community-bot:v0.10.0
+docker pull ghcr.io/mpiton/sovri/community-bot:v0.10.1
 ```
 
 Additional tags follow the [Image tags](#image-tags) section of `Run the Community bot` below (`v0.10`, `v0`, `latest`).
@@ -119,7 +119,7 @@ The first install runs `--ignore-scripts` by policy (see [`.npmrc`](.npmrc)); no
 
 ## Run the Community bot
 
-The `v0.10.0` image is published for pre-alpha validation. It is not yet the
+The `v0.10.1` image is published for pre-alpha validation. It is not yet the
 complete self-host Community product; on top of the v0.7.0 compliance enrichment
 it adds SARIF 2.1.0 ingestion (external scanner findings merged into the review)
 and release-path hardening (per-file license-header gate, `esbuild` advisory
@@ -155,7 +155,7 @@ supported field, default, and example.
 
 Each release publishes the same image digest under four tags on `ghcr.io/mpiton/sovri/community-bot`:
 
-- `vX.Y.Z` — pinned to the exact SemVer release (e.g. `v0.10.0`).
+- `vX.Y.Z` — pinned to the exact SemVer release (e.g. `v0.10.1`).
 - `vX.Y` — moving alias for the latest patch of a minor (e.g. `v0.10`).
 - `vX` — moving alias for the latest minor of a major (e.g. `v0`).
 - `latest` — always points at the most recent published release.
