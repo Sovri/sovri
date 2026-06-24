@@ -406,9 +406,11 @@ describe("reviewPullRequest compliance enrichment", () => {
       { provider: createHttpProvider() },
     );
 
-    // Then the invalid response is not accepted as a clean success: the parse-failure path surfaces a
+    // Then the invalid response is rejected: the parse-failure path fails the review and surfaces a
     // synthetic review_failed finding, and every published finding stays within the compliance taxonomy.
-    expect(review.status).not.toBe("success");
+    expect(review.status).toBe("failed");
+    expect(review.findings.length).toBeGreaterThan(0);
+    expect(review.findings.some((finding) => finding.title === "review_failed")).toBe(true);
     for (const finding of review.findings) {
       expect(["security", "bug"]).toContain(finding.category);
     }
