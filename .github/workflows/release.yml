@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
-          node-version: "24"
+          node-version-file: .nvmrc
 
       - name: Verify release tag
         run: >-
@@ -81,7 +81,7 @@ jobs:
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
           context: .
-          file: Dockerfile
+          file: apps/community-bot/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |

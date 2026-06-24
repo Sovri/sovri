@@ -34,7 +34,7 @@ export type RequiredPermission = {
 };
 
 export const requiredDependencies: readonly RequiredDependency[] = [
-  { expected: "^14", name: "probot" },
+  { expected: "14.3.2", name: "probot" },
   { expected: "workspace:*", name: "@sovri/review-engine" },
   { expected: "workspace:*", name: "@sovri/config" },
   { expected: "workspace:*", name: "@sovri/observability" },
@@ -119,7 +119,7 @@ export function inspectPackageDependencies(manifest: Record<string, unknown>): C
   }
   for (const dependency of requiredDependencies) {
     const declared = dependencies[dependency.name];
-    if (typeof declared !== "string" || !dependencyRangeMatches(dependency, declared)) {
+    if (typeof declared !== "string" || declared !== dependency.expected) {
       return { message: `${dependency.name} must use ${dependency.expected}`, ok: false };
     }
   }
@@ -182,13 +182,6 @@ export function assertNotIgnored(relativePath: string): void {
     throw error;
   }
   throw new Error(`${relativePath} is ignored by Git`);
-}
-
-function dependencyRangeMatches(dependency: RequiredDependency, declared: string): boolean {
-  if (dependency.name === "probot") {
-    return declared === "^14" || declared.startsWith("^14.");
-  }
-  return declared === dependency.expected;
 }
 
 function arrayIncludes(value: unknown, expected: string): boolean {

@@ -19,6 +19,13 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Changed
+
+- `deps`: align the Community runtime toolchain pins by updating the pnpm
+  package manager pin, Node.js CI/runtime floor, digest-pinned Docker base
+  images, runtime preflight hooks, and the Probot dependency specifier used by
+  the bot.
+
 ## [0.10.1] - 2026-06-22
 
 ### Fixed

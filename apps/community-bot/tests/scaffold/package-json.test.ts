@@ -32,7 +32,7 @@ describe("community bot package manifest scaffold", () => {
     // Given "apps/community-bot/package.json" exists
     await expectPathExists("apps/community-bot/package.json");
     const manifest = readJsonObject("apps/community-bot/package.json");
-    // And dependency "probot" is declared with range "^14"
+    // And dependency "probot" is declared with exact version "14.3.2"
     // And dependency "@sovri/review-engine" is declared with range "workspace:*"
     // And dependency "@sovri/config" is declared with range "workspace:*"
     // And dependency "@sovri/observability" is declared with range "workspace:*"
@@ -98,7 +98,7 @@ describe("community bot package manifest scaffold", () => {
   });
 
   it.each([
-    { dependency: "probot", expected: "^14", range: "^15" },
+    { dependency: "probot", expected: "14.3.2", range: "^14" },
     { dependency: "@sovri/review-engine", expected: "workspace:*", range: "0.1.0" },
     { dependency: "@sovri/config", expected: "workspace:*", range: "^0.1.0" },
     { dependency: "@sovri/observability", expected: "workspace:*", range: "file:." },
