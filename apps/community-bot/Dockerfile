@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-alpine AS builder
+FROM node:24.17.0-alpine AS builder
 
 ENV CI="true"
 ENV PNPM_HOME="/pnpm"
@@ -17,7 +17,7 @@ COPY apps/community-bot/ apps/community-bot/
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @sovri/community-bot... build
 
-FROM node:24-alpine AS prod-deps
+FROM node:24.17.0-alpine AS prod-deps
 
 ENV CI="true"
 ENV PNPM_HOME="/pnpm"
@@ -43,7 +43,7 @@ RUN cd /app/deploy/community-bot/node_modules \
  && ln -sf "$(ls -d .pnpm/@anthropic-ai+sdk@*/node_modules/@anthropic-ai | head -1)" @anthropic-ai \
  && ln -sf "$(ls -d .pnpm/openai@*/node_modules/openai | head -1)" openai
 
-FROM node:24-alpine AS runtime
+FROM node:24.17.0-alpine AS runtime
 
 ENV HOST="0.0.0.0"
 ENV NODE_ENV="production"
