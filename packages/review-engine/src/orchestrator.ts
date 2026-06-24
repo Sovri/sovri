@@ -52,7 +52,7 @@ import {
   type ProviderFinding,
   type ProviderReviewResponse,
 } from "./parsing/index.js";
-import { shouldEnrichCompliance } from "./compliance-gate.js";
+import { partitionComplianceMappedFindings, shouldEnrichCompliance } from "./compliance-gate.js";
 import { collectSarifFindings } from "./sarif/ingest.js";
 import { mergeSarifFindings } from "./sarif/merge.js";
 import { SarifParseError } from "./sarif/reader.js";
@@ -452,7 +452,7 @@ export async function reviewPullRequest(
               : await withSpan("review.ingest_sarif", async () =>
                   ingestSarifReports(sarifReports, logger),
                 );
-          const findings = sarif.ingested
+          const mergedFindings = sarif.ingested
             ? mergeSarifFindings(
                 llmFindings,
                 sarif.findings,
@@ -461,6 +461,24 @@ export async function reviewPullRequest(
                 reviewInput.config.ignores,
               )
             : llmFindings;
+
+          // Compliance-only publication gate (MAT-75): publish a finding only when enrichment mapped
+          // it to a regulatory framework (non-empty compliance_references). Generic, unmapped findings
+          // — the CodeRabbit-style review noise the compliance pivot drops — never reach the pull
+          // request. Applied uniformly to the merged LLM + SARIF set; retained findings keep their
+          // audit_reference. The dropped count is logged so the reduction is auditable, never silent.
+          const { kept: findings, droppedCount: unmappedDropped } =
+            partitionComplianceMappedFindings(mergedFindings);
+          if (unmappedDropped > 0) {
+            logger?.info(
+              {
+                provider: provider.name,
+                dropped_unmapped: unmappedDropped,
+                kept_findings: findings.length,
+              },
+              "Review engine dropped findings without compliance references",
+            );
+          }
 
           // Append findings in order: a chaining sink (the Cloud file writer) links
           // entries by hash, so they must be awaited sequentially, never in parallel.
@@ -991,6 +1009,8 @@ interface SarifIngestionOutcome {
 // (invalid JSON / wrong version / breached bounds) is skipped with a warning, never
 // fatal, so the LLM review still completes. `ingested` is true once at least one
 // report parsed, which is what flips the license-scan check off its placeholder.
+// Each ingested finding is run through the same compliance enrichment as the LLM path so the
+// compliance-only gate keeps SARIF findings whose CWE maps to a framework and drops the rest.
 function ingestSarifReports(reports: readonly string[], logger?: Logger): SarifIngestionOutcome {
   const findings: Finding[] = [];
   let ingested = false;
@@ -999,7 +1019,7 @@ function ingestSarifReports(reports: readonly string[], logger?: Logger): SarifI
     try {
       const result = collectSarifFindings(raw);
       ingested = true;
-      findings.push(...result.findings);
+      findings.push(...result.findings.map((finding) => enrichFindingSafely(finding, logger)));
       logger?.info(
         {
           report_index: index,
@@ -1058,19 +1078,25 @@ function toFinding(finding: ProviderFinding, logger?: Logger): Finding {
     ...(finding.cwe === undefined ? {} : { cwe: finding.cwe }),
   };
 
-  if (!shouldEnrichCompliance(finding)) {
-    return base;
-  }
+  return shouldEnrichCompliance(finding) ? enrichFindingSafely(base, logger) : base;
+}
 
+// Enrich a finding with compliance references, degrading gracefully: an enrichment failure logs and
+// returns the finding unchanged (empty references) so the review still completes. Shared by the LLM
+// path (gated by category/confidence) and the SARIF path (scanner findings are category "security",
+// eligible by construction). A finding left with empty references is later dropped by the
+// compliance-only gate, so a transient enrichment failure withholds the finding rather than
+// publishing it unmapped.
+function enrichFindingSafely(finding: Finding, logger?: Logger): Finding {
   try {
-    return enrichFindingCompliance(base);
+    return enrichFindingCompliance(finding);
   } catch (error) {
     logger?.error(
-      { err: error, audit_reference: base.audit_reference },
+      { err: error, audit_reference: finding.audit_reference },
       "Compliance enrichment failed; keeping finding without references",
     );
 
-    return base;
+    return finding;
   }
 }
 

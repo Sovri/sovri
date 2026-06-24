@@ -75,6 +75,9 @@ function rawFinding(overrides: Partial<RawFindingFixture> = {}): RawFindingFixtu
     recommendation:
       "Validate the charge amount against allowed bounds before processing the payment.",
     confidence: 0.9,
+    // CWE-20 (Improper Input Validation) maps to a framework, so the finding clears the
+    // compliance-only publication gate and these audit-trail assertions still see a published finding.
+    cwe: "CWE-20",
     ...overrides,
   };
 }
@@ -520,7 +523,14 @@ describe("reviewPullRequest audit-trail sink wiring", () => {
           category: "security",
           cwe: "CWE-89",
         }),
-        rawFinding({ title: "Unclear variable", severity: "minor" }),
+        // A finding the model returned with NO cwe. Its content derives CWE-89 (ADR-020), so it clears
+        // the compliance-only gate while keeping no `cwe` field — the case this test pins.
+        rawFinding({
+          title: "Query built via SQL string concatenation",
+          body: "The query is assembled by raw SQL string concatenation from user input.",
+          severity: "minor",
+          cwe: undefined,
+        }),
       ]);
       const sink = new MemoryAuditTrailSink();
 
