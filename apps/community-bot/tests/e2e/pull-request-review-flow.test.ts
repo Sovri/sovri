@@ -1606,6 +1606,9 @@ function buildProviderResponseWithWalkthrough(walkthroughMarkdown: string): Prov
 }
 
 function defaultProviderFindings(): ProviderReviewResponse["findings"] {
+  // The first three findings are eligible (security/bug) and carry a mappable CWE so they clear the
+  // compliance-only publication gate (MAT-75) and the posting flow still surfaces three inline
+  // comments across three severities. The bot now publishes only framework-mapped findings.
   return [
     {
       severity: "blocker",
@@ -1618,6 +1621,7 @@ function defaultProviderFindings(): ProviderReviewResponse["findings"] {
       recommendation:
         "Add a Zod schema guard at the top of the handler before processing the payload.",
       confidence: 0.91,
+      cwe: "CWE-20",
     },
     {
       severity: "major",
@@ -1630,10 +1634,11 @@ function defaultProviderFindings(): ProviderReviewResponse["findings"] {
       recommendation:
         "Return the inline comment draft from the builder and include it in the review payload.",
       confidence: 0.91,
+      cwe: "CWE-20",
     },
     {
       severity: "minor",
-      category: "maintainability",
+      category: "bug",
       file: "packages/review-engine/src/orchestrator.ts",
       line_start: 88,
       line_end: 88,
@@ -1642,6 +1647,7 @@ function defaultProviderFindings(): ProviderReviewResponse["findings"] {
       recommendation:
         "Remove the duplicate grouping pass and derive counts from the single findings array.",
       confidence: 0.91,
+      cwe: "CWE-20",
     },
     {
       severity: "info",

@@ -8,10 +8,11 @@ import { describe, expect, it, vi } from "vitest";
 import { parseUnifiedDiff } from "./diff/index.js";
 import { reviewPullRequest } from "./orchestrator.js";
 
-// Acceptance test for: "Compliance enrichment failure degrades the finding but
-// the review still succeeds" (issue #1912, R-07). The scenario explicitly
-// describes the stub ("compliance enrichment throws an unexpected error"), so
-// mocking @sovri/compliance is permitted.
+// Acceptance test for: "Compliance enrichment failure never fails the review" (issue #1912, R-07).
+// Under the compliance-only publication gate (MAT-75) a finding enrichment could not map is withheld
+// rather than degraded-and-published: the review still succeeds, just with no findings. The scenario
+// explicitly describes the stub ("compliance enrichment throws an unexpected error"), so mocking
+// @sovri/compliance is permitted.
 vi.mock("@sovri/compliance", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sovri/compliance")>();
 
@@ -85,7 +86,7 @@ const provider: LLMProvider = {
 
 describe("reviewPullRequest compliance enrichment failure", () => {
   // Rule: R-07
-  it("degrades the finding and logs when compliance enrichment throws", async () => {
+  it("withholds the finding and logs when compliance enrichment throws", async () => {
     const errorLogs: Array<{ fields: Record<string, unknown>; message: string }> = [];
     const logger = {
       info(): void {},
@@ -102,13 +103,11 @@ describe("reviewPullRequest compliance enrichment failure", () => {
       { provider, logger },
     );
 
-    // Then the returned Review status is "success"
+    // Then the returned Review status is "success" (a failed enrichment never fails the review)
     expect(review.status).toBe("success");
-    const finding = review.findings.at(0);
-    // And that finding's audit_reference is defined
-    expect(finding?.audit_reference).toBeDefined();
-    // And that finding's compliance_references is empty
-    expect(finding?.compliance_references).toEqual([]);
+    // And the finding is withheld: enrichment could not map it to a framework, so the compliance-only
+    // gate drops it rather than publishing it without references
+    expect(review.findings).toHaveLength(0);
     // And an error is logged describing the enrichment failure
     expect(errorLogs.some(({ message }) => message.includes("Compliance enrichment failed"))).toBe(
       true,

@@ -93,6 +93,10 @@ function providerFinding(
     body: `${title} body.`,
     recommendation: `Fix the issue described in: ${title}.`,
     confidence,
+    // CWE-20 maps to a framework, so an eligible (security/bug) finding clears the compliance-only
+    // publication gate. These tests exercise the severity/ignore/narration filters, which all run
+    // before the gate, so a finding the filters keep must still map to survive to the output.
+    cwe: "CWE-20",
   };
 }
 

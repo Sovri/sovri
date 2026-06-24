@@ -57,6 +57,9 @@ describe("reviewPullRequest MSW integration paths", () => {
                   "Add an error guard before returning the review to handle missing or invalid results.",
                 suggested_code: "const review = await runReview(input, options);",
                 confidence: 0.91,
+                // CWE-20 maps to a framework, so the finding clears the compliance-only publication
+                // gate and the walkthrough + inline-comment assertions still see a published finding.
+                cwe: "CWE-20",
               },
             ],
             walkthrough_markdown: "## Sovri review\n\nReview completed.",
@@ -349,8 +352,8 @@ describe("reviewPullRequest compliance enrichment", () => {
     expect(frameworks).toEqual(expect.arrayContaining(["GDPR", "ISO27001-2022", "DORA", "NIS2"]));
   });
 
-  // Rule: R-04
-  it("gives a finding without a CWE an audit reference but empty compliance references", async () => {
+  // Rule: MAT-75 (compliance-only gate drops findings that map to no framework)
+  it("drops a finding without a CWE since it maps to no framework", async () => {
     // Given the LLM provider returns one "minor" finding for category "bug" with no cwe
     mockProviderFindings([findingFor(undefined, "bug", "minor")]);
     const diff = parseUnifiedDiff(unifiedDiff);
@@ -363,16 +366,12 @@ describe("reviewPullRequest compliance enrichment", () => {
 
     // Then the returned Review status is "success"
     expect(review.status).toBe("success");
-    const finding = review.findings.at(0);
-    // And that finding's audit_reference is defined and matches the bug category code
-    expect(finding?.audit_reference).toBeDefined();
-    expect(finding?.audit_reference).toMatch(/^SOVRI-BG-[A-F0-9]{4}-[A-F0-9]{4}$/u);
-    // And that finding's compliance_references is empty
-    expect(finding?.compliance_references).toEqual([]);
+    // And the finding is withheld: with no mappable CWE it carries no compliance references
+    expect(review.findings).toHaveLength(0);
   });
 
-  // Rule: R-04
-  it("gives a finding whose CWE does not resolve empty compliance references", async () => {
+  // Rule: MAT-75 (compliance-only gate drops findings that map to no framework)
+  it("drops a finding whose CWE does not resolve to any framework", async () => {
     // Given the LLM provider returns one "major" finding for category "security" with cwe "CWE-9999"
     mockProviderFindings([findingFor("CWE-9999", "security", "major")]);
     const diff = parseUnifiedDiff(unifiedDiff);
@@ -385,15 +384,12 @@ describe("reviewPullRequest compliance enrichment", () => {
 
     // Then the returned Review status is "success"
     expect(review.status).toBe("success");
-    const finding = review.findings.at(0);
-    // And that finding's audit_reference is defined
-    expect(finding?.audit_reference).toBeDefined();
-    // And that finding's compliance_references is empty
-    expect(finding?.compliance_references).toEqual([]);
+    // And the finding is withheld: its CWE resolves to no framework reference
+    expect(review.findings).toHaveLength(0);
   });
 
-  // Rule: ADR-013 (gate: non-eligible categories are never enriched)
-  it("does not populate compliance references for a maintainability finding even with a mapped CWE", async () => {
+  // Rule: ADR-013 + MAT-75 (a non-eligible category is never enriched, so the gate drops it)
+  it("drops a maintainability finding even with a mapped CWE (category gated out of enrichment)", async () => {
     // Given the LLM provider returns one finding for category "maintainability" with cwe "CWE-89" and confidence 1
     mockProviderFindings([
       {
@@ -411,9 +407,8 @@ describe("reviewPullRequest compliance enrichment", () => {
 
     // Then the returned Review status is "success"
     expect(review.status).toBe("success");
-    const finding = review.findings.at(0);
-    // And that finding's compliance_references is empty (gated out by category)
-    expect(finding?.compliance_references).toEqual([]);
+    // And the finding is withheld: a maintainability finding is never enriched, so it maps to nothing
+    expect(review.findings).toHaveLength(0);
   });
 
   // Rule: ADR-013 (gate: eligible security finding with mapped CWE gets enriched)
@@ -441,8 +436,8 @@ describe("reviewPullRequest compliance enrichment", () => {
     expect(finding?.compliance_references.length).toBeGreaterThan(0);
   });
 
-  // Rule: R-03 (triangulation across a mixed batch)
-  it("gives every LLM-derived finding in the Review an audit reference", async () => {
+  // Rule: MAT-75 (publish only framework-mapped findings; the retained finding keeps its audit_reference)
+  it("publishes only the framework-mapped finding from a mixed batch, keeping its audit reference", async () => {
     // Given the LLM provider returns three findings (mapped cwe, no cwe, unmapped cwe)
     mockProviderFindings([
       findingFor("CWE-798", "security", "blocker"),
@@ -459,17 +454,15 @@ describe("reviewPullRequest compliance enrichment", () => {
 
     // Then the returned Review status is "success"
     expect(review.status).toBe("success");
-    expect(review.findings).toHaveLength(3);
-    // And every returned finding has a defined audit_reference
-    expect(review.findings.every((f) => f.audit_reference !== undefined)).toBe(true);
-    // And the finding with cwe "CWE-798" has at least 4 compliance_references
-    expect(
-      review.findings.find((f) => f.cwe === "CWE-798")?.compliance_references.length,
-    ).toBeGreaterThanOrEqual(4);
-    // And the finding with no cwe has empty compliance_references
-    expect(review.findings.find((f) => f.cwe === undefined)?.compliance_references).toEqual([]);
-    // And the finding with cwe "CWE-9999" has empty compliance_references
-    expect(review.findings.find((f) => f.cwe === "CWE-9999")?.compliance_references).toEqual([]);
+    // And only the CWE-798 finding is published; the no-cwe and unmapped-cwe findings are dropped
+    expect(review.findings).toHaveLength(1);
+    const finding = review.findings.at(0);
+    expect(finding?.cwe).toBe("CWE-798");
+    // And the retained finding keeps its audit_reference (MAT-75: conserve audit_reference)
+    expect(finding?.audit_reference).toBeDefined();
+    expect(finding?.audit_reference).toMatch(/^SOVRI-SC-[A-F0-9]{4}-[A-F0-9]{4}$/u);
+    // And it carries the mapped framework references
+    expect(finding?.compliance_references.length).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -688,8 +681,9 @@ index 1111111..2222222 100644
     expect(refsIdx).toBeGreaterThan(auditIdx);
   });
 
-  // @technical Scenario: in a mixed review only the eligible finding carries a reference
-  it("attaches a reference only to the eligible finding in a mixed review", async () => {
+  // @technical Scenario: in a mixed review only the eligible finding is published; the ineligible one
+  // is dropped entirely by the compliance-only gate (MAT-75).
+  it("publishes only the eligible finding in a mixed review, dropping the ineligible one", async () => {
     // Given the configured LLM returns two findings (security/CWE-89 and style/no-cwe)
     mockProviderFindings([
       regulatedFinding("CWE-89", "security", { title: "SQL injection in query" }),
@@ -708,17 +702,13 @@ index 1111111..2222222 100644
     );
     const walkthrough = composeWalkthrough(review);
 
-    // Then the compliance block for "SQL injection in query" lists a "GDPR: Art. 32" reference
+    // Then only the SQL-injection finding is published, with its "GDPR: Art. 32" reference
+    expect(review.findings).toHaveLength(1);
     const sqlIdx = walkthrough.indexOf("#### SQL injection in query");
-    const styleIdx = walkthrough.indexOf("#### Inconsistent quotes");
     expect(sqlIdx).toBeGreaterThanOrEqual(0);
-    expect(styleIdx).toBeGreaterThan(sqlIdx);
-    const sqlBlock = walkthrough.slice(sqlIdx, styleIdx);
-    const styleBlock = walkthrough.slice(styleIdx);
-    expect(sqlBlock).toContain("GDPR: Art. 32");
-    // And the compliance block for "Inconsistent quotes" lists no framework reference
-    expect(styleBlock).not.toContain("GDPR");
-    expect(styleBlock).not.toContain("Potential compliance references");
+    expect(walkthrough.slice(sqlIdx)).toContain("GDPR: Art. 32");
+    // And the ineligible "Inconsistent quotes" finding is dropped entirely by the compliance-only gate
+    expect(walkthrough).not.toContain("#### Inconsistent quotes");
   });
 });
 
@@ -972,15 +962,10 @@ index 1111111..2222222 100644
 
     // Then the compliance block for the security finding lists a "GDPR: Art. 32" reference
     const securityIdx = walkthrough.indexOf("#### Raw SQL concatenation against users");
-    const styleIdx = walkthrough.indexOf("#### Inconsistent quote style");
     expect(securityIdx).toBeGreaterThanOrEqual(0);
-    expect(styleIdx).toBeGreaterThan(securityIdx);
-    const securityBlock = walkthrough.slice(securityIdx, styleIdx);
-    const styleBlock = walkthrough.slice(styleIdx);
-    expect(securityBlock).toContain("GDPR: Art. 32");
-    // And the compliance block for the style finding lists no framework reference
-    expect(styleBlock).not.toContain("GDPR");
-    expect(styleBlock).not.toContain("Potential compliance references");
+    expect(walkthrough.slice(securityIdx)).toContain("GDPR: Art. 32");
+    // And the ineligible style finding is dropped entirely by the compliance-only gate (MAT-75)
+    expect(walkthrough).not.toContain("#### Inconsistent quote style");
   });
 });
 

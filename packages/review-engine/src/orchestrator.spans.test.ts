@@ -135,6 +135,9 @@ function majorFinding(overrides: Record<string, unknown> = {}): Record<string, u
     body: "The orchestration path should preserve the complete Review contract.",
     recommendation: "Add a guard to verify the orchestration result before returning it.",
     confidence: 0.91,
+    // CWE-20 maps to a framework, so the finding clears the compliance-only publication gate and the
+    // findings.count span assertions still observe a published finding.
+    cwe: "CWE-20",
     ...overrides,
   };
 }
