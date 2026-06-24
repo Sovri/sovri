@@ -253,6 +253,9 @@ interface ProviderFindingFixture {
   readonly body: string;
   readonly recommendation: string;
   readonly confidence: number;
+  // CWE-20 maps to a framework, so these fixtures' findings clear the compliance-only publication
+  // gate and the Review-contract assertions still observe a published finding.
+  readonly cwe?: string;
 }
 
 const MajorFindingProviderResponse: ProviderResponseFixture = {
@@ -269,6 +272,7 @@ const MajorFindingProviderResponse: ProviderResponseFixture = {
       recommendation:
         "Add a null check before accessing the orchestration result to preserve the complete Review contract.",
       confidence: 0.91,
+      cwe: "CWE-20",
     },
   ],
   walkthroughMarkdown: "## Sovri review\n\nOne major orchestration finding.",
@@ -288,6 +292,7 @@ const SchemaValidationProviderResponse: ProviderResponseFixture = {
       recommendation:
         "Ensure the finding object includes all required fields defined by FindingSchema before returning it.",
       confidence: 0.91,
+      cwe: "CWE-20",
     },
   ],
   walkthroughMarkdown: "## Sovri review\n\nReview completed for orchestrator flow.",

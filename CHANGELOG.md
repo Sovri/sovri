@@ -21,6 +21,17 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `review-engine`: a finding is now published only when it maps to a compliance
+  framework. After enrichment, any finding left with an empty
+  `compliance_references` list — its CWE resolved to no framework reference, or
+  its category/confidence kept it out of enrichment — is dropped before it
+  reaches the pull request instead of being posted unmapped. This makes
+  compliance-only the default review behaviour: Sovri surfaces regulatory-anchored
+  findings and withholds generic review noise. SARIF scanner findings are enriched
+  on the same path, so a SARIF finding whose CWE maps to a framework is kept while
+  an unmapped one is dropped. Retained findings keep their `audit_reference`, and
+  the dropped count is logged (`dropped_unmapped`) so the reduction is auditable,
+  never silent (MAT-75).
 - `deps`: align the Community runtime toolchain pins by updating the pnpm
   package manager pin, Node.js CI/runtime floor, digest-pinned Docker base
   images, runtime preflight hooks, and the Probot dependency specifier used by

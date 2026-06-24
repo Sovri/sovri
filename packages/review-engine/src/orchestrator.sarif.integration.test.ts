@@ -72,6 +72,8 @@ function llmFinding(overrides: Partial<RawFindingFixture> = {}): RawFindingFixtu
     body: "The charge amount is used without validation.",
     recommendation: "Validate the charge amount before processing.",
     confidence: 0.9,
+    // CWE-20 maps to a framework, so the LLM finding clears the compliance-only publication gate.
+    cwe: "CWE-20",
     ...overrides,
   };
 }
@@ -142,6 +144,9 @@ describe("reviewPullRequest — SARIF ingestion", () => {
     expect(review.findings.some((finding) => finding.source === "sarif")).toBe(true);
     const sarif = review.findings.find((finding) => finding.source === "sarif");
     expect(sarif?.cwe).toBe("CWE-89");
+    // The SARIF finding is enriched like the LLM path, so its mapped CWE-89 carries compliance
+    // references and it clears the compliance-only publication gate (rather than being dropped).
+    expect(sarif?.compliance_references.length).toBeGreaterThan(0);
     expect(review.walkthrough_markdown).toContain("`SARIF`");
     expect(licenseScanConclusion(review.check_run_descriptors)).toBe("success");
   });
