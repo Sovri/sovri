@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-alpine AS builder
+FROM node:24.17.0-alpine@sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6 AS builder
 
 ENV CI="true"
 ENV PNPM_HOME="/pnpm"
@@ -8,7 +8,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
 COPY packages/ packages/
@@ -17,7 +17,7 @@ COPY apps/community-bot/ apps/community-bot/
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @sovri/community-bot... build
 
-FROM node:24-alpine AS prod-deps
+FROM node:24.17.0-alpine@sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6 AS prod-deps
 
 ENV CI="true"
 ENV PNPM_HOME="/pnpm"
@@ -25,7 +25,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json ./
 COPY --from=builder /app/packages/ packages/
@@ -43,7 +43,7 @@ RUN cd /app/deploy/community-bot/node_modules \
  && ln -sf "$(ls -d .pnpm/@anthropic-ai+sdk@*/node_modules/@anthropic-ai | head -1)" @anthropic-ai \
  && ln -sf "$(ls -d .pnpm/openai@*/node_modules/openai | head -1)" openai
 
-FROM node:24-alpine AS runtime
+FROM node:24.17.0-alpine@sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6 AS runtime
 
 ENV HOST="0.0.0.0"
 ENV NODE_ENV="production"

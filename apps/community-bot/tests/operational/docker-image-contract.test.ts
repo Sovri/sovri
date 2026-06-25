@@ -3,10 +3,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { readRepoFile } from "../scaffold/helpers.js";
+import { readJsonObject, readRepoFile } from "../scaffold/helpers.js";
 
 const dockerfilePath = "apps/community-bot/Dockerfile";
 const dockerignorePath = ".dockerignore";
+const nodeVersionPath = ".nvmrc";
+const releaseWorkflowPath = ".github/workflows/release.yml";
+const rootDockerfilePath = "Dockerfile";
+const rootPackageJsonPath = "package.json";
+const nodeImageDigest = "sha256:156b55f92e98ccd5ef49578a8cea0df4679826564bad1c9d4ef04462b9f0ded6";
 const runtimeUserFailure = "runtime user must be sovri:1001";
 
 const requiredDockerIgnorePatterns: readonly string[] = [
@@ -49,6 +54,41 @@ type ContractResult =
     };
 
 describe("community bot Docker image contract", () => {
+  it("builds the same Dockerfile in release that the operational contract covers", () => {
+    // Given the release workflow publishes the Community bot image
+    const releaseWorkflow = readRepoFile(releaseWorkflowPath);
+
+    // When the Docker build-push action is inspected
+    // Then it builds the app Dockerfile covered by these operational tests
+    expect(releaseWorkflow).toContain(`file: ${dockerfilePath}`);
+  });
+
+  it("pins the Node base image by the .nvmrc version and immutable Docker digest", () => {
+    // Given ".nvmrc" is the release Node version source of truth
+    const expectedBaseImage = readExpectedNodeBaseImage();
+
+    // When both Dockerfiles are inspected
+    const rootBaseImages = readNodeBaseImages(rootDockerfilePath);
+    const appBaseImages = readNodeBaseImages(dockerfilePath);
+
+    // Then every Node base image uses the same patch version and immutable digest
+    expect(rootBaseImages).toEqual([expectedBaseImage, expectedBaseImage]);
+    expect(appBaseImages).toEqual([expectedBaseImage, expectedBaseImage, expectedBaseImage]);
+  });
+
+  it("uses the root packageManager pin instead of a Docker-local pnpm pin", () => {
+    // Given package.json pins the package manager version for Corepack
+    const manifest = readJsonObject(rootPackageJsonPath);
+    expect(manifest.packageManager).toBe("pnpm@10.34.4");
+
+    // When the app Dockerfile is inspected
+    const dockerfile = readAppDockerfile();
+
+    // Then Corepack uses the packageManager pin after package.json is copied
+    expect(dockerfile).toContain("corepack enable");
+    expect(dockerfile).not.toContain("corepack prepare pnpm@");
+  });
+
   it("contains the required Docker ignore exclusions", () => {
     // Given ".dockerignore" exists at the repository root
     const patterns = readDockerIgnorePatterns();
@@ -341,12 +381,28 @@ function readAppDockerfile(): string {
 }
 
 function readRuntimeStage(dockerfile: string): string {
-  const marker = "FROM node:24-alpine AS runtime";
+  const marker = `FROM ${readExpectedNodeBaseImage()} AS runtime`;
   const markerIndex = dockerfile.indexOf(marker);
   if (markerIndex === -1) {
     throw new Error(`${dockerfilePath} must contain a runtime stage`);
   }
   return dockerfile.slice(markerIndex);
+}
+
+function readExpectedNodeBaseImage(): string {
+  const nodeVersion = readRepoFile(nodeVersionPath).trim();
+  return `node:${nodeVersion}-alpine@${nodeImageDigest}`;
+}
+
+function readNodeBaseImages(relativePath: string): string[] {
+  const fromLinePattern = /^FROM (?<image>node:[^ ]+) AS /gm;
+  return Array.from(readRepoFile(relativePath).matchAll(fromLinePattern), (match) => {
+    const image = match.groups?.image;
+    if (image === undefined) {
+      throw new Error(`${relativePath} must use named Node build stages`);
+    }
+    return image;
+  });
 }
 
 function inspectDockerIgnorePatterns(patterns: readonly string[]): ContractResult {

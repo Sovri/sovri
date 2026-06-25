@@ -41,6 +41,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   stops the model from spending effort on findings the compliance-only publication
   gate (MAT-75) would discard, reducing non-compliance noise at the source
   (ADR-021, MAT-76).
+- `deps`: align the Community runtime toolchain pins by updating the pnpm
+  package manager pin, Node.js CI/runtime floor, digest-pinned Docker base
+  images, runtime preflight hooks, and the Probot dependency specifier used by
+  the bot.
 
 ### Removed
 
@@ -53,6 +57,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `@sovri/brand` category palette and the audit-reference category-code table are
   reduced to match. Consumers that persist or switch on the removed category
   strings must migrate to the security/bug taxonomy (ADR-021, MAT-76).
+
+### Fixed
+
+- `ci`: make workspace TypeScript resolution use package source entrypoints so
+  `tsc -b` no longer depends on concurrently generated `dist` declarations
+  during local hooks.
 
 ## [0.10.1] - 2026-06-22
 
