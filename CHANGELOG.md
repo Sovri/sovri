@@ -32,6 +32,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   an unmapped one is dropped. Retained findings keep their `audit_reference`, and
   the dropped count is logged (`dropped_unmapped`) so the reduction is auditable,
   never silent (MAT-75).
+- `deps`: align the Community runtime toolchain pins by updating the pnpm
+  package manager pin, Node.js CI/runtime floor, digest-pinned Docker base
+  images, runtime preflight hooks, and the Probot dependency specifier used by
+  the bot.
+
+### Fixed
+
+- `ci`: make workspace TypeScript resolution use package source entrypoints so
+  `tsc -b` no longer depends on concurrently generated `dist` declarations
+  during local hooks.
 
 ## [0.10.1] - 2026-06-22
 
