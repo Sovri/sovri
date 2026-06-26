@@ -53,14 +53,15 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
 
     for (const { term, meaning } of requiredDefinitions) {
       const definitionLine = findDefinitionLine(docs, term);
+      const definitionText = definitionLine ?? "";
 
       // Then the term "<term>" is defined with the meaning "<meaning>"
-      expect(definitionLine ?? "", `${term} definition`).toContain(meaning);
+      expect(definitionText, `${term} must be defined with meaning: ${meaning}`).toContain(meaning);
 
       // And the definition does not describe "<term>" as an enum-only review category
-      expect(definitionLine).not.toMatch(
-        /enum-only review category|finding category|category emitted by PR review/i,
-      );
+      expect(definitionText).not.toContain("enum-only review category");
+      expect(definitionText).not.toContain("finding category");
+      expect(definitionText).not.toContain("category emitted by PR review");
     }
   });
 });
