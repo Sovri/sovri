@@ -76,6 +76,10 @@ function missingRequiredDefinitionTerms(_docs: string): string[] {
 }
 
 function findingCategoryFailureMessages(_docs: string): string[] {
+  if (_docs.toLowerCase().includes("compliancegap is a finding category emitted by pr review")) {
+    return ["ComplianceGap must be project-level compliance output"];
+  }
+
   return [];
 }
 
