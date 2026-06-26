@@ -58,7 +58,9 @@ const activeImplementationStatements = {
 const issueScopeStatements = {
   mat112CoreDomainModel: "MAT-112 defines the core compliance domain model",
   mat113RulesEngineImplementationWork: "MAT-113 is the rules engine implementation work",
+  mat113ProjectComplianceRulesEngineWork: "MAT-113 is the project compliance rules engine work",
   mat112OutputContractFailure: "MAT-112 is output contract, not core domain model",
+  mat112MissingOutputContractFailure: "MAT-112 missing from output contract map",
 } as const;
 const modelSplitStatements = {
   sourceModel: "project compliance scans evaluate Framework -> Control -> Rule -> Evidence",
@@ -438,6 +440,33 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       issueScopeFailureMessages(readCompliancePivotDocs()),
       "project docs must not identify MAT-112 as the project compliance source model",
     ).toEqual([]);
+  });
+
+  it("fails when MAT-112 is omitted from the output contract map", () => {
+    // Given the docs identify "MAT-113" as the project compliance rules engine work
+    const docs = [
+      "# Compliance pivot issue map",
+      `- ${issueScopeStatements.mat113ProjectComplianceRulesEngineWork}`,
+    ].join("\n");
+
+    expect(docs, "fixture must identify MAT-113 as project compliance rules engine work").toContain(
+      issueScopeStatements.mat113ProjectComplianceRulesEngineWork,
+    );
+
+    // And the docs do not reference "MAT-112"
+    expect(docs, "fixture must omit MAT-112").not.toContain("MAT-112");
+
+    // When the compliance pivot issue map is reviewed
+    const failureMessages = issueScopeFailureMessages(docs);
+
+    // Then the issue scope check fails
+    expect(failureMessages.length, "issue scope check must fail").toBeGreaterThan(0);
+
+    // And the failure identifies "MAT-112" as missing from the output contract map
+    expect(
+      failureMessages.join("\n"),
+      "issue scope failure must identify MAT-112 as missing from the output contract map",
+    ).toContain(issueScopeStatements.mat112MissingOutputContractFailure);
   });
 
   it("fails when MAT-77 remains active without its supersession relationship", () => {
