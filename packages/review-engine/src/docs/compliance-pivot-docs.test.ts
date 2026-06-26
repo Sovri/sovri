@@ -406,5 +406,10 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       failureMessages.join("\n"),
       "issue history check must identify MAT-77's missing supersession relationship",
     ).toContain(activeImplementationStatements.missingMat77SupersessionFailure);
+
+    expect(
+      issueHistoryFailureMessages(readCompliancePivotDocs()),
+      "project docs must not list MAT-77 as active without its supersession relationship",
+    ).toEqual([]);
   });
 });
