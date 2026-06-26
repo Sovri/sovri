@@ -19,6 +19,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `review-engine`: add an ATDD guard for MAT-80 project-level compliance
+  vocabulary definitions across tracked ADR docs.
+
 ### Changed
 
 - `review-engine`: a finding is now published only when it maps to a compliance
