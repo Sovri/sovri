@@ -169,7 +169,17 @@ function issueHistoryFailureMessages(_docs: string): string[] {
 }
 
 function issueScopeFailureMessages(_docs: string): string[] {
-  return [];
+  const normalizedDocs = _docs.toLowerCase();
+  const mat112ClaimsCoreModel = normalizedDocs.includes(
+    issueScopeStatements.mat112CoreDomainModel.toLowerCase(),
+  );
+  const mat113RulesEngineWorkIsMissing = !normalizedDocs.includes(
+    issueScopeStatements.mat113RulesEngineImplementationWork.toLowerCase(),
+  );
+
+  return mat112ClaimsCoreModel && mat113RulesEngineWorkIsMissing
+    ? [issueScopeStatements.mat112OutputContractFailure]
+    : [];
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
