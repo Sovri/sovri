@@ -36,6 +36,7 @@ const requiredDefinitions = [
     meaning: "versioned framework citation with official text or source URL from a catalog",
   },
 ] as const;
+const requiredProjectLevelTerms = ["ComplianceGap", "ControlResult"] as const;
 
 function findAdrDocsRoot(startDir: string): string {
   let currentDir = startDir;
@@ -71,9 +72,7 @@ function findDefinitionLines(docs: string, term: string): string[] {
 }
 
 function missingRequiredDefinitionTerms(_docs: string): string[] {
-  return ["ComplianceGap", "ControlResult"].filter(
-    (term) => findDefinitionLines(_docs, term).length === 0,
-  );
+  return requiredProjectLevelTerms.filter((term) => findDefinitionLines(_docs, term).length === 0);
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
@@ -132,6 +131,6 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(missingTerms.length).toBeGreaterThan(0);
 
     // And the missing terms are "ComplianceGap, ControlResult"
-    expect(missingTerms.join(", ")).toBe("ComplianceGap, ControlResult");
+    expect(missingTerms.join(", ")).toBe(requiredProjectLevelTerms.join(", "));
   });
 });
