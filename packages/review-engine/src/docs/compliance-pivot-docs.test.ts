@@ -861,6 +861,9 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(mat112IssueMap, "MAT-112 must stay scoped to PR/review output").toContain(
       issueModelStatements.prReviewOutput,
     );
+    expect(mat112IssueMap, "MAT-112 must not carry the core model reference").not.toContain(
+      issueModelStatements.coreModel,
+    );
   });
 
   it("fails when MAT-77 remains active without its supersession relationship", () => {
