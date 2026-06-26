@@ -44,6 +44,11 @@ const supersessionStatements = {
   superseded: "superseded",
   mat113SupersedesMat77: "MAT-113 supersedes MAT-77",
 } as const;
+const traceabilityStatements = {
+  mat77Superseded: "MAT-77: Superseded - enum-only compliance category scope is too narrow",
+  mat113RulesEngine:
+    "MAT-113: Project compliance rules engine - framework controls, evidence, gaps",
+} as const;
 const modelSplitStatements = {
   sourceModel: "project compliance scans evaluate Framework -> Control -> Rule -> Evidence",
   complianceGapOutput: "project compliance scan produces ComplianceGap output",
@@ -336,6 +341,21 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // And the docs state that "MAT-113" supersedes "MAT-77"
     expect(docs, "compliance pivot docs must state that MAT-113 supersedes MAT-77").toContain(
       supersessionStatements.mat113SupersedesMat77,
+    );
+  });
+
+  it("keeps both supersession issue identifiers traceable", () => {
+    // When the compliance pivot history is reviewed
+    const docs = readCompliancePivotDocs();
+
+    // Then the docs reference "MAT-77: Superseded - enum-only compliance category scope is too narrow"
+    expect(docs, "compliance pivot docs must keep the MAT-77 superseded issue trace").toContain(
+      traceabilityStatements.mat77Superseded,
+    );
+
+    // And the docs reference "MAT-113: Project compliance rules engine - framework controls, evidence, gaps"
+    expect(docs, "compliance pivot docs must keep the MAT-113 rules-engine issue trace").toContain(
+      traceabilityStatements.mat113RulesEngine,
     );
   });
 });
