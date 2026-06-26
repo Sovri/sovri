@@ -37,6 +37,12 @@ const requiredDefinitions = [
   },
 ] as const;
 const requiredProjectLevelTerms = ["ComplianceGap", "ControlResult"] as const;
+const complianceGapFindingCategoryMisuse = {
+  term: "ComplianceGap",
+  statement: "ComplianceGap is a Finding category emitted by PR review",
+  explanation: "ComplianceGap must be project-level compliance output",
+  pattern: /\bComplianceGap\b\s+(?:is|as)\s+a\s+Finding\s+category\s+emitted\s+by\s+PR\s+review\b/i,
+} as const;
 
 function findAdrDocsRoot(startDir: string): string {
   let currentDir = startDir;
@@ -76,11 +82,10 @@ function missingRequiredDefinitionTerms(_docs: string): string[] {
 }
 
 function findingCategoryFailureMessages(_docs: string): string[] {
-  if (_docs.toLowerCase().includes("compliancegap is a finding category emitted by pr review")) {
-    return ["ComplianceGap must be project-level compliance output"];
-  }
-
-  return [];
+  return _docs
+    .split(/\r?\n/)
+    .filter((line) => complianceGapFindingCategoryMisuse.pattern.test(line))
+    .map(() => complianceGapFindingCategoryMisuse.explanation);
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
@@ -94,6 +99,10 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(pivotAdr).toContain("## Context");
     expect(pivotAdr).toContain("## Decision");
     expect(pivotAdr).toContain("## Consequences");
+    expect(
+      findingCategoryFailureMessages(docs),
+      `${complianceGapFindingCategoryMisuse.term} must not be documented as a Finding category`,
+    ).toEqual([]);
 
     const requiredTermKeys = requiredDefinitions.map(({ term }) => term.toLowerCase());
     expect(
@@ -144,9 +153,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
 
   it("fails when ComplianceGap is documented as a Finding category", () => {
     // Given "ARCHI.md" says "ComplianceGap is a Finding category emitted by PR review"
-    const docs = ["# ARCHI.md", "ComplianceGap is a Finding category emitted by PR review"].join(
-      "\n",
-    );
+    const docs = ["# ARCHI.md", complianceGapFindingCategoryMisuse.statement].join("\n");
 
     // When the compliance vocabulary is reviewed
     const failureMessages = findingCategoryFailureMessages(docs);
@@ -155,8 +162,6 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(failureMessages.length).toBeGreaterThan(0);
 
     // And the failure explains that "ComplianceGap" must be project-level compliance output
-    expect(failureMessages.join("\n")).toContain(
-      "ComplianceGap must be project-level compliance output",
-    );
+    expect(failureMessages.join("\n")).toContain(complianceGapFindingCategoryMisuse.explanation);
   });
 });
