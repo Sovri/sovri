@@ -71,7 +71,9 @@ function findDefinitionLines(docs: string, term: string): string[] {
 }
 
 function missingRequiredDefinitionTerms(_docs: string): string[] {
-  return [];
+  return ["ComplianceGap", "ControlResult"].filter(
+    (term) => findDefinitionLines(_docs, term).length === 0,
+  );
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
