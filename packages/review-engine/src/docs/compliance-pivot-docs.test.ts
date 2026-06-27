@@ -6,6 +6,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 const adrDocsRoot = findAdrDocsRoot(dirname(fileURLToPath(import.meta.url)));
 const projectRoot = dirname(dirname(adrDocsRoot));
@@ -14,6 +15,153 @@ const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot.md");
 const IGNORED_PROJECT_DOC_FIXTURE_MARKER = "<!-- CI fixture: ignored project planning doc -->";
 const SOVRI_DOCS_SNAPSHOT_ROOT_ENV = "SOVRI_DOCS_SNAPSHOT_ROOT";
 const ADR_INDEX_STATUS_PATTERN = /^(?:Accepted|Proposed|Deprecated|Superseded by ADR-\d{3})$/;
+const NonEmptyStringSchema = z.string().min(1);
+const RegexSourceSchema = NonEmptyStringSchema.refine(
+  (pattern) => {
+    try {
+      RegExp(pattern);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: "must be a valid regular expression source" },
+);
+const activeImplementationStatementsSchema = z
+  .object({
+    mat77IsSupersededByMat113: NonEmptyStringSchema,
+    mat77StillActiveFailure: NonEmptyStringSchema,
+    missingMat77SupersessionFailure: NonEmptyStringSchema,
+    missingMat77HistoryFailure: NonEmptyStringSchema,
+  })
+  .strict();
+const contractSourceSchema = z
+  .object({
+    authorityPath: NonEmptyStringSchema,
+    updateRule: NonEmptyStringSchema,
+  })
+  .strict();
+const adrIndexExampleSchema = z
+  .object({
+    changeType: z.enum(["creates", "revises"]),
+    adrPath: NonEmptyStringSchema,
+    adrTitle: NonEmptyStringSchema,
+  })
+  .strict();
+const complianceGapFindingCategoryMisuseSchema = z
+  .object({
+    term: NonEmptyStringSchema,
+    statement: NonEmptyStringSchema,
+    explanation: NonEmptyStringSchema,
+    pattern: RegexSourceSchema,
+  })
+  .strict();
+const issueModelStatementsSchema = z
+  .object({
+    mat112: NonEmptyStringSchema,
+    mat113: NonEmptyStringSchema,
+    mat113RulesEngineWork: NonEmptyStringSchema,
+    coreModel: NonEmptyStringSchema,
+    prReviewOutput: NonEmptyStringSchema,
+  })
+  .strict();
+const issueScopeExampleSchema = z
+  .object({
+    issueId: NonEmptyStringSchema,
+    requiredScope: NonEmptyStringSchema,
+    forbiddenScope: NonEmptyStringSchema,
+  })
+  .strict();
+const issueScopeStatementsSchema = z
+  .object({
+    mat112CoreDomainModel: NonEmptyStringSchema,
+    mat112ReviewOutputContract: NonEmptyStringSchema,
+    mat113RulesEngineImplementationWork: NonEmptyStringSchema,
+    mat113ProjectComplianceRulesEngineWork: NonEmptyStringSchema,
+    mat112OutputContractFailure: NonEmptyStringSchema,
+    mat112MissingOutputContractFailure: NonEmptyStringSchema,
+  })
+  .strict();
+const modelSplitStatementsSchema = z
+  .object({
+    sourceModel: NonEmptyStringSchema,
+    complianceGapOutput: NonEmptyStringSchema,
+    prProjection: NonEmptyStringSchema,
+    missingPrProjectionFailure: NonEmptyStringSchema,
+    prReviewAsSourceModel: NonEmptyStringSchema,
+    prReviewProjectionOnlyFailure: NonEmptyStringSchema,
+  })
+  .strict();
+const snapshotDocPairSchema = z
+  .object({
+    sourcePath: NonEmptyStringSchema,
+    snapshotPath: NonEmptyStringSchema,
+  })
+  .strict();
+const supersessionStatementsSchema = z
+  .object({
+    mat77: NonEmptyStringSchema,
+    superseded: NonEmptyStringSchema,
+    mat113SupersedesMat77: NonEmptyStringSchema,
+  })
+  .strict();
+const traceabilityStatementsSchema = z
+  .object({
+    mat77Superseded: NonEmptyStringSchema,
+    mat113RulesEngine: NonEmptyStringSchema,
+  })
+  .strict();
+const CompliancePivotContractSchema = z
+  .object({
+    activeImplementationStatements: activeImplementationStatementsSchema,
+    contractSource: contractSourceSchema,
+    adrIndexExamples: z.array(adrIndexExampleSchema).min(1),
+    complianceGapFindingCategoryMisuse: complianceGapFindingCategoryMisuseSchema,
+    issueModelStatements: issueModelStatementsSchema,
+    issueScopeExamples: z.array(issueScopeExampleSchema).min(1),
+    issueScopeStatements: issueScopeStatementsSchema,
+    modelSplitDocPaths: z.array(NonEmptyStringSchema).min(1),
+    modelSplitStatements: modelSplitStatementsSchema,
+    requiredDefinitionTerms: z.array(NonEmptyStringSchema).min(1),
+    requiredProjectLevelTerms: z.array(NonEmptyStringSchema).min(1),
+    snapshotRootPath: NonEmptyStringSchema,
+    snapshotDocPairs: z.array(snapshotDocPairSchema).min(1),
+    supersessionStatements: supersessionStatementsSchema,
+    traceabilityStatements: traceabilityStatementsSchema,
+  })
+  .strict()
+  .superRefine((contract, context) => {
+    const sourceDocs = new Set(contract.modelSplitDocPaths);
+
+    if (!contract.contractSource.authorityPath.endsWith(".md")) {
+      context.addIssue({
+        code: "custom",
+        path: ["contractSource", "authorityPath"],
+        message: "must identify the authoritative ADR markdown file",
+      });
+    }
+
+    for (const [index, pair] of contract.snapshotDocPairs.entries()) {
+      if (!sourceDocs.has(pair.sourcePath)) {
+        context.addIssue({
+          code: "custom",
+          path: ["snapshotDocPairs", index, "sourcePath"],
+          message: "must reference a configured model split document",
+        });
+      }
+
+      if (!pair.snapshotPath.startsWith(`${contract.snapshotRootPath}/`)) {
+        context.addIssue({
+          code: "custom",
+          path: ["snapshotDocPairs", index, "snapshotPath"],
+          message: "must live under snapshotRootPath",
+        });
+      }
+    }
+  });
+
+type CompliancePivotContract = z.infer<typeof CompliancePivotContractSchema>;
+
 const compliancePivotContract = readCompliancePivotContract();
 const {
   activeImplementationStatements,
@@ -37,45 +185,8 @@ const pivotAdrIndexExample = findRequiredAdrIndexExample(
 const pullRequestChangedPaths = readPrChangedPaths();
 const complianceGapFindingCategoryMisuse = {
   ...compliancePivotContract.complianceGapFindingCategoryMisuse,
-  pattern: new RegExp(compliancePivotContract.complianceGapFindingCategoryMisuse.pattern, "i"),
+  pattern: RegExp(compliancePivotContract.complianceGapFindingCategoryMisuse.pattern, "i"),
 } as const;
-
-type CompliancePivotContract = {
-  activeImplementationStatements: Record<string, string>;
-  contractSource: {
-    authorityPath: string;
-    updateRule: string;
-  };
-  adrIndexExamples: readonly {
-    changeType: string;
-    adrPath: string;
-    adrTitle: string;
-  }[];
-  complianceGapFindingCategoryMisuse: {
-    term: string;
-    statement: string;
-    explanation: string;
-    pattern: string;
-  };
-  issueModelStatements: Record<string, string>;
-  issueScopeExamples: readonly {
-    issueId: string;
-    requiredScope: string;
-    forbiddenScope: string;
-  }[];
-  issueScopeStatements: Record<string, string>;
-  modelSplitDocPaths: readonly string[];
-  modelSplitStatements: Record<string, string>;
-  requiredDefinitionTerms: readonly string[];
-  requiredProjectLevelTerms: readonly string[];
-  snapshotRootPath: string;
-  snapshotDocPairs: readonly {
-    sourcePath: string;
-    snapshotPath: string;
-  }[];
-  supersessionStatements: Record<string, string>;
-  traceabilityStatements: Record<string, string>;
-};
 
 function snapshotVocabularyTerms(): readonly string[] {
   return uniqueStrings([
@@ -174,9 +285,19 @@ function readAdrIndex(): string {
 }
 
 function readCompliancePivotContract(): CompliancePivotContract {
-  return JSON.parse(
-    readFileSync(join(adrDocsRoot, "compliance-pivot-contract.json"), "utf8"),
-  ) as CompliancePivotContract;
+  const contractPath = join(adrDocsRoot, "compliance-pivot-contract.json");
+  const parseResult = CompliancePivotContractSchema.safeParse(
+    JSON.parse(readFileSync(contractPath, "utf8")),
+  );
+
+  if (!parseResult.success) {
+    const issues = parseResult.error.issues
+      .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Invalid compliance pivot contract ${contractPath}: ${issues}`);
+  }
+
+  return parseResult.data;
 }
 
 function readPrChangedPaths(): readonly string[] {
@@ -570,14 +691,43 @@ function snapshotVocabularyTermSet(docs: string): ReadonlySet<string> {
 }
 
 function containsVocabularyTerm(docs: string, term: string): boolean {
-  const escapedTerm = escapeRegExp(term);
-  const termPattern = new RegExp(`(?<![A-Za-z0-9])${escapedTerm}(?![A-Za-z0-9])`, "i");
+  const normalizedDocs = docs.toLowerCase();
+  const normalizedTerm = term.toLowerCase();
+  let searchIndex = 0;
 
-  return termPattern.test(docs);
+  for (;;) {
+    const termIndex = normalizedDocs.indexOf(normalizedTerm, searchIndex);
+    if (termIndex === -1) {
+      return false;
+    }
+
+    const previousCharacter = characterAtIndex(normalizedDocs, termIndex - 1);
+    const nextCharacter = characterAtIndex(normalizedDocs, termIndex + normalizedTerm.length);
+    if (isVocabularyBoundary(previousCharacter) && isVocabularyBoundary(nextCharacter)) {
+      return true;
+    }
+
+    searchIndex = termIndex + 1;
+  }
 }
 
-function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function characterAtIndex(input: string, index: number): string | undefined {
+  return index >= 0 && index < input.length ? input[index] : undefined;
+}
+
+function isVocabularyBoundary(character: string | undefined): boolean {
+  return character === undefined || !isAsciiLetterOrDigit(character);
+}
+
+function isAsciiLetterOrDigit(character: string): boolean {
+  const codePoint = character.codePointAt(0);
+
+  return (
+    codePoint !== undefined &&
+    ((codePoint >= 48 && codePoint <= 57) ||
+      (codePoint >= 65 && codePoint <= 90) ||
+      (codePoint >= 97 && codePoint <= 122))
+  );
 }
 
 function syncedSnapshotDocs(
@@ -602,7 +752,7 @@ function readSnapshotDoc(snapshotPath: string, sourceDocs: string): string {
   try {
     return readFileSync(absoluteSnapshotPath, "utf8");
   } catch (error) {
-    if (isNotFoundError(error) && shouldUseSnapshotFixtureFallback(snapshotPath)) {
+    if (isNotFoundError(error) && shouldUseSnapshotFixtureFallback(snapshotPath, sourceDocs)) {
       return snapshotVocabularyFixtureDoc(snapshotPath, sourceDocs);
     }
 
@@ -615,9 +765,12 @@ function isNotFoundError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
-function shouldUseSnapshotFixtureFallback(snapshotPath: string): boolean {
-  // Only the absent sibling checkout gets a fixture; missing files inside a real checkout must fail.
-  return !existsSync(dirname(snapshotAbsolutePath(snapshotPath)));
+function shouldUseSnapshotFixtureFallback(snapshotPath: string, sourceDocs: string): boolean {
+  return (
+    isConfiguredSnapshotDocPath(snapshotPath) &&
+    sourceDocs.includes(IGNORED_PROJECT_DOC_FIXTURE_MARKER) &&
+    !existsSync(dirname(snapshotAbsolutePath(snapshotPath)))
+  );
 }
 
 function shouldUseIgnoredProjectDocSnapshotFixture(
@@ -627,7 +780,7 @@ function shouldUseIgnoredProjectDocSnapshotFixture(
   return (
     isConfiguredSnapshotDocPath(snapshotPath) &&
     sourceDocs.includes(IGNORED_PROJECT_DOC_FIXTURE_MARKER) &&
-    shouldUseSnapshotFixtureFallback(snapshotPath)
+    shouldUseSnapshotFixtureFallback(snapshotPath, sourceDocs)
   );
 }
 
@@ -647,6 +800,21 @@ function snapshotAbsolutePath(snapshotPath: string): string {
 
 function snapshotDocsRoot(): string {
   return resolve(projectRoot, process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] ?? snapshotRootPath);
+}
+
+function withSnapshotDocsRoot<T>(snapshotDocsRootPath: string, operation: () => T): T {
+  const previousSnapshotRoot = process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
+  process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = snapshotDocsRootPath;
+
+  try {
+    return operation();
+  } finally {
+    if (previousSnapshotRoot === undefined) {
+      delete process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
+    } else {
+      process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = previousSnapshotRoot;
+    }
+  }
 }
 
 function isConfiguredSnapshotDocPath(snapshotPath: string): boolean {
@@ -780,6 +948,46 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         `${term} must not be a category emitted by PR review`,
       ).not.toContain("category emitted by pr review");
     }
+  });
+
+  it("validates the compliance pivot contract schema before docs checks use it", () => {
+    const validResult = CompliancePivotContractSchema.safeParse(compliancePivotContract);
+
+    expect(validResult.success, "current compliance pivot contract must match its schema").toBe(
+      true,
+    );
+
+    const invalidResult = CompliancePivotContractSchema.safeParse({
+      ...compliancePivotContract,
+      contractSource: {
+        ...compliancePivotContract.contractSource,
+        authorityPath: "022-project-level-compliance-pivot",
+      },
+      snapshotDocPairs: [
+        {
+          sourcePath: "UNKNOWN.md",
+          snapshotPath: "PRD.md",
+        },
+      ],
+    });
+
+    expect(invalidResult.success, "invalid contract fixture must fail schema validation").toBe(
+      false,
+    );
+    if (invalidResult.success) {
+      throw new Error("Invalid compliance pivot contract fixture unexpectedly passed validation");
+    }
+
+    expect(
+      invalidResult.error.issues.map((issue) => issue.path.join(".")),
+      "schema validation must report invalid authority and snapshot pair paths",
+    ).toEqual(
+      expect.arrayContaining([
+        "contractSource.authorityPath",
+        "snapshotDocPairs.0.sourcePath",
+        "snapshotDocPairs.0.snapshotPath",
+      ]),
+    );
   });
 
   it("fails the vocabulary check when project-level vocabulary is missing", () => {
@@ -1105,21 +1313,53 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(readMissingSnapshot).toThrow(`Could not read snapshot doc ${snapshotPath}:`);
   });
 
-  it("allows the sibling snapshot checkout root to be configured", () => {
-    const previousSnapshotRoot = process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
-    process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = "../custom-sovri-docs";
+  it("generates snapshot fixtures only for configured CI fixture sources", () => {
+    const snapshotPath = `${snapshotRootPath}/PRD.md`;
+    const sourceDocs = [
+      IGNORED_PROJECT_DOC_FIXTURE_MARKER,
+      modelSplitStatements.sourceModel,
+      modelSplitStatements.complianceGapOutput,
+    ].join("\n");
 
-    try {
+    const fixture = withSnapshotDocsRoot("../__missing-sovri-docs-fixture-root__", () =>
+      readSnapshotDoc(snapshotPath, sourceDocs),
+    );
+
+    expect(fixture, "generated snapshot fixture must explain its scope").toContain(
+      "## Compliance pivot vocabulary",
+    );
+    expect(fixture, "generated snapshot fixture must preserve the snapshot target").toContain(
+      `- Snapshot target: ${snapshotPath}`,
+    );
+  });
+
+  it("fails instead of fabricating a snapshot for malformed or unconfigured fixture inputs", () => {
+    const malformedSourceDocs = [
+      "<!-- missing CI fixture marker -->",
+      modelSplitStatements.sourceModel,
+    ].join("\n");
+
+    const readMalformedConfiguredSnapshot = () =>
+      withSnapshotDocsRoot("../__missing-sovri-docs-fixture-root__", () =>
+        readSnapshotDoc(`${snapshotRootPath}/PRD.md`, malformedSourceDocs),
+      );
+    const readUnconfiguredSnapshot = () =>
+      readSnapshotDoc("../unexpected-docs/PRD.md", ignoredProjectDocFixture("PRD.md") ?? "");
+
+    expect(readMalformedConfiguredSnapshot).toThrow(
+      `Could not read snapshot doc ${snapshotRootPath}/PRD.md:`,
+    );
+    expect(readUnconfiguredSnapshot).toThrow(
+      "Could not read snapshot doc ../unexpected-docs/PRD.md:",
+    );
+  });
+
+  it("allows the sibling snapshot checkout root to be configured", () => {
+    withSnapshotDocsRoot("../custom-sovri-docs", () => {
       expect(snapshotAbsolutePath(`${snapshotRootPath}/PRD.md`)).toBe(
         join(resolve(projectRoot, "../custom-sovri-docs"), "PRD.md"),
       );
-    } finally {
-      if (previousSnapshotRoot === undefined) {
-        delete process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
-      } else {
-        process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = previousSnapshotRoot;
-      }
-    }
+    });
   });
 
   it("fails when snapshot docs carry vocabulary absent from the changed source doc", () => {
@@ -1196,6 +1436,20 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(
       containsVocabularyTerm("ControlResult", "Control"),
       "overlapping terms must not satisfy shorter terms",
+    ).toBe(false);
+    expect(
+      containsVocabularyTerm("preControl", "Control"),
+      "prefix text must not start a term",
+    ).toBe(false);
+    expect(containsVocabularyTerm("Control2", "Control"), "suffix digits must not end a term").toBe(
+      false,
+    );
+    expect(containsVocabularyTerm("MAT-112.", "MAT-112"), "punctuation must end an issue id").toBe(
+      true,
+    );
+    expect(
+      containsVocabularyTerm("XMAT-112", "MAT-112"),
+      "prefix text must not start an issue id",
     ).toBe(false);
     expect(
       containsVocabularyTerm("compliancegap", "ComplianceGap"),
