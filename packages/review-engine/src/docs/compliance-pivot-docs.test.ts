@@ -27,6 +27,27 @@ const RegexSourceSchema = NonEmptyStringSchema.refine(
   },
   { message: "must be a valid regular expression source" },
 );
+const UniqueNonEmptyStringArraySchema = z
+  .array(NonEmptyStringSchema)
+  .min(1)
+  .superRefine((values, context) => {
+    const seenIndexesByTerm = new Map<string, number>();
+
+    for (const [index, value] of values.entries()) {
+      const termKey = normalizeVocabularyTerm(value).toUpperCase();
+      const firstIndex = seenIndexesByTerm.get(termKey);
+      if (firstIndex !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: [index],
+          message: `duplicates term at index ${firstIndex}`,
+        });
+        continue;
+      }
+
+      seenIndexesByTerm.set(termKey, index);
+    }
+  });
 const activeImplementationStatementsSchema = z
   .object({
     mat77IsSupersededByMat113: NonEmptyStringSchema,
@@ -122,8 +143,8 @@ const CompliancePivotContractSchema = z
     issueScopeStatements: issueScopeStatementsSchema,
     modelSplitDocPaths: z.array(NonEmptyStringSchema).min(1),
     modelSplitStatements: modelSplitStatementsSchema,
-    requiredDefinitionTerms: z.array(NonEmptyStringSchema).min(1),
-    requiredProjectLevelTerms: z.array(NonEmptyStringSchema).min(1),
+    requiredDefinitionTerms: UniqueNonEmptyStringArraySchema,
+    requiredProjectLevelTerms: UniqueNonEmptyStringArraySchema,
     snapshotRootPath: NonEmptyStringSchema,
     snapshotDocPairs: z.array(snapshotDocPairSchema).min(1),
     supersessionStatements: supersessionStatementsSchema,
@@ -866,19 +887,21 @@ function adrIndexFailureMessages(_input: {
 function adrIndexTableFailureMessages(indexMarkdown: string): string[] {
   const failureMessages: string[] = [];
   const tableRows = indexMarkdown.split(/\r?\n/).filter((line) => line.trim().startsWith("|"));
+  const headerRow = tableRows.find((line) => markdownTableCells(line)[0] === "#");
+  const headerColumnCount = headerRow === undefined ? 4 : markdownTableCells(headerRow).length;
   const dataRows = tableRows.filter((line) => /^\s*\| \[\d{3}\]/.test(line));
 
   for (const row of dataRows) {
-    const trimmedRow = row.trim();
-    const cells = trimmedRow
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
+    const cells = markdownTableCells(row);
     const status = cells[2] ?? "";
     const date = cells[3] ?? "";
 
     if (!row.startsWith("| [")) {
       failureMessages.push("ADR index rows must start at column 1 with a linked ADR id");
+    }
+
+    if (cells.length !== headerColumnCount) {
+      failureMessages.push("ADR index rows must match the table header column count");
     }
 
     if (cells.length !== 4) {
@@ -898,11 +921,20 @@ function adrIndexTableFailureMessages(indexMarkdown: string): string[] {
   return failureMessages;
 }
 
+function markdownTableCells(row: string): string[] {
+  return row
+    .trim()
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+
 describe("MAT-80 compliance pivot vocabulary docs", () => {
   it("defines each required project-level compliance term explicitly", () => {
     // When the compliance vocabulary is reviewed
     const docs = readDocs();
     const pivotAdr = readPivotAdr();
+    const contractAuthorityPath = join(adrDocsRoot, contractSource.authorityPath);
 
     expect(pivotAdr, "pivot ADR must have the expected title").toContain(
       `# ADR-${adrNumberFromPath(pivotAdrIndexExample.adrPath)} - ${pivotAdrIndexExample.adrTitle}`,
@@ -912,9 +944,13 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(pivotAdr, "pivot ADR must record the decision").toContain("## Decision");
     expect(pivotAdr, "pivot ADR must record consequences").toContain("## Consequences");
     expect(
+      existsSync(contractAuthorityPath),
+      "contract authority path must exist beside the ADR docs",
+    ).toBe(true);
+    expect(
       pivotAdr,
       "contract authority must be the ADR that defines the compliance pivot vocabulary",
-    ).toContain(`# ADR-${adrNumberFromPath(join(adrDocsRoot, contractSource.authorityPath))}`);
+    ).toContain(`# ADR-${adrNumberFromPath(contractAuthorityPath)}`);
     expect(
       contractSource.updateRule,
       "contract update rule must require vocabulary changes and contract changes to stay together",
@@ -963,6 +999,8 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         ...compliancePivotContract.contractSource,
         authorityPath: "022-project-level-compliance-pivot",
       },
+      requiredDefinitionTerms: ["ComplianceGap", "compliancegap"],
+      requiredProjectLevelTerms: ["ControlResult", "ControlResult"],
       snapshotDocPairs: [
         {
           sourcePath: "UNKNOWN.md",
@@ -984,6 +1022,8 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     ).toEqual(
       expect.arrayContaining([
         "contractSource.authorityPath",
+        "requiredDefinitionTerms.1",
+        "requiredProjectLevelTerms.1",
         "snapshotDocPairs.0.sourcePath",
         "snapshotDocPairs.0.snapshotPath",
       ]),
@@ -1643,6 +1683,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         (message) => message === "ADR index rows must start at column 1 with a linked ADR id",
       ),
     ).toHaveLength(3);
+    expect(failureMessages).toContain("ADR index rows must match the table header column count");
     expect(failureMessages).toContain("ADR index rows must have exactly 4 columns");
     expect(failureMessages).toContain("ADR index row has unsupported status: Active");
     expect(failureMessages).toContain("ADR index row must have an ISO date");
