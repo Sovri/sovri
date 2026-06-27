@@ -121,7 +121,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `review-engine`: tighten MAT-80 docs review guards by enforcing exact
   snapshot-pair coverage, validating CI fixture markers, keeping ADR assertions
   independent from ignored planning-doc fixtures, and allowing changed source
-  docs to run without a sibling snapshot checkout.
+  docs to run without a sibling snapshot checkout, with runtime contract
+  authority-path validation and ADR index checks derived from changed ADR files.
 - `ci`: make workspace TypeScript resolution use package source entrypoints so
   `tsc -b` no longer depends on concurrently generated `dist` declarations
   during local hooks.

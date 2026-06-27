@@ -312,6 +312,44 @@ function adrNumberFromPath(adrPath: string): string {
   return adrNumberMatch[1];
 }
 
+type AdrIndexEntry = {
+  readonly adrPath: string;
+  readonly adrTitle: string;
+};
+
+function changedAdrIndexEntries(): readonly AdrIndexEntry[] {
+  return uniqueStrings(
+    pullRequestChangedPaths.filter(
+      (changedPath) => isAdrMarkdownPath(changedPath) && existsSync(join(projectRoot, changedPath)),
+    ),
+  ).map((adrPath) => ({
+    adrPath,
+    adrTitle: readAdrTitle(adrPath),
+  }));
+}
+
+function isAdrMarkdownPath(changedPath: string): boolean {
+  return (
+    changedPath.startsWith("docs/adr/") &&
+    changedPath.endsWith(".md") &&
+    basename(changedPath) !== "README.md"
+  );
+}
+
+function readAdrTitle(adrPath: string): string {
+  const adrMarkdown = readFileSync(join(projectRoot, adrPath), "utf8");
+  const heading = adrMarkdown
+    .split(/\r?\n/)
+    .map((line) => line.match(/^# ADR-\d+\s+(?:-|\u2014)\s+(.+)$/))
+    .find((match) => match !== null);
+
+  if (!heading) {
+    throw new Error(`ADR markdown ${adrPath} must start with a parseable ADR title`);
+  }
+
+  return heading[1];
+}
+
 function activeMat77Statement(): string {
   return `${supersessionStatements.mat77}: Active - enum-only compliance category scope`;
 }
@@ -369,6 +407,7 @@ function readCompliancePivotContract(): CompliancePivotContract {
 function validateLoadedCompliancePivotContract(contract: CompliancePivotContract): void {
   assertUniqueContractTerms("requiredDefinitionTerms", contract.requiredDefinitionTerms);
   assertUniqueContractTerms("requiredProjectLevelTerms", contract.requiredProjectLevelTerms);
+  validateContractAuthorityPath(contract.contractSource.authorityPath);
   validateExistingSnapshotRoot(contract.snapshotRootPath);
 }
 
@@ -396,6 +435,19 @@ function validateExistingSnapshotRoot(rootPath: string): void {
   }
 
   accessSync(absoluteRootPath, constants.R_OK | constants.W_OK);
+}
+
+function validateContractAuthorityPath(authorityPath: string): void {
+  const absoluteAuthorityPath = join(adrDocsRoot, authorityPath);
+  if (!existsSync(absoluteAuthorityPath)) {
+    throw new Error(`Invalid compliance pivot contract authorityPath: does not exist`);
+  }
+
+  if (!statSync(absoluteAuthorityPath).isFile()) {
+    throw new Error(`Invalid compliance pivot contract authorityPath: not a file`);
+  }
+
+  accessSync(absoluteAuthorityPath, constants.R_OK);
 }
 
 function readPrChangedPaths(): readonly string[] {
@@ -1102,11 +1154,11 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     ).toEqual([]);
 
     for (const term of requiredDefinitionTerms) {
-      const definitionLines = findDefinitionLines(docs, term);
+      const definitionLines = findDefinitionLines(pivotAdr, term);
 
       expect(
         definitionLines,
-        `${term} must have exactly one authoritative definition`,
+        `${term} must have exactly one authoritative definition in the pivot ADR`,
       ).toHaveLength(1);
 
       const definitionText = definitionLines[0] ?? "";
@@ -1181,6 +1233,18 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       () => validateExistingSnapshotRoot("docs/adr/compliance-pivot-contract.json"),
       "snapshot root must be a directory when it exists",
     ).toThrow("not a directory");
+    expect(
+      () => validateContractAuthorityPath(contractSource.authorityPath),
+      "contract authority path must resolve to a readable ADR file",
+    ).not.toThrow();
+    expect(
+      () => validateContractAuthorityPath("__missing-authority__.md"),
+      "contract authority path must exist",
+    ).toThrow("does not exist");
+    expect(
+      () => validateContractAuthorityPath("."),
+      "contract authority path must be a file",
+    ).toThrow("not a file");
 
     const [firstSnapshotPair, secondSnapshotPair, ...remainingSnapshotPairs] = snapshotDocPairs;
     if (firstSnapshotPair === undefined || secondSnapshotPair === undefined) {
@@ -1823,6 +1887,28 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // And the snapshot sync check succeeds without modifying "../sovri-docs/glossary.md"
     expect(failureMessages, "snapshot sync check must succeed").toEqual([]);
   });
+
+  it.each(changedAdrIndexEntries())(
+    "lists changed ADR $adrPath in the ADR index",
+    ({ adrPath, adrTitle }) => {
+      // Given the pull request changes ADR markdown "<adr_path>"
+      const changedAdr = { adrPath, adrTitle } as const;
+
+      // When the ADR index is reviewed
+      const failureMessages = adrIndexFailureMessages({
+        indexMarkdown: readAdrIndex(),
+        adrPath: changedAdr.adrPath,
+        adrTitle: changedAdr.adrTitle,
+      });
+
+      // Then "docs/adr/README.md" lists "<adr_path>"
+      // And "docs/adr/README.md" lists the parsed ADR title "<adr_title>"
+      expect(
+        failureMessages,
+        `ADR index must list changed ADR ${changedAdr.adrPath} and ${changedAdr.adrTitle}`,
+      ).toEqual([]);
+    },
+  );
 
   it.each(adrIndexExamples)(
     "lists $changeType ADR $adrPath in the ADR index",
