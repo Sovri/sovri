@@ -135,6 +135,16 @@ describe("R-06: Prompt, schema, and docs distinguish Finding from ComplianceGap 
     expect(review.failures).toContain("ControlResult is a control evaluation result");
   });
 
+  it("does not reject documentation that prohibits Finding-category misuse", () => {
+    const artifactSet = appendDocs([
+      "Never say `ControlResult` is a Finding category emitted by PR review.",
+    ]);
+
+    const review = reviewComplianceOutputContract(artifactSet);
+
+    expect(review.passed).toBe(true);
+  });
+
   it("rejects missing required term definitions before passing", () => {
     const artifactSet = replaceDocs([
       "Finding - diff/code issue raised during review",
@@ -177,6 +187,26 @@ describe("R-06: Prompt, schema, and docs distinguish Finding from ComplianceGap 
     expect(review.failures.join("\n")).toContain(
       "framework references and source URLs must come from the catalog",
     );
+  });
+
+  it("does not reject prompts that prohibit LLM-authored source URLs", () => {
+    const artifactSet = replacePrompts([
+      "Do not provide source URLs for compliance gaps; use the catalog.",
+    ]);
+
+    const review = reviewComplianceOutputContract(artifactSet);
+
+    expect(review.passed).toBe(true);
+  });
+
+  it("does not reject unrelated authoring verbs near catalog source URL guidance", () => {
+    const artifactSet = replacePrompts([
+      "Write a concise review summary. Use catalog source URLs for compliance gaps.",
+    ]);
+
+    const review = reviewComplianceOutputContract(artifactSet);
+
+    expect(review.passed).toBe(true);
   });
 
   it("rejects schema artifacts that omit required distinguishing fields", () => {

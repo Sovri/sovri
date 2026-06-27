@@ -39,7 +39,11 @@ const REQUIRED_SCHEMA_FIELDS: Readonly<Record<ComplianceOutputTerm, string>> = {
 };
 const FINDING_CATEGORY_MISUSE_PATTERN =
   /(?:^|\s)(?:`|\*\*)?\b(ComplianceGap|ControlResult)\b(?:`|\*\*)?\s+is\s+a\s+\bFinding\b\s+category\b(?:\s+emitted\s+by\s+PR\s+review\b)?/i;
+const FINDING_CATEGORY_MISUSE_PROHIBITION_PATTERN =
+  /\b(?:do\s+not|don't|never)\b[^.:\n]*(?:`|\*\*)?\b(?:ComplianceGap|ControlResult)\b(?:`|\*\*)?\s+is\s+a\s+\bFinding\b\s+category\b/i;
 const SOURCE_REFERENCE_REQUEST_VERB_PATTERN = /\b(?:write|provide|generate|author)\b/i;
+const SOURCE_REFERENCE_PROHIBITION_PATTERN =
+  /\b(?:do\s+not|don't|never)\s+(?:(?:ask|allow|tell)\s+(?:the\s+)?LLM\s+to\s+)?(?:write|provide|generate|author)\b/i;
 const SOURCE_URL_PATTERN = /\bsource\s+urls?\b/i;
 const COMPLIANCE_GAP_REFERENCE_PATTERN = /\bcompliance\s*gaps?\b|\bComplianceGap\b/i;
 
@@ -114,12 +118,18 @@ function findingCategoryFailures(docs: readonly string[]): readonly string[] {
   const failures: string[] = [];
 
   for (const doc of docs) {
-    const match = doc.match(FINDING_CATEGORY_MISUSE_PATTERN);
-    if (match?.[1] === "ComplianceGap") {
-      failures.push("ComplianceGap is project-level compliance output");
-    }
-    if (match?.[1] === "ControlResult") {
-      failures.push("ControlResult is a control evaluation result");
+    for (const line of doc.split(/\r?\n/)) {
+      if (FINDING_CATEGORY_MISUSE_PROHIBITION_PATTERN.test(line)) {
+        continue;
+      }
+
+      const match = line.match(FINDING_CATEGORY_MISUSE_PATTERN);
+      if (match?.[1] === "ComplianceGap") {
+        failures.push("ComplianceGap is project-level compliance output");
+      }
+      if (match?.[1] === "ControlResult") {
+        failures.push("ControlResult is a control evaluation result");
+      }
     }
   }
 
@@ -133,11 +143,15 @@ function promptSourceReferenceFailures(prompts: readonly string[]): readonly str
 }
 
 function promptRequestsSourceReference(prompt: string): boolean {
-  return (
-    SOURCE_REFERENCE_REQUEST_VERB_PATTERN.test(prompt) &&
-    SOURCE_URL_PATTERN.test(prompt) &&
-    COMPLIANCE_GAP_REFERENCE_PATTERN.test(prompt)
-  );
+  return prompt
+    .split(/[.!?;\n]+/)
+    .some(
+      (segment) =>
+        !SOURCE_REFERENCE_PROHIBITION_PATTERN.test(segment) &&
+        SOURCE_REFERENCE_REQUEST_VERB_PATTERN.test(segment) &&
+        SOURCE_URL_PATTERN.test(segment) &&
+        COMPLIANCE_GAP_REFERENCE_PATTERN.test(segment),
+    );
 }
 
 function definitionFailures(
