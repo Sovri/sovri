@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 const adrDocsRoot = findAdrDocsRoot(dirname(fileURLToPath(import.meta.url)));
 const projectRoot = dirname(dirname(adrDocsRoot));
-const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot-vocabulary.md");
+const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot.md");
 
 // These literals are the MAT-80 acceptance contract, not reusable product configuration.
 const requiredDefinitions = [
@@ -250,7 +250,18 @@ function adrIndexFailureMessages(_input: {
   adrPath: string;
   adrTitle: string;
 }): string[] {
-  return ["ADR index check not implemented"];
+  const relativeAdrPath = `./${_input.adrPath.replace(/^docs\/adr\//, "")}`;
+  const failureMessages: string[] = [];
+
+  if (!_input.indexMarkdown.includes(relativeAdrPath)) {
+    failureMessages.push(`${_input.adrPath} is unlisted`);
+  }
+
+  if (!_input.indexMarkdown.includes(_input.adrTitle)) {
+    failureMessages.push(`${_input.adrPath} title is missing: ${_input.adrTitle}`);
+  }
+
+  return failureMessages;
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
