@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add MAT-112 ATDD coverage for the non-CWE
+  `ComplianceGap` output contract required fields and `Finding` separation.
 - `review-engine`: add an ATDD guard for MAT-80 project-level compliance
   vocabulary definitions across tracked ADR docs with explicit assertion
   diagnostics, ADR-022 content checks, duplicate-term detection, and
