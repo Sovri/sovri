@@ -1,7 +1,7 @@
 {
   "activeImplementationStatements": {
-    "activeMat77": "MAT-77: Active - enum-only compliance category scope",
     "mat77IsSupersededByMat113": "MAT-77 is superseded by MAT-113",
+    "mat77StillActiveFailure": "MAT-77 must be superseded, not active",
     "missingMat77SupersessionFailure": "MAT-77 missing superseded-by-MAT-113 relationship",
     "missingMat77HistoryFailure": "MAT-77 missing from supersession history"
   },

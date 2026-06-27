@@ -26,6 +26,9 @@ const {
   supersessionStatements,
   traceabilityStatements,
 } = compliancePivotContract;
+const pivotAdrIndexExample = findRequiredAdrIndexExample(
+  "docs/adr/022-project-level-compliance-pivot.md",
+);
 const complianceGapFindingCategoryMisuse = {
   ...compliancePivotContract.complianceGapFindingCategoryMisuse,
   pattern: new RegExp(compliancePivotContract.complianceGapFindingCategoryMisuse.pattern, "i"),
@@ -104,6 +107,23 @@ function uniqueStrings(values: readonly string[]): readonly string[] {
 
 function normalizeVocabularyTerm(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function findRequiredAdrIndexExample(adrPath: string): (typeof adrIndexExamples)[number] {
+  const example = adrIndexExamples.find((candidate) => candidate.adrPath === adrPath);
+  if (!example) {
+    throw new Error(`Missing ADR index example for ${adrPath}`);
+  }
+
+  return example;
+}
+
+function adrNumberFromPath(adrPath: string): string {
+  return basename(adrPath).slice(0, 3);
+}
+
+function activeMat77Statement(): string {
+  return `${supersessionStatements.mat77}: Active - enum-only compliance category scope`;
 }
 
 function findAdrDocsRoot(startDir: string): string {
@@ -240,7 +260,7 @@ function findingCategoryFailureMessages(_docs: string): string[] {
 function issueHistoryFailureMessages(_docs: string): string[] {
   const failureMessages: string[] = [];
   const hasActiveMat77 =
-    _docs.includes(activeImplementationStatements.activeMat77) ||
+    _docs.includes(activeMat77Statement()) ||
     (_docs.includes("MAT-77") && _docs.includes("Active compliance implementation work"));
   const hasMat77SupersededByMat113 =
     _docs.includes(activeImplementationStatements.mat77IsSupersededByMat113) ||
@@ -248,7 +268,11 @@ function issueHistoryFailureMessages(_docs: string): string[] {
   const hasMat113RulesEngineHistory = _docs.includes(traceabilityStatements.mat113RulesEngine);
   const hasMat77History = _docs.includes("MAT-77");
 
-  if (hasActiveMat77 && !hasMat77SupersededByMat113) {
+  if (hasActiveMat77) {
+    failureMessages.push(activeImplementationStatements.mat77StillActiveFailure);
+  }
+
+  if (!hasActiveMat77 && _docs.includes("MAT-77") && !hasMat77SupersededByMat113) {
     failureMessages.push(activeImplementationStatements.missingMat77SupersessionFailure);
   }
 
@@ -497,7 +521,8 @@ function shouldUseIgnoredProjectDocSnapshotFixture(
 ): boolean {
   return (
     snapshotPath.startsWith("../sovri-docs/") &&
-    sourceDocs.includes(IGNORED_PROJECT_DOC_FIXTURE_MARKER)
+    sourceDocs.includes(IGNORED_PROJECT_DOC_FIXTURE_MARKER) &&
+    shouldUseSnapshotFixtureFallback(snapshotPath)
   );
 }
 
@@ -574,7 +599,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     const pivotAdr = readPivotAdr();
 
     expect(pivotAdr, "pivot ADR must have the expected title").toContain(
-      "# ADR-022 - Project-level compliance pivot vocabulary",
+      `# ADR-${adrNumberFromPath(pivotAdrIndexExample.adrPath)} - ${pivotAdrIndexExample.adrTitle}`,
     );
     expect(pivotAdr, "pivot ADR must be accepted").toContain("**Status:** Accepted");
     expect(pivotAdr, "pivot ADR must explain context").toContain("## Context");
@@ -1153,6 +1178,8 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       "| # | Title | Status | Date |",
       "| --- | --- | --- | --- |",
       "  | [020](./020-deterministic-compliance-derivation.md) | Deterministic compliance derivation | Accepted | 2026-06-19 |",
+      "\t| [019](./019-otel-milestone-v0-6.md) | OpenTelemetry instrumentation deferred to v0.6 (revises ADR-006) | Accepted | 2026-06-02 |",
+      " \t| [018](./018-github-checks-output-surface.md) | GitHub Checks API as a bot output surface | Accepted | 2026-06-02 |",
       "| [021](./021-compliance-only-review-taxonomy.md) | Compliance-only review taxonomy and prompt | Accepted | 2026-06-24 | extra |",
       "| [022](./022-project-level-compliance-pivot.md) | Project-level compliance pivot vocabulary | Active | 2026/06/26 |",
     ].join("\n");
@@ -1165,7 +1192,11 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     });
 
     // Then the ADR index check reports structural table drift
-    expect(failureMessages).toContain("ADR index rows must start at column 1 with a linked ADR id");
+    expect(
+      failureMessages.filter(
+        (message) => message === "ADR index rows must start at column 1 with a linked ADR id",
+      ),
+    ).toHaveLength(3);
     expect(failureMessages).toContain("ADR index rows must have exactly 4 columns");
     expect(failureMessages).toContain("ADR index row has unsupported status: Active");
     expect(failureMessages).toContain("ADR index row must have an ISO date");
@@ -1218,7 +1249,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     const docs = [
       "# Compliance implementation history",
       "Active compliance implementation work:",
-      `- ${activeImplementationStatements.activeMat77}`,
+      `- ${activeMat77Statement()}`,
     ].join("\n");
 
     expect(docs, "fixture must list MAT-77").toContain("MAT-77");
@@ -1237,11 +1268,11 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // Then the issue history check fails
     expect(failureMessages.length, "issue history check must fail").toBeGreaterThan(0);
 
-    // And the failure identifies "MAT-77" as missing its superseded-by-MAT-113 relationship
+    // And the failure identifies "MAT-77" as still active
     expect(
       failureMessages.join("\n"),
-      "issue history check must identify MAT-77's missing supersession relationship",
-    ).toContain(activeImplementationStatements.missingMat77SupersessionFailure);
+      "issue history check must identify MAT-77 as still active",
+    ).toContain(activeImplementationStatements.mat77StillActiveFailure);
 
     expect(
       issueHistoryFailureMessages(readCompliancePivotDocs()),
@@ -1249,18 +1280,16 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     ).toEqual([]);
   });
 
-  it("accepts canonical MAT-113 supersedes MAT-77 wording for active MAT-77 history", () => {
+  it("fails when active MAT-77 history also mentions the canonical supersession", () => {
     // Given the docs list "MAT-77" under active compliance implementation work
     const docs = [
       "# Compliance implementation history",
       "Active compliance implementation work:",
-      `- ${activeImplementationStatements.activeMat77}`,
+      `- ${activeMat77Statement()}`,
       `- ${supersessionStatements.mat113SupersedesMat77}`,
     ].join("\n");
 
-    expect(docs, "fixture must list MAT-77 as active").toContain(
-      activeImplementationStatements.activeMat77,
-    );
+    expect(docs, "fixture must list MAT-77 as active").toContain(activeMat77Statement());
     expect(docs, "fixture must use the canonical supersession wording").toContain(
       supersessionStatements.mat113SupersedesMat77,
     );
@@ -1268,8 +1297,8 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // When the compliance pivot history is reviewed
     const failureMessages = issueHistoryFailureMessages(docs);
 
-    // Then the issue history check accepts the canonical supersession wording
-    expect(failureMessages).toEqual([]);
+    // Then the issue history check still fails because MAT-77 must not remain active
+    expect(failureMessages).toContain(activeImplementationStatements.mat77StillActiveFailure);
   });
 
   it("fails when MAT-113 supersedes an unmentioned MAT-77", () => {
