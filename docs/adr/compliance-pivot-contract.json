@@ -1,0 +1,112 @@
+{
+  "activeImplementationStatements": {
+    "activeMat77": "MAT-77: Active - enum-only compliance category scope",
+    "mat77IsSupersededByMat113": "MAT-77 is superseded by MAT-113",
+    "missingMat77SupersessionFailure": "MAT-77 missing superseded-by-MAT-113 relationship",
+    "missingMat77HistoryFailure": "MAT-77 missing from supersession history"
+  },
+  "adrIndexExamples": [
+    {
+      "changeType": "creates",
+      "adrPath": "docs/adr/022-project-level-compliance-pivot.md",
+      "adrTitle": "Project-level compliance pivot vocabulary"
+    },
+    {
+      "changeType": "revises",
+      "adrPath": "docs/adr/020-deterministic-compliance-derivation.md",
+      "adrTitle": "Deterministic compliance derivation"
+    }
+  ],
+  "complianceGapFindingCategoryMisuse": {
+    "term": "ComplianceGap",
+    "statement": "ComplianceGap is a Finding category emitted by PR review",
+    "explanation": "ComplianceGap must be project-level compliance output",
+    "pattern": "\\bComplianceGap\\b\\s+is\\s+a\\s+Finding\\s+category\\b(?:\\s+emitted\\s+by\\s+PR\\s+review\\b)?"
+  },
+  "issueModelStatements": {
+    "mat112": "MAT-112",
+    "mat113": "MAT-113",
+    "mat113RulesEngineWork": "project compliance rules engine work",
+    "coreModel": "Framework -> Control -> Rule -> Evidence",
+    "prReviewOutput": "PR/review output"
+  },
+  "issueScopeExamples": [
+    {
+      "issueId": "MAT-112",
+      "requiredScope": "output contract",
+      "forbiddenScope": "core domain model"
+    },
+    {
+      "issueId": "MAT-113",
+      "requiredScope": "project compliance rules engine work",
+      "forbiddenScope": "PR output contract"
+    }
+  ],
+  "issueScopeStatements": {
+    "mat112CoreDomainModel": "MAT-112 defines the core domain model",
+    "mat112ReviewOutputContract": "MAT-112 is the review output contract",
+    "mat113RulesEngineImplementationWork": "MAT-113 is the rules engine implementation work",
+    "mat113ProjectComplianceRulesEngineWork": "MAT-113 is the project compliance rules engine work",
+    "mat112OutputContractFailure": "MAT-112 is output contract, not core domain model",
+    "mat112MissingOutputContractFailure": "MAT-112 missing from output contract map"
+  },
+  "modelSplitDocPaths": ["PRD.md", "ARCHI.md", "CONTEXT.md"],
+  "modelSplitStatements": {
+    "sourceModel": "project compliance scans evaluate Framework -> Control -> Rule -> Evidence",
+    "complianceGapOutput": "project compliance scan produces ComplianceGap output",
+    "prProjection": "PR review may project relevant compliance gaps into pull request output",
+    "missingPrProjectionFailure": "missing PR review projection statement",
+    "prReviewAsSourceModel": "PR review findings are the source compliance model",
+    "prReviewProjectionOnlyFailure": "PR review is only a projection of project compliance gaps, not the source compliance model"
+  },
+  "requiredDefinitions": [
+    {
+      "term": "ComplianceGap",
+      "meaning": "project-level compliance output for an unmet control or missing evidence"
+    },
+    {
+      "term": "ControlResult",
+      "meaning": "result of evaluating a control against its rules and collected evidence"
+    },
+    {
+      "term": "Control",
+      "meaning": "framework requirement that the project must satisfy"
+    },
+    {
+      "term": "Rule",
+      "meaning": "technical verification attached to a control"
+    },
+    {
+      "term": "Evidence",
+      "meaning": "collected proof or observation used to support a control result or compliance gap"
+    },
+    {
+      "term": "FrameworkReference",
+      "meaning": "versioned framework citation with official text or source URL from a catalog"
+    }
+  ],
+  "requiredProjectLevelTerms": ["ComplianceGap", "ControlResult"],
+  "snapshotDocPairs": [
+    {
+      "sourcePath": "PRD.md",
+      "snapshotPath": "../sovri-docs/PRD.md"
+    },
+    {
+      "sourcePath": "ARCHI.md",
+      "snapshotPath": "../sovri-docs/ARCHI.md"
+    },
+    {
+      "sourcePath": "CONTEXT.md",
+      "snapshotPath": "../sovri-docs/glossary.md"
+    }
+  ],
+  "supersessionStatements": {
+    "mat77": "MAT-77",
+    "superseded": "superseded",
+    "mat113SupersedesMat77": "MAT-113 supersedes MAT-77"
+  },
+  "traceabilityStatements": {
+    "mat77Superseded": "MAT-77: Superseded - enum-only compliance category scope is too narrow",
+    "mat113RulesEngine": "MAT-113: Project compliance rules engine - framework controls, evidence, gaps"
+  }
+}

@@ -9,118 +9,62 @@ import { describe, expect, it } from "vitest";
 const adrDocsRoot = findAdrDocsRoot(dirname(fileURLToPath(import.meta.url)));
 const projectRoot = dirname(dirname(adrDocsRoot));
 const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot.md");
-
-// These literals are the MAT-80 acceptance contract, not reusable product configuration.
-const requiredDefinitions = [
-  {
-    term: "ComplianceGap",
-    meaning: "project-level compliance output for an unmet control or missing evidence",
-  },
-  {
-    term: "ControlResult",
-    meaning: "result of evaluating a control against its rules and collected evidence",
-  },
-  {
-    term: "Control",
-    meaning: "framework requirement that the project must satisfy",
-  },
-  {
-    term: "Rule",
-    meaning: "technical verification attached to a control",
-  },
-  {
-    term: "Evidence",
-    meaning: "collected proof or observation used to support a control result or compliance gap",
-  },
-  {
-    term: "FrameworkReference",
-    meaning: "versioned framework citation with official text or source URL from a catalog",
-  },
-] as const;
-const requiredProjectLevelTerms = ["ComplianceGap", "ControlResult"] as const;
-const modelSplitDocPaths = ["PRD.md", "ARCHI.md", "CONTEXT.md"] as const;
-const COMPLIANCE_MODEL = "Framework -> Control -> Rule -> Evidence";
-const ISSUE_SCOPE_OUTPUT_CONTRACT = "output contract";
-const ISSUE_SCOPE_CORE_DOMAIN_MODEL = "core domain model";
-const ISSUE_SCOPE_PROJECT_COMPLIANCE_RULES_ENGINE_WORK = "project compliance rules engine work";
-const ISSUE_SCOPE_PR_OUTPUT_CONTRACT = "PR output contract";
 const IGNORED_PROJECT_DOC_FIXTURE_MARKER = "<!-- CI fixture: ignored project planning doc -->";
 const ADR_INDEX_STATUS_PATTERN = /^(?:Accepted|Proposed|Deprecated|Superseded by ADR-\d{3})$/;
-const snapshotDocPairs = [
-  { sourcePath: "PRD.md", snapshotPath: "../sovri-docs/PRD.md" },
-  { sourcePath: "ARCHI.md", snapshotPath: "../sovri-docs/ARCHI.md" },
-  { sourcePath: "CONTEXT.md", snapshotPath: "../sovri-docs/glossary.md" },
-] as const;
-const adrIndexExamples = [
-  {
-    changeType: "creates",
-    adrPath: "docs/adr/022-project-level-compliance-pivot.md",
-    adrTitle: "Project-level compliance pivot vocabulary",
-  },
-  {
-    changeType: "revises",
-    adrPath: "docs/adr/020-deterministic-compliance-derivation.md",
-    adrTitle: "Deterministic compliance derivation",
-  },
-] as const;
-const supersessionStatements = {
-  mat77: "MAT-77",
-  superseded: "superseded",
-  mat113SupersedesMat77: "MAT-113 supersedes MAT-77",
-} as const;
-const traceabilityStatements = {
-  mat77Superseded: "MAT-77: Superseded - enum-only compliance category scope is too narrow",
-  mat113RulesEngine:
-    "MAT-113: Project compliance rules engine - framework controls, evidence, gaps",
-} as const;
-const activeImplementationStatements = {
-  activeMat77: "MAT-77: Active - enum-only compliance category scope",
-  mat77IsSupersededByMat113: "MAT-77 is superseded by MAT-113",
-  missingMat77SupersessionFailure: "MAT-77 missing superseded-by-MAT-113 relationship",
-  missingMat77HistoryFailure: "MAT-77 missing from supersession history",
-} as const;
-const issueScopeStatements = {
-  mat112CoreDomainModel: `MAT-112 defines the ${ISSUE_SCOPE_CORE_DOMAIN_MODEL}`,
-  mat112ReviewOutputContract: `MAT-112 is the review ${ISSUE_SCOPE_OUTPUT_CONTRACT}`,
-  mat113RulesEngineImplementationWork: "MAT-113 is the rules engine implementation work",
-  mat113ProjectComplianceRulesEngineWork: `MAT-113 is the ${ISSUE_SCOPE_PROJECT_COMPLIANCE_RULES_ENGINE_WORK}`,
-  mat112OutputContractFailure: `MAT-112 is ${ISSUE_SCOPE_OUTPUT_CONTRACT}, not ${ISSUE_SCOPE_CORE_DOMAIN_MODEL}`,
-  mat112MissingOutputContractFailure: `MAT-112 missing from ${ISSUE_SCOPE_OUTPUT_CONTRACT} map`,
-} as const;
-const issueScopeExamples = [
-  {
-    issueId: "MAT-112",
-    requiredScope: ISSUE_SCOPE_OUTPUT_CONTRACT,
-    forbiddenScope: ISSUE_SCOPE_CORE_DOMAIN_MODEL,
-  },
-  {
-    issueId: "MAT-113",
-    requiredScope: ISSUE_SCOPE_PROJECT_COMPLIANCE_RULES_ENGINE_WORK,
-    forbiddenScope: ISSUE_SCOPE_PR_OUTPUT_CONTRACT,
-  },
-] as const;
-const modelSplitStatements = {
-  sourceModel: `project compliance scans evaluate ${COMPLIANCE_MODEL}`,
-  complianceGapOutput: "project compliance scan produces ComplianceGap output",
-  prProjection: "PR review may project relevant compliance gaps into pull request output",
-  missingPrProjectionFailure: "missing PR review projection statement",
-  prReviewAsSourceModel: "PR review findings are the source compliance model",
-  prReviewProjectionOnlyFailure:
-    "PR review is only a projection of project compliance gaps, not the source compliance model",
-} as const;
-const issueModelStatements = {
-  mat112: "MAT-112",
-  mat113: "MAT-113",
-  mat113RulesEngineWork: ISSUE_SCOPE_PROJECT_COMPLIANCE_RULES_ENGINE_WORK,
-  coreModel: COMPLIANCE_MODEL,
-  prReviewOutput: "PR/review output",
-} as const;
+const compliancePivotContract = readCompliancePivotContract();
+const {
+  activeImplementationStatements,
+  adrIndexExamples,
+  issueModelStatements,
+  issueScopeExamples,
+  issueScopeStatements,
+  modelSplitDocPaths,
+  modelSplitStatements,
+  requiredDefinitions,
+  requiredProjectLevelTerms,
+  snapshotDocPairs,
+  supersessionStatements,
+  traceabilityStatements,
+} = compliancePivotContract;
 const complianceGapFindingCategoryMisuse = {
-  term: "ComplianceGap",
-  statement: "ComplianceGap is a Finding category emitted by PR review",
-  explanation: "ComplianceGap must be project-level compliance output",
-  pattern: /\bComplianceGap\b\s+is\s+a\s+Finding\s+category\b(?:\s+emitted\s+by\s+PR\s+review\b)?/i,
+  ...compliancePivotContract.complianceGapFindingCategoryMisuse,
+  pattern: new RegExp(compliancePivotContract.complianceGapFindingCategoryMisuse.pattern, "i"),
 } as const;
+
+type CompliancePivotContract = {
+  activeImplementationStatements: Record<string, string>;
+  adrIndexExamples: readonly {
+    changeType: string;
+    adrPath: string;
+    adrTitle: string;
+  }[];
+  complianceGapFindingCategoryMisuse: {
+    term: string;
+    statement: string;
+    explanation: string;
+    pattern: string;
+  };
+  issueModelStatements: Record<string, string>;
+  issueScopeExamples: readonly {
+    issueId: string;
+    requiredScope: string;
+    forbiddenScope: string;
+  }[];
+  issueScopeStatements: Record<string, string>;
+  modelSplitDocPaths: readonly string[];
+  modelSplitStatements: Record<string, string>;
+  requiredDefinitions: readonly {
+    term: string;
+    meaning: string;
+  }[];
+  requiredProjectLevelTerms: readonly string[];
+  snapshotDocPairs: readonly {
+    sourcePath: string;
+    snapshotPath: string;
+  }[];
+  supersessionStatements: Record<string, string>;
+  traceabilityStatements: Record<string, string>;
+};
 
 function snapshotVocabularyTerms(): readonly string[] {
   return uniqueStrings([
@@ -196,6 +140,12 @@ function readPivotAdr(): string {
 
 function readAdrIndex(): string {
   return readFileSync(join(adrDocsRoot, "README.md"), "utf8");
+}
+
+function readCompliancePivotContract(): CompliancePivotContract {
+  return JSON.parse(
+    readFileSync(join(adrDocsRoot, "compliance-pivot-contract.json"), "utf8"),
+  ) as CompliancePivotContract;
 }
 
 function readProjectDoc(docPath: string): string {

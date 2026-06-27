@@ -101,7 +101,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 - `review-engine`: address MAT-80 docs review feedback by centralizing
   compliance-pivot literals, tightening issue-scope and supersession checks, and
-  validating ADR index row structure.
+  validating ADR index row structure, with the docs-test contract loaded from a
+  shared ADR JSON fixture.
 - `review-engine`: keep MAT-80 docs acceptance tests green in CI when root
   planning docs are intentionally ignored locally by using contract fixtures for
   absent `PRD.md`, `ARCHI.md`, and `CONTEXT.md`.
