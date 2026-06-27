@@ -326,7 +326,6 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
       gap_id: "gap-tracker-consent-011",
       status: "WARNING",
       severity: "major",
-      file: "web/app/layout.tsx",
     });
 
     // When the PR output is rendered through the output contract
@@ -353,7 +352,6 @@ function mat114GapControlResult(input: {
   readonly gap_id: string;
   readonly status: string;
   readonly severity: string;
-  readonly file?: string;
 }): object {
   return {
     fixture: input.fixture,
@@ -367,7 +365,6 @@ function mat114GapControlResult(input: {
       status: input.status,
       severity: input.severity,
       evidence: input.evidence,
-      file: input.file,
     },
   };
 }

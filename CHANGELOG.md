@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: render MAT-114 control-result and ComplianceGap output
+  through the MAT-112 output contract.
 - `review-engine`: add MAT-114 fixture acceptance coverage for rendering
   GDPR/ePrivacy control results through the MAT-112 output contract.
 - `review-engine`: add MAT-112 ATDD coverage for uncatalogued compliance gaps
