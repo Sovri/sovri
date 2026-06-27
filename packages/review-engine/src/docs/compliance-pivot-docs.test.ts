@@ -44,6 +44,18 @@ const snapshotDocPairs = [
   { sourcePath: "ARCHI.md", snapshotPath: "../sovri-docs/ARCHI.md" },
   { sourcePath: "CONTEXT.md", snapshotPath: "../sovri-docs/glossary.md" },
 ] as const;
+const adrIndexExamples = [
+  {
+    changeType: "creates",
+    adrPath: "docs/adr/022-project-level-compliance-pivot.md",
+    adrTitle: "Project-level compliance pivot vocabulary",
+  },
+  {
+    changeType: "revises",
+    adrPath: "docs/adr/020-deterministic-compliance-derivation.md",
+    adrTitle: "Deterministic compliance derivation",
+  },
+] as const;
 const supersessionStatements = {
   mat77: "MAT-77",
   superseded: "superseded",
@@ -111,6 +123,10 @@ function readCompliancePivotDocs(): string {
 
 function readPivotAdr(): string {
   return readFileSync(pivotAdrPath, "utf8");
+}
+
+function readAdrIndex(): string {
+  return readFileSync(join(adrDocsRoot, "README.md"), "utf8");
 }
 
 function readProjectDoc(docPath: string): string {
@@ -227,6 +243,14 @@ function staleSnapshotFailureMessages(input: {
   const snapshotChanged = hasChangedPath(input.changedPaths, input.snapshotPath);
 
   return sourceChanged && !snapshotChanged ? [formatStaleSnapshotFailure(input)] : [];
+}
+
+function adrIndexFailureMessages(_input: {
+  indexMarkdown: string;
+  adrPath: string;
+  adrTitle: string;
+}): string[] {
+  return ["ADR index check not implemented"];
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
@@ -573,6 +597,28 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // And the snapshot sync check succeeds without modifying "../sovri-docs/glossary.md"
     expect(failureMessages, "snapshot sync check must succeed").toEqual([]);
   });
+
+  it.each(adrIndexExamples)(
+    "lists $changeType ADR $adrPath in the ADR index",
+    ({ changeType, adrPath, adrTitle }) => {
+      // Given the compliance pivot change <change_type> "<adr_path>"
+      const changedAdr = { changeType, adrPath, adrTitle } as const;
+
+      // When the ADR index is reviewed
+      const failureMessages = adrIndexFailureMessages({
+        indexMarkdown: readAdrIndex(),
+        adrPath: changedAdr.adrPath,
+        adrTitle: changedAdr.adrTitle,
+      });
+
+      // Then "docs/adr/README.md" lists "<adr_path>"
+      // And "docs/adr/README.md" lists the ADR title "<adr_title>"
+      expect(
+        failureMessages,
+        `ADR index must list ${changedAdr.adrPath} and ${changedAdr.adrTitle}`,
+      ).toEqual([]);
+    },
+  );
 
   it("fails when MAT-77 remains active without its supersession relationship", () => {
     // Given the docs list "MAT-77" under active compliance implementation work
