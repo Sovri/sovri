@@ -57,6 +57,7 @@ const activeImplementationStatements = {
 } as const;
 const issueScopeStatements = {
   mat112CoreDomainModel: "MAT-112 defines the core compliance domain model",
+  mat112ReviewOutputContract: "MAT-112 is the review output contract",
   mat113RulesEngineImplementationWork: "MAT-113 is the rules engine implementation work",
   mat113ProjectComplianceRulesEngineWork: "MAT-113 is the project compliance rules engine work",
   mat112OutputContractFailure: "MAT-112 is output contract, not core domain model",
@@ -183,7 +184,9 @@ function issueScopeFailureMessages(_docs: string): string[] {
     normalizedDocs.includes(
       issueScopeStatements.mat113ProjectComplianceRulesEngineWork.toLowerCase(),
     ) || normalizedDocs.includes(traceabilityStatements.mat113RulesEngine.toLowerCase());
-  const mat112IsMissing = !normalizedDocs.includes("mat-112");
+  const mat112OutputContractEntryIsMissing = !normalizedDocs.includes(
+    issueScopeStatements.mat112ReviewOutputContract.toLowerCase(),
+  );
 
   if (mat112ClaimsCoreModel) {
     if (mat113RulesEngineWorkIsMissing) {
@@ -192,7 +195,7 @@ function issueScopeFailureMessages(_docs: string): string[] {
   }
 
   if (mat113IdentifiesProjectComplianceRulesEngine) {
-    if (mat112IsMissing) {
+    if (mat112OutputContractEntryIsMissing) {
       failureMessages.push(issueScopeStatements.mat112MissingOutputContractFailure);
     }
   }
