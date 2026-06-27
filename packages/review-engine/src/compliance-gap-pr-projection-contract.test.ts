@@ -132,6 +132,44 @@ describe("PR output filters gaps by change relation while reports show all gaps"
     expect(diagnostics).toContain("relation metadata unavailable for PR compliance-gap projection");
   });
 
+  it("treats null relation metadata as unavailable for PR projection", () => {
+    const output = expectString(
+      callExport("renderComplianceGapPullRequestProjection", projectGaps, {
+        catalog: cataloguedControls,
+        changed_files: ["web/app/layout.tsx"],
+        relations: null,
+      }),
+    );
+
+    expect(output).not.toContain("gap-tracker-consent-008");
+    expect(output).not.toContain("gap-audit-logging-001");
+
+    const diagnostics = expectString(
+      callExport("renderComplianceGapProjectionDiagnostics", projectGaps, {
+        catalog: cataloguedControls,
+        changed_files: ["web/app/layout.tsx"],
+        relations: null,
+      }),
+    );
+
+    expect(diagnostics).toContain("relation metadata unavailable for PR compliance-gap projection");
+  });
+
+  it("does not report unavailable relation metadata when relations are present but empty", () => {
+    const diagnostics = expectString(
+      callExport("renderComplianceGapProjectionDiagnostics", projectGaps, {
+        catalog: cataloguedControls,
+        changed_files: ["web/app/layout.tsx"],
+        relations: [],
+      }),
+    );
+
+    expect(diagnostics).not.toContain(
+      "relation metadata unavailable for PR compliance-gap projection",
+    );
+    expect(diagnostics).toBe("");
+  });
+
   it("fails the contract when PR output publishes unrelated gaps", () => {
     // Given the catalog contains control "gdpr-eprivacy-consent-tracking"
     // And the catalog contains control "internal-critical-audit-logging"
@@ -188,6 +226,23 @@ describe("PR output filters gaps by change relation while reports show all gaps"
     );
 
     expect(Reflect.get(evaluation, "output_contract_check")).toBe("passed");
+  });
+
+  it("rejects published gap ids that are absent from the project gaps", () => {
+    const evaluation = expectPlainObject(
+      callExport("evaluateComplianceGapPullRequestProjection", projectGaps, {
+        catalog: cataloguedControls,
+        changed_files: ["web/app/layout.tsx"],
+        relations: [{ gap_id: "gap-tracker-consent-008", file: "web/app/layout.tsx" }],
+        pull_request_output: "potential compliance gap\nGap id: gap-stale-123",
+      }),
+    );
+
+    expect(Reflect.get(evaluation, "output_contract_check")).toBe("failed");
+    expect(Reflect.get(evaluation, "rejected_gap_id")).toBe("gap-stale-123");
+    expect(Reflect.get(evaluation, "explanation")).toContain(
+      "PR output is limited to change-related compliance gaps",
+    );
   });
 
   it("uses the same PR filter for route and dependency relations", () => {

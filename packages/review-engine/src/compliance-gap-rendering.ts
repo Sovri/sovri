@@ -32,7 +32,7 @@ interface ComplianceGapPullRequestProjectionOptions extends ComplianceGapRenderO
   readonly changed_files?: readonly string[];
   readonly changed_routes?: readonly string[];
   readonly changed_dependencies?: readonly string[];
-  readonly relations?: readonly ComplianceGapRelation[];
+  readonly relations?: readonly ComplianceGapRelation[] | null;
 }
 
 interface ComplianceGapPullRequestProjectionEvaluationOptions extends ComplianceGapPullRequestProjectionOptions {
@@ -117,7 +117,7 @@ export function renderComplianceGapPullRequestProjection(
   gaps: readonly ComplianceGapRenderInput[],
   options: ComplianceGapPullRequestProjectionOptions,
 ): string {
-  if (options.relations === undefined) {
+  if (relationsUnavailable(options.relations)) {
     return "";
   }
 
@@ -152,7 +152,7 @@ export function renderComplianceGapProjectionDiagnostics(
   gaps: readonly ComplianceGapRenderInput[],
   options: ComplianceGapPullRequestProjectionOptions,
 ): string {
-  if (options.relations === undefined) {
+  if (relationsUnavailable(options.relations)) {
     return "relation metadata unavailable for PR compliance-gap projection";
   }
 
@@ -200,6 +200,16 @@ export function evaluateComplianceGapPullRequestProjection(
   const pullRequestOutput =
     options.pull_request_output ?? renderComplianceGapPullRequestProjection(gaps, options);
   const publishedGapIds = extractPublishedGapIds(pullRequestOutput);
+  const knownGapIds = new Set(gaps.map((gap) => gap.id));
+  const unknownPublishedGapId = [...publishedGapIds].find((gapId) => !knownGapIds.has(gapId));
+
+  if (unknownPublishedGapId !== undefined) {
+    return {
+      output_contract_check: "failed",
+      rejected_gap_id: unknownPublishedGapId,
+      explanation: "PR output is limited to change-related compliance gaps",
+    };
+  }
 
   const unrelatedPublishedGap = gaps.find(
     (gap) => publishedGapIds.has(gap.id) && !isRelatedToChangedEntity(gap, options),
@@ -270,7 +280,7 @@ function isRelatedToChangedEntity(
   gap: ComplianceGapRenderInput,
   options: ComplianceGapPullRequestProjectionOptions,
 ): boolean {
-  if (options.relations === undefined) {
+  if (relationsUnavailable(options.relations)) {
     return false;
   }
 
@@ -295,6 +305,12 @@ function relationValueChanged(
   changedValues: readonly string[] = [],
 ): boolean {
   return value !== undefined && changedValues.includes(value);
+}
+
+function relationsUnavailable(
+  relations: readonly ComplianceGapRelation[] | null | undefined,
+): relations is null | undefined {
+  return relations === undefined || relations === null;
 }
 
 function extractPublishedGapIds(output: string): ReadonlySet<string> {
