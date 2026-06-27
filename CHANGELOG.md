@@ -58,10 +58,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   GitHub PR merge-parent diff fallback, ADR-root-relative contract authority,
   regex-backed ADR number parsing, glossary `*` list-marker coverage, scoped
   active-work MAT-77 detection, and helper-backed ADR-index coverage for new or
-  revised ADR entries, strict contract-schema validation with vocabulary-term
-  uniqueness and authority-path existence checks, explicit vocabulary boundary
-  scanning, malformed snapshot fallback rejection, and ADR index header-alignment
-  validation
+  revised ADR entries, strict contract-schema validation with schema and runtime
+  vocabulary-term uniqueness, authority-path existence checks, existing
+  snapshot-root validation, explicit vocabulary boundary scanning, malformed
+  snapshot fallback rejection, ADR index header-alignment validation, and
+  full-history CI checkout for PR/base diffing
   and missing new/revised ADR failures, plus helper-backed MAT-113 core-model
   issue-map coverage that keeps MAT-112 scoped to PR/review output instead of
   the core model, with indentation-bound issue block parsing that preserves

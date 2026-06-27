@@ -2,7 +2,7 @@
 // Copyright 2026 Sovri contributors
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { accessSync, constants, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -318,7 +318,41 @@ function readCompliancePivotContract(): CompliancePivotContract {
     throw new Error(`Invalid compliance pivot contract ${contractPath}: ${issues}`);
   }
 
+  validateLoadedCompliancePivotContract(parseResult.data);
+
   return parseResult.data;
+}
+
+function validateLoadedCompliancePivotContract(contract: CompliancePivotContract): void {
+  assertUniqueContractTerms("requiredDefinitionTerms", contract.requiredDefinitionTerms);
+  assertUniqueContractTerms("requiredProjectLevelTerms", contract.requiredProjectLevelTerms);
+  validateExistingSnapshotRoot(contract.snapshotRootPath);
+}
+
+function assertUniqueContractTerms(fieldPath: string, terms: readonly string[]): void {
+  const seenTerms = new Set<string>();
+
+  for (const term of terms) {
+    const termKey = normalizeVocabularyTerm(term).toUpperCase();
+    if (seenTerms.has(termKey)) {
+      throw new Error(`Invalid compliance pivot contract ${fieldPath}: duplicate term ${term}`);
+    }
+
+    seenTerms.add(termKey);
+  }
+}
+
+function validateExistingSnapshotRoot(rootPath: string): void {
+  const absoluteRootPath = resolve(projectRoot, rootPath);
+  if (!existsSync(absoluteRootPath)) {
+    return;
+  }
+
+  if (!statSync(absoluteRootPath).isDirectory()) {
+    throw new Error(`Invalid compliance pivot contract snapshotRootPath: not a directory`);
+  }
+
+  accessSync(absoluteRootPath, constants.R_OK | constants.W_OK);
 }
 
 function readPrChangedPaths(): readonly string[] {
@@ -887,9 +921,19 @@ function adrIndexFailureMessages(_input: {
 function adrIndexTableFailureMessages(indexMarkdown: string): string[] {
   const failureMessages: string[] = [];
   const tableRows = indexMarkdown.split(/\r?\n/).filter((line) => line.trim().startsWith("|"));
-  const headerRow = tableRows.find((line) => markdownTableCells(line)[0] === "#");
+  const headerRowIndex = tableRows.findIndex((line) => markdownTableCells(line)[0] === "#");
+  const headerRow = headerRowIndex === -1 ? undefined : tableRows[headerRowIndex];
   const headerColumnCount = headerRow === undefined ? 4 : markdownTableCells(headerRow).length;
+  const separatorCells =
+    headerRowIndex === -1 ? [] : markdownTableCells(tableRows[headerRowIndex + 1] ?? "");
   const dataRows = tableRows.filter((line) => /^\s*\| \[\d{3}\]/.test(line));
+
+  if (
+    separatorCells.length !== headerColumnCount ||
+    separatorCells.some((cell) => !isMarkdownTableSeparatorCell(cell))
+  ) {
+    failureMessages.push("ADR index header separator must use GitHub Markdown alignment markers");
+  }
 
   for (const row of dataRows) {
     const cells = markdownTableCells(row);
@@ -927,6 +971,10 @@ function markdownTableCells(row: string): string[] {
     .split("|")
     .slice(1, -1)
     .map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparatorCell(cell: string): boolean {
+  return /^:?-{3,}:?$/.test(cell);
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
@@ -1028,6 +1076,18 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         "snapshotDocPairs.0.snapshotPath",
       ]),
     );
+    expect(
+      () => assertUniqueContractTerms("requiredDefinitionTerms", ["Control", "control"]),
+      "runtime contract validation must reject duplicate vocabulary terms",
+    ).toThrow("duplicate term control");
+    expect(
+      () => validateExistingSnapshotRoot("."),
+      "existing snapshot roots must be readable and writable",
+    ).not.toThrow();
+    expect(
+      () => validateExistingSnapshotRoot("docs/adr/compliance-pivot-contract.json"),
+      "snapshot root must be a directory when it exists",
+    ).toThrow("not a directory");
   });
 
   it("fails the vocabulary check when project-level vocabulary is missing", () => {
@@ -1662,7 +1722,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     const indexMarkdown = [
       "# ADRs",
       "| # | Title | Status | Date |",
-      "| --- | --- | --- | --- |",
+      "| --- | --- | invalid | --- |",
       "  | [020](./020-deterministic-compliance-derivation.md) | Deterministic compliance derivation | Accepted | 2026-06-19 |",
       "\t| [019](./019-otel-milestone-v0-6.md) | OpenTelemetry instrumentation deferred to v0.6 (revises ADR-006) | Accepted | 2026-06-02 |",
       " \t| [018](./018-github-checks-output-surface.md) | GitHub Checks API as a bot output surface | Accepted | 2026-06-02 |",
@@ -1683,6 +1743,9 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         (message) => message === "ADR index rows must start at column 1 with a linked ADR id",
       ),
     ).toHaveLength(3);
+    expect(failureMessages).toContain(
+      "ADR index header separator must use GitHub Markdown alignment markers",
+    );
     expect(failureMessages).toContain("ADR index rows must match the table header column count");
     expect(failureMessages).toContain("ADR index rows must have exactly 4 columns");
     expect(failureMessages).toContain("ADR index row has unsupported status: Active");
