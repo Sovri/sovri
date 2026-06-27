@@ -179,6 +179,7 @@ function readPrChangedPaths(): readonly string[] {
     process.env.GITHUB_BASE_REF ?? "",
     "origin/main",
     "main",
+    "HEAD^1",
   ]);
   const failures: string[] = [];
 
