@@ -21,6 +21,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add MAT-112 ATDD coverage that keeps `Finding`,
+  `ComplianceGap`, and `ControlResult` distinct across review prompts, schemas,
+  and docs.
 - `review-engine`: add MAT-112 ATDD coverage for uncatalogued compliance gaps
   staying out of regulatory output while remaining available as internal
   diagnostics.
