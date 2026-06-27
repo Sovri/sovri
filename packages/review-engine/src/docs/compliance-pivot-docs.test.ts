@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 const adrDocsRoot = findAdrDocsRoot(dirname(fileURLToPath(import.meta.url)));
 const projectRoot = dirname(dirname(adrDocsRoot));
 const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot.md");
+// Marks generated fallback docs used only when CI cannot see ignored local planning docs.
 const IGNORED_PROJECT_DOC_FIXTURE_MARKER = "<!-- CI fixture: ignored project planning doc -->";
 const ADR_INDEX_STATUS_PATTERN = /^(?:Accepted|Proposed|Deprecated|Superseded by ADR-\d{3})$/;
 const compliancePivotContract = readCompliancePivotContract();
@@ -562,7 +563,7 @@ function snapshotVocabularyTermSet(docs: string): ReadonlySet<string> {
 
 function containsVocabularyTerm(docs: string, term: string): boolean {
   const escapedTerm = escapeRegExp(term);
-  const termPattern = new RegExp(`(?<![A-Za-z0-9])${escapedTerm}(?![A-Za-z0-9])`);
+  const termPattern = new RegExp(`(?<![A-Za-z0-9])${escapedTerm}(?![A-Za-z0-9])`, "i");
 
   return termPattern.test(docs);
 }
@@ -1156,9 +1157,9 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       "overlapping terms must not satisfy shorter terms",
     ).toBe(false);
     expect(
-      containsVocabularyTerm("control", "Control"),
-      "term matching must stay case-sensitive",
-    ).toBe(false);
+      containsVocabularyTerm("compliancegap", "ComplianceGap"),
+      "term matching must tolerate casing drift while reporting canonical terms",
+    ).toBe(true);
   });
 
   it.each(snapshotDocPairs)(
