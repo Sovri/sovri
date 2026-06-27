@@ -129,6 +129,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: tighten MAT-112 Finding output-contract helpers to reject
+  rendered ComplianceGap shapes, preserve the existing confidence gate, and
+  omit uncatalogued ComplianceGaps from combined review output.
 - `review-engine`: address MAT-80 docs review feedback by centralizing
   compliance-pivot literals, tightening issue-scope and supersession checks, and
   validating ADR index row structure, with the docs-test contract loaded from a

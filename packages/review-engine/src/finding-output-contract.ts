@@ -8,14 +8,15 @@ import type {
   CataloguedControlReference,
   ComplianceGapRenderInput,
 } from "./compliance-gap-rendering.js";
+import { shouldEnrichCompliance } from "./compliance-gate.js";
 
 export interface FindingOutputContractOptions {
   readonly rendered_finding: RenderedFindingOutput;
 }
 
 export interface RenderedFindingOutput {
-  readonly id?: string;
-  readonly kind?: string;
+  readonly id: string;
+  readonly kind?: "Finding" | "ComplianceGap";
   readonly cwe?: string;
   readonly control_id?: string;
 }
@@ -47,7 +48,15 @@ export function evaluateFindingOutputContract(
   finding: Finding,
   options: FindingOutputContractOptions,
 ): FindingOutputContractResult {
-  if (options.rendered_finding.kind === "ComplianceGap") {
+  if (options.rendered_finding.id !== finding.id) {
+    return failedFindingContract(
+      finding,
+      "rendered finding id mismatch",
+      "Finding output contract checks require the rendered Finding id to match the source Finding",
+    );
+  }
+
+  if (isRenderedComplianceGap(options.rendered_finding)) {
     return failedFindingContract(
       finding,
       "finding rendered only as a ComplianceGap",
@@ -71,35 +80,55 @@ export function buildCombinedReviewOutputModel(
 ): CombinedReviewOutputModel {
   return {
     items: [
-      ...input.findings.map(buildFindingOutputItem),
-      ...input.compliance_gaps.map((gap) => buildComplianceGapOutputItem(gap, input.catalog)),
+      ...input.findings.flatMap(buildFindingOutputItems),
+      ...input.compliance_gaps.flatMap((gap) => buildComplianceGapOutputItems(gap, input.catalog)),
     ],
   };
 }
 
-function buildFindingOutputItem(finding: Finding): CombinedReviewOutputItem {
+function buildFindingOutputItems(finding: Finding): readonly CombinedReviewOutputItem[] {
+  if (!shouldEnrichCompliance(finding)) {
+    return [];
+  }
+
   const enrichedFinding = enrichFindingCompliance(finding);
 
-  return {
-    id: finding.id,
-    path: "Finding enrichment path",
-    reference_labels: enrichedFinding.compliance_references.map((reference) =>
-      [reference.framework, reference.identifier].join(" "),
-    ),
-  };
+  if (enrichedFinding.compliance_references.length === 0) {
+    return [];
+  }
+
+  return [
+    {
+      id: finding.id,
+      path: "Finding enrichment path",
+      reference_labels: enrichedFinding.compliance_references.map((reference) =>
+        [reference.framework, reference.identifier].join(" "),
+      ),
+    },
+  ];
 }
 
-function buildComplianceGapOutputItem(
+function buildComplianceGapOutputItems(
   gap: ComplianceGapRenderInput,
   catalog: readonly CataloguedControlReference[],
-): CombinedReviewOutputItem {
+): readonly CombinedReviewOutputItem[] {
   const control = catalog.find((candidate) => candidate.control_id === gap.control_id);
 
-  return {
-    id: gap.id,
-    path: "ComplianceGap output contract",
-    reference_labels: control === undefined ? [] : [control.framework_reference],
-  };
+  if (control === undefined) {
+    return [];
+  }
+
+  return [
+    {
+      id: gap.id,
+      path: "ComplianceGap output contract",
+      reference_labels: [control.framework_reference],
+    },
+  ];
+}
+
+function isRenderedComplianceGap(renderedFinding: RenderedFindingOutput): boolean {
+  return renderedFinding.kind === "ComplianceGap" || renderedFinding.control_id !== undefined;
 }
 
 function failedFindingContract(
