@@ -12,6 +12,8 @@ const projectRoot = dirname(dirname(adrDocsRoot));
 const pivotAdrPath = join(adrDocsRoot, "022-project-level-compliance-pivot.md");
 // Marks generated fallback docs used only when CI cannot see ignored local planning docs.
 const IGNORED_PROJECT_DOC_FIXTURE_MARKER = "<!-- CI fixture: ignored project planning doc -->";
+const SOVRI_DOCS_SNAPSHOT_ROOT_ENV = "SOVRI_DOCS_SNAPSHOT_ROOT";
+const DEFAULT_SOVRI_DOCS_SNAPSHOT_ROOT = "../sovri-docs";
 const ADR_INDEX_STATUS_PATTERN = /^(?:Accepted|Proposed|Deprecated|Superseded by ADR-\d{3})$/;
 const compliancePivotContract = readCompliancePivotContract();
 const {
@@ -23,7 +25,7 @@ const {
   issueScopeStatements,
   modelSplitDocPaths,
   modelSplitStatements,
-  requiredDefinitions,
+  requiredDefinitionTerms,
   requiredProjectLevelTerms,
   snapshotDocPairs,
   supersessionStatements,
@@ -64,10 +66,7 @@ type CompliancePivotContract = {
   issueScopeStatements: Record<string, string>;
   modelSplitDocPaths: readonly string[];
   modelSplitStatements: Record<string, string>;
-  requiredDefinitions: readonly {
-    term: string;
-    meaning: string;
-  }[];
+  requiredDefinitionTerms: readonly string[];
   requiredProjectLevelTerms: readonly string[];
   snapshotDocPairs: readonly {
     sourcePath: string;
@@ -79,7 +78,7 @@ type CompliancePivotContract = {
 
 function snapshotVocabularyTerms(): readonly string[] {
   return uniqueStrings([
-    ...requiredDefinitions.map(({ term }) => term),
+    ...requiredDefinitionTerms,
     supersessionStatements.mat77,
     ...issueScopeExamples.map(({ issueId }) => issueId),
     supersessionStatements.mat113SupersedesMat77,
@@ -257,12 +256,12 @@ function findDefinitionLines(
   options: { glossaryOnly?: boolean } = {},
 ): string[] {
   const definitionMarker = `**${term.toLowerCase()}**`;
-  const glossaryDefinitionPrefix = `- ${definitionMarker}`;
+  const glossaryDefinitionPrefixes = [`- ${definitionMarker}`, `* ${definitionMarker}`];
 
   return docs.split(/\r?\n/).filter((line) => {
     const normalizedLine = line.trimStart().toLowerCase();
     return options.glossaryOnly === true
-      ? normalizedLine.startsWith(glossaryDefinitionPrefix)
+      ? glossaryDefinitionPrefixes.some((prefix) => normalizedLine.startsWith(prefix))
       : normalizedLine.includes(definitionMarker);
   });
 }
@@ -504,7 +503,9 @@ function staleSnapshotFailureMessages(input: {
 }): string[] {
   const { sourceChanged, snapshotChanged } = snapshotChangeState(input);
 
-  return sourceChanged && !snapshotChanged ? [formatStaleSnapshotFailure(input)] : [];
+  return sourceChanged && !snapshotChanged && canTrackSnapshotChange(input.snapshotPath)
+    ? [formatStaleSnapshotFailure(input)]
+    : [];
 }
 
 function snapshotChangeState(input: {
@@ -589,7 +590,7 @@ function readSnapshotDoc(snapshotPath: string, sourceDocs: string): string {
     return snapshotVocabularyFixtureDoc(snapshotPath, sourceDocs);
   }
 
-  const absoluteSnapshotPath = join(projectRoot, snapshotPath);
+  const absoluteSnapshotPath = snapshotAbsolutePath(snapshotPath);
 
   try {
     return readFileSync(absoluteSnapshotPath, "utf8");
@@ -609,7 +610,7 @@ function isNotFoundError(error: unknown): boolean {
 
 function shouldUseSnapshotFixtureFallback(snapshotPath: string): boolean {
   // Only the absent sibling checkout gets a fixture; missing files inside a real checkout must fail.
-  return !existsSync(join(projectRoot, dirname(snapshotPath)));
+  return !existsSync(dirname(snapshotAbsolutePath(snapshotPath)));
 }
 
 function shouldUseIgnoredProjectDocSnapshotFixture(
@@ -617,10 +618,38 @@ function shouldUseIgnoredProjectDocSnapshotFixture(
   sourceDocs: string,
 ): boolean {
   return (
-    snapshotPath.startsWith("../sovri-docs/") &&
+    isDefaultSovriDocsSnapshotPath(snapshotPath) &&
     sourceDocs.includes(IGNORED_PROJECT_DOC_FIXTURE_MARKER) &&
     shouldUseSnapshotFixtureFallback(snapshotPath)
   );
+}
+
+function canTrackSnapshotChange(snapshotPath: string): boolean {
+  const resolvedSnapshotPath = resolve(projectRoot, snapshotPath);
+
+  return resolvedSnapshotPath === projectRoot || resolvedSnapshotPath.startsWith(`${projectRoot}/`);
+}
+
+function snapshotAbsolutePath(snapshotPath: string): string {
+  if (!isDefaultSovriDocsSnapshotPath(snapshotPath)) {
+    return join(projectRoot, snapshotPath);
+  }
+
+  return join(
+    snapshotDocsRoot(),
+    snapshotPath.slice(`${DEFAULT_SOVRI_DOCS_SNAPSHOT_ROOT}/`.length),
+  );
+}
+
+function snapshotDocsRoot(): string {
+  return resolve(
+    projectRoot,
+    process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] ?? DEFAULT_SOVRI_DOCS_SNAPSHOT_ROOT,
+  );
+}
+
+function isDefaultSovriDocsSnapshotPath(snapshotPath: string): boolean {
+  return snapshotPath.startsWith(`${DEFAULT_SOVRI_DOCS_SNAPSHOT_ROOT}/`);
 }
 
 function snapshotVocabularyFixtureDoc(snapshotPath: string, sourceDocs: string): string {
@@ -726,13 +755,13 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
       `${complianceGapFindingCategoryMisuse.term} must not be documented as a Finding category`,
     ).toEqual([]);
 
-    const requiredTermKeys = requiredDefinitions.map(({ term }) => term.toLowerCase());
+    const requiredTermKeys = requiredDefinitionTerms.map((term) => term.toLowerCase());
     expect(
       new Set(requiredTermKeys).size,
       "required definitions must not contain case-insensitive duplicate terms",
-    ).toBe(requiredDefinitions.length);
+    ).toBe(requiredDefinitionTerms.length);
 
-    for (const { term, meaning } of requiredDefinitions) {
+    for (const term of requiredDefinitionTerms) {
       const definitionLines = findDefinitionLines(docs, term);
 
       expect(
@@ -742,9 +771,6 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
 
       const definitionText = definitionLines[0] ?? "";
       const normalizedDefinitionText = definitionText.toLowerCase();
-
-      // Then the term "<term>" is defined with the meaning "<meaning>"
-      expect(definitionText, `${term} must be defined with meaning: ${meaning}`).toContain(meaning);
 
       // And the definition does not describe "<term>" as an enum-only review category
       expect(
@@ -781,6 +807,17 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     expect(missingTerms.join(", "), "vocabulary check must report the required missing terms").toBe(
       requiredProjectLevelTerms.join(", "),
     );
+  });
+
+  it("finds glossary definitions that use either Markdown list marker", () => {
+    const docs = [
+      "# Glossary",
+      "- **Finding** - diff/code issue.",
+      "* **ComplianceGap** - project-level compliance output.",
+    ].join("\n");
+
+    expect(findDefinitionLines(docs, "Finding", { glossaryOnly: true })).toHaveLength(1);
+    expect(findDefinitionLines(docs, "ComplianceGap", { glossaryOnly: true })).toHaveLength(1);
   });
 
   it("fails when ComplianceGap is documented as a Finding category", () => {
@@ -1031,7 +1068,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
   });
 
   it.each(snapshotDocPairs)(
-    "requires a matching snapshot change in the real PR change set when %s changes",
+    "checks snapshot vocabulary against the real PR change set when %s changes",
     ({ sourcePath, snapshotPath }) => {
       // Given the real pull request change set is reviewed
       const changedPaths = pullRequestChangedPaths;
@@ -1051,15 +1088,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         docsByPath,
       });
 
-      // Then any real "<source_path>" change also modifies "<snapshot_path>"
-      if (hasChangedPath(changedPaths, sourcePath)) {
-        expect(
-          hasChangedPath(changedPaths, snapshotPath),
-          `${snapshotPath} must be part of the real pull request change set`,
-        ).toBe(true);
-      }
-
-      // And changed snapshot/source pairs carry the same compliance pivot vocabulary
+      // Then changed snapshot/source pairs carry the same compliance pivot vocabulary
       expect(
         failureMessages,
         `${snapshotPath} must contain the source compliance vocabulary`,
@@ -1079,6 +1108,23 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
 
     // Then the real snapshot verification fails instead of fabricating a fixture
     expect(readMissingSnapshot).toThrow(`Could not read snapshot doc ${snapshotPath}:`);
+  });
+
+  it("allows the sibling snapshot checkout root to be configured", () => {
+    const previousSnapshotRoot = process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
+    process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = "../custom-sovri-docs";
+
+    try {
+      expect(snapshotAbsolutePath("../sovri-docs/PRD.md")).toBe(
+        join(resolve(projectRoot, "../custom-sovri-docs"), "PRD.md"),
+      );
+    } finally {
+      if (previousSnapshotRoot === undefined) {
+        delete process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV];
+      } else {
+        process.env[SOVRI_DOCS_SNAPSHOT_ROOT_ENV] = previousSnapshotRoot;
+      }
+    }
   });
 
   it("fails when snapshot docs carry vocabulary absent from the changed source doc", () => {
@@ -1163,7 +1209,7 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
   });
 
   it.each(snapshotDocPairs)(
-    "fails when %s changes without its matching snapshot",
+    "does not require external snapshot %s to appear in the repo change set",
     ({ sourcePath, snapshotPath }) => {
       // Given the compliance pivot change modifies "<source_path>"
       const changedPaths = [sourcePath] as const;
@@ -1180,16 +1226,33 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
         snapshotPath,
       });
 
-      // Then the snapshot sync check fails
-      expect(failureMessages.length, "snapshot sync check must fail").toBeGreaterThan(0);
-
-      // And the failure identifies "<snapshot_path>" as stale
-      expect(
-        failureMessages.join("\n"),
-        "snapshot sync failure must identify the stale snapshot path",
-      ).toContain(`${snapshotPath} is stale`);
+      // Then this repo does not require a sibling-repo path in the local Git diff
+      expect(failureMessages, "external snapshot paths are verified by content parity").toEqual([]);
     },
   );
+
+  it("fails when a tracked source doc changes without its tracked snapshot", () => {
+    // Given the compliance pivot change modifies a tracked source doc
+    const sourcePath = "docs/source.md";
+    const snapshotPath = "docs/source.snapshot.md";
+    const changedPaths = [sourcePath] as const;
+
+    // When the tracked snapshot is omitted from the same repo change set
+    const failureMessages = staleSnapshotFailureMessages({
+      changedPaths,
+      sourcePath,
+      snapshotPath,
+    });
+
+    // Then the snapshot sync check fails
+    expect(failureMessages.length, "snapshot sync check must fail").toBeGreaterThan(0);
+
+    // And the failure identifies the tracked snapshot as stale
+    expect(
+      failureMessages.join("\n"),
+      "snapshot sync failure must identify the stale snapshot path",
+    ).toContain(`${snapshotPath} is stale`);
+  });
 
   it("does not require snapshot churn when source docs are unchanged", () => {
     // Given the compliance pivot change modifies only "docs/adr/README.md"

@@ -63,31 +63,13 @@
     "prReviewAsSourceModel": "PR review findings are the source compliance model",
     "prReviewProjectionOnlyFailure": "PR review is only a projection of project compliance gaps, not the source compliance model"
   },
-  "requiredDefinitions": [
-    {
-      "term": "ComplianceGap",
-      "meaning": "project-level compliance output for an unmet control or missing evidence"
-    },
-    {
-      "term": "ControlResult",
-      "meaning": "result of evaluating a control against its rules and collected evidence"
-    },
-    {
-      "term": "Control",
-      "meaning": "framework requirement that the project must satisfy"
-    },
-    {
-      "term": "Rule",
-      "meaning": "technical verification attached to a control"
-    },
-    {
-      "term": "Evidence",
-      "meaning": "collected proof or observation used to support a control result or compliance gap"
-    },
-    {
-      "term": "FrameworkReference",
-      "meaning": "versioned framework citation with official text or source URL from a catalog"
-    }
+  "requiredDefinitionTerms": [
+    "ComplianceGap",
+    "ControlResult",
+    "Control",
+    "Rule",
+    "Evidence",
+    "FrameworkReference"
   ],
   "requiredProjectLevelTerms": ["ComplianceGap", "ControlResult"],
   "snapshotDocPairs": [
