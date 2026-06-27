@@ -126,6 +126,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: harden MAT-112 ADR output-contract tests with symlink-safe
+  root discovery, fatal UTF-8 decoding, and broader negated-scope coverage.
 - `review-engine`: tighten MAT-112 ADR output-contract acceptance helpers with
   project-root discovery and affirmative MAT-112 scope validation.
 - `review-engine`: address MAT-80 docs review feedback by centralizing

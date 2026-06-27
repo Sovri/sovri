@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri contributors
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { TextDecoder } from "node:util";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const projectRoot = findProjectRoot(dirname(fileURLToPath(import.meta.url)));
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 const ADR_021_PATH = "docs/adr/021-compliance-only-review-taxonomy.md";
 const ADR_022_PATH = "docs/adr/022-project-level-compliance-pivot.md";
 const SOURCE_MODEL = "Framework -> Control -> Rule -> Evidence";
@@ -109,17 +111,34 @@ describe("R-07: ADR-021 and ADR-022 reflect the project compliance output model"
 
     expect(failures).toContain(MISSING_MAT_112_SCOPE_FAILURE);
   });
+
+  it("fails when ADR-022 uses non-affirmative MAT-112 output-contract wording", () => {
+    const adr022 = [
+      "MAT-113 is the project compliance rules engine work.",
+      "MAT-112 does not describe the PR/report output contract.",
+    ].join("\n");
+
+    const failures = adrConsistencyFailures({ adr021: readProjectFile(ADR_021_PATH), adr022 });
+
+    expect(failures).toContain(MISSING_MAT_112_SCOPE_FAILURE);
+  });
 });
 
 function findProjectRoot(startDir: string): string {
-  let currentDir = startDir;
+  const seenDirs = new Set<string>();
+  let currentDir = realpathSync(startDir);
 
   while (true) {
+    if (seenDirs.has(currentDir)) {
+      throw new Error(`Could not find project root from symlink cycle at ${currentDir}`);
+    }
+    seenDirs.add(currentDir);
+
     if (existsSync(join(currentDir, "pnpm-workspace.yaml"))) {
       return currentDir;
     }
 
-    const parentDir = dirname(currentDir);
+    const parentDir = realpathSync(dirname(currentDir));
     if (parentDir === currentDir) {
       throw new Error(`Could not find project root from ${startDir}`);
     }
@@ -129,7 +148,7 @@ function findProjectRoot(startDir: string): string {
 }
 
 function readProjectFile(path: string): string {
-  return readFileSync(join(projectRoot, path), "utf8");
+  return utf8Decoder.decode(readFileSync(join(projectRoot, path)));
 }
 
 function prReviewSourceModelFailures(adr022: string): readonly string[] {
@@ -195,11 +214,19 @@ function hasAffirmativeMat112OutputScope(adr022: string): boolean {
 }
 
 function lineNegatesMat112OutputScope(line: string): boolean {
-  return lineContainsAny(line, [
-    "MAT-112 is not the review output contract",
-    "MAT-112 is not the PR/report output contract",
-    "MAT-112 is not scoped to PR/review output",
-  ]);
+  return line
+    .split(".")
+    .some(
+      (sentence) =>
+        lineContainsAll(sentence, ["MAT-112"]) &&
+        lineContainsAny(sentence, ["does not", "is not", "not scoped", "no "]) &&
+        lineContainsAny(sentence, [
+          "review output contract",
+          "PR/report output contract",
+          "PR/review output",
+          "output-contract scope",
+        ]),
+    );
 }
 
 function lines(text: string): readonly string[] {
