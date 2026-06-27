@@ -550,20 +550,14 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
 
   it("does not require snapshot churn when source docs are unchanged", () => {
     // Given the compliance pivot change modifies only "docs/adr/README.md"
+    // And the change set does not modify "PRD.md"
+    // And the change set does not modify "ARCHI.md"
+    // And the change set does not modify "CONTEXT.md"
     const changedPaths = ["docs/adr/README.md"] as const;
 
     expect(changedPaths, "fixture must modify only docs/adr/README.md").toEqual([
       "docs/adr/README.md",
     ]);
-
-    // And the change set does not modify "PRD.md"
-    expect(changedPaths, "fixture must omit PRD.md").not.toContain("PRD.md");
-
-    // And the change set does not modify "ARCHI.md"
-    expect(changedPaths, "fixture must omit ARCHI.md").not.toContain("ARCHI.md");
-
-    // And the change set does not modify "CONTEXT.md"
-    expect(changedPaths, "fixture must omit CONTEXT.md").not.toContain("CONTEXT.md");
 
     // When the documentation sync is reviewed
     const failureMessages = snapshotDocPairs.flatMap(({ sourcePath, snapshotPath }) =>
