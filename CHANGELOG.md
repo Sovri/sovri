@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add MAT-112 ATDD coverage that keeps ADR-021 and ADR-022
+  aligned on the project compliance source model and PR/report output contract.
 - `review-engine`: add MAT-112 ATDD coverage for uncatalogued compliance gaps
   staying out of regulatory output while remaining available as internal
   diagnostics.
