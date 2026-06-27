@@ -62,7 +62,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   vocabulary-term uniqueness, authority-path existence checks, existing
   snapshot-root validation, explicit vocabulary boundary scanning, malformed
   snapshot fallback rejection, ADR index header-alignment validation, and
-  full-history CI checkout for PR/base diffing
+  Markdown-formatted finding-category misuse detection, plus full-history CI
+  checkout for PR/base diffing
   and missing new/revised ADR failures, plus helper-backed MAT-113 core-model
   issue-map coverage that keeps MAT-112 scoped to PR/review output instead of
   the core model, with indentation-bound issue block parsing that preserves

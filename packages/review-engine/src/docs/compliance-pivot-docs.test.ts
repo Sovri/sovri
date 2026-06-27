@@ -1140,6 +1140,19 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     ).toContain(complianceGapFindingCategoryMisuse.explanation);
   });
 
+  it("fails when Markdown-formatted ComplianceGap is documented as a Finding category", () => {
+    const docs = ["# ADR-022", "`ComplianceGap` is a Finding category emitted by PR review"].join(
+      "\n",
+    );
+
+    const failureMessages = findingCategoryFailureMessages(docs);
+
+    expect(
+      failureMessages,
+      "finding-category misuse check must catch code-formatted ComplianceGap",
+    ).toContain(complianceGapFindingCategoryMisuse.explanation);
+  });
+
   it.each(modelSplitDocPaths)("names the source model and PR projection in %s", (docPath) => {
     // Given "<doc_path>" is part of the compliance pivot documentation set
     const docs = readProjectDoc(docPath);

@@ -25,7 +25,7 @@
     "term": "ComplianceGap",
     "statement": "ComplianceGap is a Finding category emitted by PR review",
     "explanation": "ComplianceGap must be project-level compliance output",
-    "pattern": "\\bComplianceGap\\b\\s+is\\s+a\\s+Finding\\s+category\\b(?:\\s+emitted\\s+by\\s+PR\\s+review\\b)?"
+    "pattern": "(?:`|\\*\\*)?\\bComplianceGap\\b(?:`|\\*\\*)?\\s+is\\s+a\\s+Finding\\s+category\\b(?:\\s+emitted\\s+by\\s+PR\\s+review\\b)?"
   },
   "issueModelStatements": {
     "mat112": "MAT-112",
