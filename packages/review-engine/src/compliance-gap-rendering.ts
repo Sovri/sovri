@@ -33,7 +33,6 @@ interface ComplianceGapFileRelation {
 
 interface ComplianceGapPublishabilityOptions extends ComplianceGapRenderOptions {
   readonly renderer_requires_cwe?: boolean;
-  readonly report_output?: string;
 }
 
 export interface ComplianceGapPublishabilityResult {
@@ -107,14 +106,8 @@ export function evaluateComplianceGapPublishability(
   options: ComplianceGapPublishabilityOptions,
 ): ComplianceGapPublishabilityResult {
   const control = findCataloguedControl(gap, options.catalog);
-  const reportOutput = options.report_output;
-  const reportSubject = gap.control_id ?? gap.id;
-  const reportOutputShowsRegulatoryClaim =
-    reportOutput !== undefined &&
-    (reportOutput.includes("GDPR") || reportOutput.includes("ePrivacy")) &&
-    reportOutput.includes(reportSubject);
 
-  if (control === undefined && reportOutputShowsRegulatoryClaim) {
+  if (control === undefined) {
     return {
       publishable: false,
       rejected_gap_id: gap.id,
