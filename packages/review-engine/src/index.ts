@@ -97,6 +97,17 @@ export type {
 export { generateAuditReference } from "./audit-ref.js";
 
 export {
+  ComplianceGapOutputSchema,
+  ComplianceGapOutputValidationError,
+  serializeComplianceGapOutput,
+  validateComplianceGapOutput,
+} from "./compliance-output-contract.js";
+export type {
+  ComplianceGapOutput,
+  ComplianceGapOutputValidation,
+} from "./compliance-output-contract.js";
+
+export {
   classifyResolvedComments,
   computeFindingFingerprint,
   extractFindingFingerprint,
