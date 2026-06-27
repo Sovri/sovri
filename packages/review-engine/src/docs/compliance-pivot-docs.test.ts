@@ -213,7 +213,12 @@ function staleSnapshotFailureMessages(_input: {
   sourcePath: string;
   snapshotPath: string;
 }): string[] {
-  return ["snapshot sync check not implemented"];
+  return _input.changedPaths.includes(_input.sourcePath) &&
+    !_input.changedPaths.includes(_input.snapshotPath)
+    ? [
+        `${_input.snapshotPath} is stale because ${_input.sourcePath} changed without a matching snapshot change`,
+      ]
+    : [];
 }
 
 describe("MAT-80 compliance pivot vocabulary docs", () => {
