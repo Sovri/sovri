@@ -24,6 +24,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `review-engine`: add MAT-112 ATDD coverage for PR compliance-gap projection
   filtering by changed file, route, and dependency relation metadata while
   project reports render every catalogued gap.
+- `review-engine`: add compliance gap projection helpers that filter pull
+  request output by changed file, route, and dependency relation metadata while
+  keeping project reports unfiltered.
 - `review-engine`: add MAT-112 ATDD coverage for uncatalogued compliance gaps
   staying out of regulatory output while remaining available as internal
   diagnostics.

@@ -97,12 +97,19 @@ export type {
 export { generateAuditReference } from "./audit-ref.js";
 
 export {
+  evaluateComplianceGapPullRequestProjection,
   evaluateComplianceGapPublishability,
+  renderComplianceGapProjectReportProjection,
+  renderComplianceGapProjectionDiagnostics,
   renderInternalComplianceDiagnostics,
   renderComplianceGapProjectReportOutput,
+  renderComplianceGapPullRequestProjection,
   renderComplianceGapPullRequestOutput,
 } from "./compliance-gap-rendering.js";
-export type { ComplianceGapPublishabilityResult } from "./compliance-gap-rendering.js";
+export type {
+  ComplianceGapPullRequestProjectionEvaluationResult,
+  ComplianceGapPublishabilityResult,
+} from "./compliance-gap-rendering.js";
 
 export {
   classifyResolvedComments,

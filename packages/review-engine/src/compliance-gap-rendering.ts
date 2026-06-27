@@ -22,13 +22,28 @@ interface ComplianceGapRenderOptions {
 }
 
 interface ComplianceGapPullRequestRenderOptions extends ComplianceGapRenderOptions {
-  readonly changed_files: readonly string[];
-  readonly relations: readonly ComplianceGapFileRelation[];
+  readonly changed_files?: readonly string[];
+  readonly changed_routes?: readonly string[];
+  readonly changed_dependencies?: readonly string[];
+  readonly relations: readonly ComplianceGapRelation[];
 }
 
-interface ComplianceGapFileRelation {
+interface ComplianceGapPullRequestProjectionOptions extends ComplianceGapRenderOptions {
+  readonly changed_files?: readonly string[];
+  readonly changed_routes?: readonly string[];
+  readonly changed_dependencies?: readonly string[];
+  readonly relations?: readonly ComplianceGapRelation[];
+}
+
+interface ComplianceGapPullRequestProjectionEvaluationOptions extends ComplianceGapPullRequestProjectionOptions {
+  readonly pull_request_output?: string;
+}
+
+interface ComplianceGapRelation {
   readonly gap_id: string;
-  readonly file: string;
+  readonly file?: string;
+  readonly route?: string;
+  readonly dependency?: string;
 }
 
 interface ComplianceGapPublishabilityOptions extends ComplianceGapRenderOptions {
@@ -40,6 +55,12 @@ export interface ComplianceGapPublishabilityResult {
   readonly rejected_gap_id?: string;
   readonly reason?: string;
   readonly output_contract_check: "passed" | "failed";
+  readonly explanation?: string;
+}
+
+export interface ComplianceGapPullRequestProjectionEvaluationResult {
+  readonly output_contract_check: "passed" | "failed";
+  readonly rejected_gap_id?: string;
   readonly explanation?: string;
 }
 
@@ -65,7 +86,7 @@ export function renderComplianceGapPullRequestOutput(
   gap: ComplianceGapRenderInput,
   options: ComplianceGapPullRequestRenderOptions,
 ): string {
-  if (!isRelatedToChangedFile(gap, options)) {
+  if (!isRelatedToChangedEntity(gap, options)) {
     return "";
   }
 
@@ -80,6 +101,37 @@ export function renderComplianceGapPullRequestOutput(
     `Framework reference: ${control.framework_reference}`,
     `Evidence: ${gap.evidence ?? ""}`,
   ].join("\n");
+}
+
+export function renderComplianceGapProjectReportProjection(
+  gaps: readonly ComplianceGapRenderInput[],
+  options: ComplianceGapRenderOptions,
+): string {
+  return gaps
+    .map((gap) => renderProjectReportProjectionItem(gap, options))
+    .filter((output) => output.length > 0)
+    .join("\n\n");
+}
+
+export function renderComplianceGapPullRequestProjection(
+  gaps: readonly ComplianceGapRenderInput[],
+  options: ComplianceGapPullRequestProjectionOptions,
+): string {
+  if (options.relations === undefined) {
+    return "";
+  }
+
+  const relations = options.relations;
+
+  return gaps
+    .map((gap) =>
+      renderPullRequestProjectionItem(gap, {
+        ...options,
+        relations,
+      }),
+    )
+    .filter((output) => output.length > 0)
+    .join("\n\n");
 }
 
 export function renderInternalComplianceDiagnostics(
@@ -99,6 +151,20 @@ export function renderInternalComplianceDiagnostics(
       ? "missing catalogued control reference"
       : "uncatalogued control reference",
   ].join("\n");
+}
+
+export function renderComplianceGapProjectionDiagnostics(
+  gaps: readonly ComplianceGapRenderInput[],
+  options: ComplianceGapPullRequestProjectionOptions,
+): string {
+  if (options.relations === undefined) {
+    return "relation metadata unavailable for PR compliance-gap projection";
+  }
+
+  return gaps
+    .map((gap) => renderInternalComplianceDiagnostics(gap, options))
+    .filter((output) => output.length > 0)
+    .join("\n\n");
 }
 
 export function evaluateComplianceGapPublishability(
@@ -132,6 +198,30 @@ export function evaluateComplianceGapPublishability(
   };
 }
 
+export function evaluateComplianceGapPullRequestProjection(
+  gaps: readonly ComplianceGapRenderInput[],
+  options: ComplianceGapPullRequestProjectionEvaluationOptions,
+): ComplianceGapPullRequestProjectionEvaluationResult {
+  const pullRequestOutput =
+    options.pull_request_output ?? renderComplianceGapPullRequestProjection(gaps, options);
+
+  const unrelatedPublishedGap = gaps.find(
+    (gap) => pullRequestOutput.includes(gap.id) && !isRelatedToChangedEntity(gap, options),
+  );
+
+  if (unrelatedPublishedGap !== undefined) {
+    return {
+      output_contract_check: "failed",
+      rejected_gap_id: unrelatedPublishedGap.id,
+      explanation: "PR output is limited to change-related compliance gaps",
+    };
+  }
+
+  return {
+    output_contract_check: "passed",
+  };
+}
+
 function findCataloguedControl(
   gap: ComplianceGapRenderInput,
   catalog: readonly CataloguedControlReference[],
@@ -139,11 +229,59 @@ function findCataloguedControl(
   return catalog.find((candidate) => candidate.control_id === gap.control_id);
 }
 
-function isRelatedToChangedFile(
+function renderProjectReportProjectionItem(
+  gap: ComplianceGapRenderInput,
+  options: ComplianceGapRenderOptions,
+): string {
+  const output = renderComplianceGapProjectReportOutput(gap, options);
+
+  if (output.length === 0) {
+    return "";
+  }
+
+  return [`Gap id: ${gap.id}`, output].join("\n");
+}
+
+function renderPullRequestProjectionItem(
   gap: ComplianceGapRenderInput,
   options: ComplianceGapPullRequestRenderOptions,
+): string {
+  const output = renderComplianceGapPullRequestOutput(gap, options);
+
+  if (output.length === 0) {
+    return "";
+  }
+
+  return [`Gap id: ${gap.id}`, output].join("\n");
+}
+
+function isRelatedToChangedEntity(
+  gap: ComplianceGapRenderInput,
+  options: ComplianceGapPullRequestProjectionOptions,
 ): boolean {
+  if (options.relations === undefined) {
+    return false;
+  }
+
   return options.relations.some(
-    (relation) => relation.gap_id === gap.id && options.changed_files.includes(relation.file),
+    (relation) => relation.gap_id === gap.id && relationMatchesChange(relation, options),
   );
+}
+
+function relationMatchesChange(
+  relation: ComplianceGapRelation,
+  options: ComplianceGapPullRequestProjectionOptions,
+): boolean {
+  return (
+    relationValueChanged(relation.file, options.changed_files) ||
+    relationValueChanged(relation.route, options.changed_routes) ||
+    relationValueChanged(relation.dependency, options.changed_dependencies)
+  );
+}
+
+function relationValueChanged(
+  value: string | undefined,
+  changedValues: readonly string[] = [],
+): boolean {
+  return value !== undefined && changedValues.includes(value);
 }
