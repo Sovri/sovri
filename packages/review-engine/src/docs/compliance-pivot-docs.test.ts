@@ -167,7 +167,14 @@ function readAdrIndex(): string {
 }
 
 function readProjectDoc(docPath: string): string {
-  return readFileSync(join(projectRoot, docPath), "utf8");
+  const absoluteDocPath = join(projectRoot, docPath);
+
+  try {
+    return readFileSync(absoluteDocPath, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not read project doc ${docPath}: ${message}`, { cause: error });
+  }
 }
 
 function findDefinitionLines(
