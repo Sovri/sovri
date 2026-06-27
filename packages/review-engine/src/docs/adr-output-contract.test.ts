@@ -14,6 +14,23 @@ const ADR_022_PATH = "docs/adr/022-project-level-compliance-pivot.md";
 const SOURCE_MODEL = "Framework -> Control -> Rule -> Evidence";
 const CONFLICT_FAILURE = "conflict between CWE-backed Findings and non-CWE ComplianceGaps";
 const MISSING_MAT_112_SCOPE_FAILURE = "MAT-112 output-contract scope is missing";
+const MAT_112_AFFIRMATIVE_OUTPUT_SCOPE_PHRASES = [
+  "MAT-112 is the review output contract",
+  "MAT-112 is the PR/report output contract",
+  "MAT-112 is scoped to PR/review output",
+] as const;
+const MAT_112_NEGATED_OUTPUT_SCOPE_PHRASES = [
+  "MAT-112 does not describe the review output contract",
+  "MAT-112 does not describe the PR/report output contract",
+  "MAT-112 does not describe PR/review output",
+  "MAT-112 is not the review output contract",
+  "MAT-112 is not the PR/report output contract",
+  "MAT-112 is not scoped to PR/review output",
+  "MAT-112 has no review output contract",
+  "MAT-112 has no PR/report output contract",
+  "no MAT-112 review output contract",
+  "no MAT-112 PR/report output contract",
+] as const;
 
 describe("R-07: ADR-021 and ADR-022 reflect the project compliance output model", () => {
   it("keeps Framework to Control to Rule to Evidence as ADR-022's source model", () => {
@@ -122,18 +139,45 @@ describe("R-07: ADR-021 and ADR-022 reflect the project compliance output model"
 
     expect(failures).toContain(MISSING_MAT_112_SCOPE_FAILURE);
   });
+
+  it("keeps an affirmative MAT-112 scope when ADR-022 says it is not the only output contract", () => {
+    const adr022 = [
+      "MAT-113 is the project compliance rules engine work.",
+      "MAT-112 is not the only PR/report output contract; MAT-112 is the PR/report output contract.",
+    ].join("\n");
+
+    const failures = adrConsistencyFailures({ adr021: readProjectFile(ADR_021_PATH), adr022 });
+
+    expect(failures).not.toContain(MISSING_MAT_112_SCOPE_FAILURE);
+  });
+
+  it("fails when ADR-022 uses ambiguous MAT-112 output-contract wording", () => {
+    const adr022 = [
+      "MAT-113 is the project compliance rules engine work.",
+      "MAT-112 might describe the PR/report output contract.",
+    ].join("\n");
+
+    const failures = adrConsistencyFailures({ adr021: readProjectFile(ADR_021_PATH), adr022 });
+
+    expect(failures).toContain(MISSING_MAT_112_SCOPE_FAILURE);
+  });
+
+  it("fails when ADR-022 mentions MAT-112 only in an unrelated context", () => {
+    const adr022 = [
+      "MAT-113 is the project compliance rules engine work.",
+      "See MAT-112 for details.",
+    ].join("\n");
+
+    const failures = adrConsistencyFailures({ adr021: readProjectFile(ADR_021_PATH), adr022 });
+
+    expect(failures).toContain(MISSING_MAT_112_SCOPE_FAILURE);
+  });
 });
 
 function findProjectRoot(startDir: string): string {
-  const seenDirs = new Set<string>();
   let currentDir = realpathSync(startDir);
 
   while (true) {
-    if (seenDirs.has(currentDir)) {
-      throw new Error(`Could not find project root from symlink cycle at ${currentDir}`);
-    }
-    seenDirs.add(currentDir);
-
     if (existsSync(join(currentDir, "pnpm-workspace.yaml"))) {
       return currentDir;
     }
@@ -205,28 +249,12 @@ function hasAffirmativeMat112OutputScope(adr022: string): boolean {
       return false;
     }
 
-    return (
-      lineContainsAll(line, ["MAT-112", "review output contract"]) ||
-      lineContainsAll(line, ["MAT-112", "PR/report output contract"]) ||
-      lineContainsAll(line, ["MAT-112", "scoped to PR/review output"])
-    );
+    return lineContainsAny(line, MAT_112_AFFIRMATIVE_OUTPUT_SCOPE_PHRASES);
   });
 }
 
 function lineNegatesMat112OutputScope(line: string): boolean {
-  return line
-    .split(".")
-    .some(
-      (sentence) =>
-        lineContainsAll(sentence, ["MAT-112"]) &&
-        lineContainsAny(sentence, ["does not", "is not", "not scoped", "no "]) &&
-        lineContainsAny(sentence, [
-          "review output contract",
-          "PR/report output contract",
-          "PR/review output",
-          "output-contract scope",
-        ]),
-    );
+  return lineContainsAny(line, MAT_112_NEGATED_OUTPUT_SCOPE_PHRASES);
 }
 
 function lines(text: string): readonly string[] {
