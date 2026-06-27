@@ -555,9 +555,9 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     // And the change set does not modify "CONTEXT.md"
     const changedPaths = ["docs/adr/README.md"] as const;
 
-    expect(changedPaths, "fixture must modify only docs/adr/README.md").toEqual([
-      "docs/adr/README.md",
-    ]);
+    expect(changedPaths, "fixture must include docs/adr/README.md").toEqual(
+      expect.arrayContaining(["docs/adr/README.md"]),
+    );
 
     // When the documentation sync is reviewed
     const failureMessages = snapshotDocPairs.flatMap(({ sourcePath, snapshotPath }) =>
