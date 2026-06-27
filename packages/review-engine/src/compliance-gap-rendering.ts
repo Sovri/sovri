@@ -107,7 +107,10 @@ export function renderControlResultOutput(
     ].join("\n");
   }
 
-  const gap = controlResult.compliance_gap;
+  const gap = {
+    ...controlResult.compliance_gap,
+    control_id: controlResult.compliance_gap.control_id ?? controlResult.control_id,
+  };
   const control = findCataloguedControl(gap, options.catalog);
 
   if (control === undefined) {

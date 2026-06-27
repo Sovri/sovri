@@ -26,6 +26,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture consent evidence is "no consent banner, CMP integration, delayed activation, privacy route, or exemption"
     const controlResult = mat114GapControlResult({
       fixture: "tracker-without-consent",
+      control_id: "gdpr-eprivacy-consent-tracking",
       evidence: "web/app/layout.tsx:12 imports @vercel/analytics/react",
       consent_evidence:
         "no consent banner, CMP integration, delayed activation, privacy route, or exemption",
@@ -82,6 +83,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture consent evidence is "cookie banner exists but tracker activation is not delayed until consent is recorded"
     const controlResult = mat114GapControlResult({
       fixture: "tag-manager-before-consent",
+      control_id: "gdpr-eprivacy-consent-tracking",
       evidence: "web/app/layout.tsx:18 initializes Google Tag Manager",
       consent_evidence:
         "cookie banner exists but tracker activation is not delayed until consent is recorded",
@@ -138,6 +140,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture consent evidence is "privacy route exists, but no consent record or documented strictly-necessary exemption"
     const controlResult = mat114GapControlResult({
       fixture: "tracker-inconclusive-consent",
+      control_id: "gdpr-eprivacy-consent-tracking",
       evidence: "web/app/analytics.ts:9 loads analytics-js@2.4.0",
       consent_evidence:
         "privacy route exists, but no consent record or documented strictly-necessary exemption",
@@ -194,6 +197,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture evidence is "web/app/components/CookieBanner.tsx records analytics opt-in"
     const controlResult = mat114NonGapControlResult({
       fixture: "tracker-with-consent-component",
+      control_id: "gdpr-eprivacy-consent-tracking",
       status: "PASS",
       evidence: "web/app/components/CookieBanner.tsx records analytics opt-in",
     });
@@ -225,6 +229,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture evidence is "web/app/i18n.ts stores language preference only"
     const controlResult = mat114NonGapControlResult({
       fixture: "local-storage-language-only",
+      control_id: "gdpr-eprivacy-consent-tracking",
       status: "PASS",
       evidence: "web/app/i18n.ts stores language preference only",
     });
@@ -256,6 +261,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the fixture evidence is "no tracker or storage signal found"
     const controlResult = mat114NonGapControlResult({
       fixture: "no-tracker",
+      control_id: "gdpr-eprivacy-consent-tracking",
       status: "SKIPPED",
       evidence: "no tracker or storage signal found",
     });
@@ -288,6 +294,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the gap has no CWE
     const controlResult = mat114GapControlResult({
       fixture: "tracker-without-consent",
+      control_id: "gdpr-eprivacy-consent-tracking",
       evidence: "web/app/layout.tsx:12 imports @vercel/analytics/react",
       consent_evidence:
         "no consent banner, CMP integration, delayed activation, privacy route, or exemption",
@@ -320,6 +327,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
     // And the PR changes file "web/app/layout.tsx"
     const controlResult = mat114GapControlResult({
       fixture: "tracker-without-consent",
+      control_id: "gdpr-eprivacy-consent-tracking",
       evidence: "web/app/layout.tsx:12 imports @vercel/analytics/react",
       consent_evidence:
         "no consent banner, CMP integration, delayed activation, privacy route, or exemption",
@@ -347,6 +355,7 @@ describe("MAT-114 GDPR/ePrivacy fixture renders through the output contract", ()
 
 function mat114GapControlResult(input: {
   readonly fixture: string;
+  readonly control_id: string;
   readonly evidence: string;
   readonly consent_evidence: string;
   readonly gap_id: string;
@@ -355,13 +364,13 @@ function mat114GapControlResult(input: {
 }): object {
   return {
     fixture: input.fixture,
-    control_id: cataloguedControl.control_id,
+    control_id: input.control_id,
     status: input.status,
     evidence: input.evidence,
     consent_evidence: input.consent_evidence,
     compliance_gap: {
       id: input.gap_id,
-      control_id: cataloguedControl.control_id,
+      control_id: input.control_id,
       status: input.status,
       severity: input.severity,
       evidence: input.evidence,
@@ -371,12 +380,13 @@ function mat114GapControlResult(input: {
 
 function mat114NonGapControlResult(input: {
   readonly fixture: string;
+  readonly control_id: string;
   readonly status: string;
   readonly evidence: string;
 }): object {
   return {
     fixture: input.fixture,
-    control_id: cataloguedControl.control_id,
+    control_id: input.control_id,
     status: input.status,
     evidence: input.evidence,
   };
