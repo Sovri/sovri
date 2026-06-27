@@ -99,6 +99,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: keep MAT-80 docs acceptance tests green in CI when root
+  planning docs are intentionally ignored locally by using contract fixtures for
+  absent `PRD.md`, `ARCHI.md`, and `CONTEXT.md`.
 - `ci`: make workspace TypeScript resolution use package source entrypoints so
   `tsc -b` no longer depends on concurrently generated `dist` declarations
   during local hooks.

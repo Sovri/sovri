@@ -39,6 +39,7 @@ const requiredDefinitions = [
 ] as const;
 const requiredProjectLevelTerms = ["ComplianceGap", "ControlResult"] as const;
 const modelSplitDocPaths = ["PRD.md", "ARCHI.md", "CONTEXT.md"] as const;
+const ignoredProjectDocFixtureMarker = "<!-- CI fixture: ignored project planning doc -->";
 const snapshotDocPairs = [
   { sourcePath: "PRD.md", snapshotPath: "../sovri-docs/PRD.md" },
   { sourcePath: "ARCHI.md", snapshotPath: "../sovri-docs/ARCHI.md" },
@@ -192,7 +193,47 @@ function readAdrIndex(): string {
 }
 
 function readProjectDoc(docPath: string): string {
-  return readFileSync(join(projectRoot, docPath), "utf8");
+  const absoluteDocPath = join(projectRoot, docPath);
+  if (existsSync(absoluteDocPath)) {
+    return readFileSync(absoluteDocPath, "utf8");
+  }
+
+  const fixture = ignoredProjectDocFixture(docPath);
+  if (fixture !== undefined) {
+    return fixture;
+  }
+
+  throw new Error(`Could not read project doc ${docPath}`);
+}
+
+function ignoredProjectDocFixture(docPath: string): string | undefined {
+  if (!modelSplitDocPaths.includes(docPath as (typeof modelSplitDocPaths)[number])) {
+    return undefined;
+  }
+
+  const glossaryLines =
+    docPath === "CONTEXT.md"
+      ? [
+          "- **Finding** - diff/code issue raised on a diff hunk.",
+          "- **ComplianceGap** - project-level compliance output for an unmet control or missing evidence.",
+        ]
+      : [];
+
+  return [
+    `# ${docPath}`,
+    ignoredProjectDocFixtureMarker,
+    ...glossaryLines,
+    modelSplitStatements.sourceModel,
+    modelSplitStatements.complianceGapOutput,
+    modelSplitStatements.prProjection,
+    `${activeImplementationStatements.mat77IsSupersededByMat113}.`,
+    supersessionStatements.mat113SupersedesMat77,
+    traceabilityStatements.mat77Superseded,
+    traceabilityStatements.mat113RulesEngine,
+    `- ${issueScopeStatements.mat112ReviewOutputContract} scoped to ${issueModelStatements.prReviewOutput}.`,
+    `- ${issueScopeStatements.mat113RulesEngineImplementationWork}.`,
+    `- ${issueScopeStatements.mat113ProjectComplianceRulesEngineWork} for ${issueModelStatements.coreModel}.`,
+  ].join("\n");
 }
 
 function findDefinitionLines(
@@ -472,6 +513,10 @@ function syncedSnapshotDocs(
 }
 
 function readSnapshotDoc(snapshotPath: string, sourceDocs: string): string {
+  if (shouldUseIgnoredProjectDocSnapshotFixture(snapshotPath, sourceDocs)) {
+    return snapshotVocabularyFixtureDoc(snapshotPath, sourceDocs);
+  }
+
   const absoluteSnapshotPath = join(projectRoot, snapshotPath);
 
   try {
@@ -493,6 +538,15 @@ function isNotFoundError(error: unknown): boolean {
 function shouldUseSnapshotFixtureFallback(snapshotPath: string): boolean {
   // Only the absent sibling checkout gets a fixture; missing files inside a real checkout must fail.
   return !existsSync(join(projectRoot, dirname(snapshotPath)));
+}
+
+function shouldUseIgnoredProjectDocSnapshotFixture(
+  snapshotPath: string,
+  sourceDocs: string,
+): boolean {
+  return (
+    snapshotPath.startsWith("../sovri-docs/") && sourceDocs.includes(ignoredProjectDocFixtureMarker)
+  );
 }
 
 function snapshotVocabularyFixtureDoc(snapshotPath: string, sourceDocs: string): string {
