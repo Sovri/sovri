@@ -116,46 +116,19 @@ const complianceGapFindingCategoryMisuse = {
 } as const;
 
 function snapshotVocabularyTerms(): readonly string[] {
-  return uniqueStrings(
-    flattenContractStrings(snapshotVocabularySources()).flatMap(vocabularyCandidates),
-  );
-}
-
-function snapshotVocabularySources(): readonly unknown[] {
-  return [
-    requiredDefinitions,
-    issueScopeExamples,
-    supersessionStatements,
-    traceabilityStatements,
-    issueScopeStatements,
-    modelSplitStatements,
-    issueModelStatements,
-    complianceGapFindingCategoryMisuse,
-  ];
-}
-
-function flattenContractStrings(input: unknown): string[] {
-  if (typeof input === "string") {
-    return [input];
-  }
-
-  if (Array.isArray(input)) {
-    return input.flatMap(flattenContractStrings);
-  }
-
-  if (typeof input === "object" && input !== null) {
-    return Object.values(input).flatMap(flattenContractStrings);
-  }
-
-  return [];
-}
-
-function vocabularyCandidates(value: string): readonly string[] {
-  return [
-    value,
-    ...(value.match(/\bMAT-\d+\b/g) ?? []),
-    ...(value.match(/\b[A-Z][A-Za-z]+(?:[A-Z][A-Za-z]+)*\b/g) ?? []),
-  ];
+  return uniqueStrings([
+    ...requiredDefinitions.map(({ term }) => term),
+    supersessionStatements.mat77,
+    ...issueScopeExamples.map(({ issueId }) => issueId),
+    supersessionStatements.mat113SupersedesMat77,
+    traceabilityStatements.mat77Superseded,
+    traceabilityStatements.mat113RulesEngine,
+    issueScopeStatements.mat112ReviewOutputContract,
+    issueScopeStatements.mat113ProjectComplianceRulesEngineWork,
+    modelSplitStatements.sourceModel,
+    modelSplitStatements.complianceGapOutput,
+    modelSplitStatements.prProjection,
+  ]);
 }
 
 function uniqueStrings(values: readonly string[]): readonly string[] {
@@ -163,15 +136,20 @@ function uniqueStrings(values: readonly string[]): readonly string[] {
   const uniqueValues: string[] = [];
 
   for (const value of values
-    .map((candidate) => candidate.trim())
+    .map(normalizeVocabularyTerm)
     .filter((candidate) => candidate.length > 0)) {
-    if (!seen.has(value)) {
+    const key = value.toUpperCase();
+    if (!seen.has(key)) {
       uniqueValues.push(value);
-      seen.add(value);
+      seen.add(key);
     }
   }
 
   return uniqueValues;
+}
+
+function normalizeVocabularyTerm(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function findAdrDocsRoot(startDir: string): string {
