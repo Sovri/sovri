@@ -10,7 +10,7 @@ interface CataloguedControlReference {
 
 interface ComplianceGapRenderInput {
   readonly id: string;
-  readonly control_id: string;
+  readonly control_id?: string;
   readonly evidence?: string;
   readonly status?: string;
   readonly severity?: string;
@@ -49,6 +49,10 @@ export function renderComplianceGapProjectReportOutput(
 ): string {
   const control = findCataloguedControl(gap, options.catalog);
 
+  if (control === undefined) {
+    return "";
+  }
+
   return [
     "potential compliance gap",
     `Framework reference: ${control.framework_reference}`,
@@ -67,6 +71,10 @@ export function renderComplianceGapPullRequestOutput(
 
   const control = findCataloguedControl(gap, options.catalog);
 
+  if (control === undefined) {
+    return "";
+  }
+
   return [
     "potential compliance gap",
     `Framework reference: ${control.framework_reference}`,
@@ -74,11 +82,39 @@ export function renderComplianceGapPullRequestOutput(
   ].join("\n");
 }
 
+export function renderInternalComplianceDiagnostics(
+  gap: ComplianceGapRenderInput,
+  options: ComplianceGapRenderOptions,
+): string {
+  const control = findCataloguedControl(gap, options.catalog);
+
+  if (control !== undefined) {
+    return "";
+  }
+
+  return [
+    "internal compliance diagnostic",
+    `Gap id: ${gap.id}`,
+    gap.control_id === undefined
+      ? "missing catalogued control reference"
+      : "uncatalogued control reference",
+  ].join("\n");
+}
+
 export function evaluateComplianceGapPublishability(
   gap: ComplianceGapRenderInput,
   options: ComplianceGapPublishabilityOptions,
 ): ComplianceGapPublishabilityResult {
-  findCataloguedControl(gap, options.catalog);
+  const control = findCataloguedControl(gap, options.catalog);
+
+  if (control === undefined) {
+    return {
+      publishable: false,
+      rejected_gap_id: gap.id,
+      output_contract_check: "failed",
+      explanation: "regulatory claims require catalogued control references",
+    };
+  }
 
   if (options.renderer_requires_cwe === true && gap.cwe === undefined) {
     return {
@@ -99,14 +135,8 @@ export function evaluateComplianceGapPublishability(
 function findCataloguedControl(
   gap: ComplianceGapRenderInput,
   catalog: readonly CataloguedControlReference[],
-): CataloguedControlReference {
-  const control = catalog.find((candidate) => candidate.control_id === gap.control_id);
-
-  if (control === undefined) {
-    throw new Error(`Catalogued control not found: ${gap.control_id}`);
-  }
-
-  return control;
+): CataloguedControlReference | undefined {
+  return catalog.find((candidate) => candidate.control_id === gap.control_id);
 }
 
 function isRelatedToChangedFile(
