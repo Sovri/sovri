@@ -19,6 +19,56 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Added
+
+- `review-engine`: add an ATDD guard for MAT-80 project-level compliance
+  vocabulary definitions across tracked ADR docs with explicit assertion
+  diagnostics, ADR-022 content checks, duplicate-term detection, and
+  missing-vocabulary and regex-backed affirmative finding-category misuse
+  detection, including a project-level output explanation backed by a shared
+  required-terms source, plus model-split coverage for the source compliance model
+  and PR review projection, including helper-backed missing-projection detection, plus
+  glossary-scoped, assertion-consistent docs-test
+  coverage that keeps `Finding` separate from project-level `ComplianceGap`
+  output, covers rejection of PR review findings as the source compliance model,
+  including across real project docs where the project source model is also
+  documented, records the MAT-77 to MAT-113 supersession, and adds traceability
+  coverage for the superseded and rules-engine issue identifiers, plus
+  helper-backed MAT-112 core-domain-model violation detection with project-doc
+  coverage, real-doc-backed output-contract-entry detection, and explanatory
+  failure messaging, plus
+  helper-backed active-history violation detection for fixtures and project docs,
+  plus helper-backed unmentioned-MAT-77 supersession-history coverage,
+  helper-backed issue-scope separation coverage for MAT-112 and MAT-113,
+  including wrapped ADR bullet continuation lines and sentence-level
+  affirmative scope checks, helper-backed source/snapshot vocabulary sync
+  coverage with real snapshot verification when the sibling `../sovri-docs`
+  checkout is present, CI-safe fixture-backed fallback coverage, and
+  Set-backed boundary-aware missing/extra vocabulary drift detection derived
+  from the shared MAT-80 contract fixtures through a regex-free explicit term
+  registry instead of a second static vocabulary list, plus
+  missing-real-snapshot-file failure coverage that keeps the CI fixture fallback
+  limited to absent sibling checkouts, plus
+  helper-backed path-normalized stale-snapshot violation detection with
+  formatted failure messaging for source/snapshot docs change sets, plus
+  real PR change-set snapshot enforcement, flexible unchanged-source coverage
+  that avoids snapshot churn for ADR-only changes, plus direct vocabulary-boundary
+  coverage with case-insensitive term detection, structured snapshot fixtures,
+  configurable sibling snapshot roots, external snapshot change-set handling,
+  GitHub PR merge-parent diff fallback, ADR-root-relative contract authority,
+  regex-backed ADR number parsing, glossary `*` list-marker coverage, scoped
+  active-work MAT-77 detection, and helper-backed ADR-index coverage for new or
+  revised ADR entries, strict contract-schema validation with schema and runtime
+  vocabulary-term uniqueness, authority-path existence checks, existing
+  snapshot-root validation, explicit vocabulary boundary scanning, malformed
+  snapshot fallback rejection, ADR index header-alignment validation, and
+  Markdown-formatted finding-category misuse detection, plus authenticated bounded CI
+  base-history fetches for PR/base diffing
+  and missing new/revised ADR failures, plus helper-backed MAT-113 core-model
+  issue-map coverage that keeps MAT-112 scoped to PR/review output instead of
+  the core model, with indentation-bound issue block parsing that preserves
+  nested issue-map details.
+
 ### Changed
 
 - `review-engine`: a finding is now published only when it maps to a compliance
@@ -60,6 +110,21 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: address MAT-80 docs review feedback by centralizing
+  compliance-pivot literals, tightening issue-scope and supersession checks, and
+  validating ADR index row structure, with the docs-test contract loaded from a
+  shared ADR JSON fixture and stricter MAT-77 active-history/snapshot fallback
+  checks.
+- `review-engine`: keep MAT-80 docs acceptance tests green in CI when root
+  planning docs are intentionally ignored locally by using contract fixtures for
+  absent `PRD.md`, `ARCHI.md`, and `CONTEXT.md`.
+- `review-engine`: tighten MAT-80 docs review guards by enforcing exact
+  snapshot-pair coverage, validating CI fixture markers, keeping ADR assertions
+  independent from ignored planning-doc fixtures, and allowing changed source
+  docs to run without a sibling snapshot checkout, with runtime contract
+  authority-path validation and ADR index checks derived from changed ADR files,
+  including compact-row table validation and row-scoped link/title matching,
+  plus Finding-category misuse checks across configured project docs.
 - `ci`: make workspace TypeScript resolution use package source entrypoints so
   `tsc -b` no longer depends on concurrently generated `dist` declarations
   during local hooks.
