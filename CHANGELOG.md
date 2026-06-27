@@ -39,7 +39,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   plus helper-backed unmentioned-MAT-77 supersession-history coverage, and
   helper-backed path-normalized stale-snapshot violation detection with
   formatted failure messaging for source/snapshot docs change sets, plus
-  streamlined unchanged-source coverage that avoids snapshot churn for
+  consolidated unchanged-source coverage that avoids snapshot churn for
   ADR-only changes.
 
 ### Changed

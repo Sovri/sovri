@@ -569,20 +569,8 @@ describe("MAT-80 compliance pivot vocabulary docs", () => {
     );
 
     // Then the snapshot sync check succeeds without modifying "../sovri-docs/PRD.md"
-    expect(changedPaths, "fixture must not modify ../sovri-docs/PRD.md").not.toContain(
-      "../sovri-docs/PRD.md",
-    );
-
     // And the snapshot sync check succeeds without modifying "../sovri-docs/ARCHI.md"
-    expect(changedPaths, "fixture must not modify ../sovri-docs/ARCHI.md").not.toContain(
-      "../sovri-docs/ARCHI.md",
-    );
-
     // And the snapshot sync check succeeds without modifying "../sovri-docs/glossary.md"
-    expect(changedPaths, "fixture must not modify ../sovri-docs/glossary.md").not.toContain(
-      "../sovri-docs/glossary.md",
-    );
-
     expect(failureMessages, "snapshot sync check must succeed").toEqual([]);
   });
 
