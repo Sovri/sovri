@@ -27,6 +27,23 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   serialization output contract.
 - `review-engine`: require non-CWE `ComplianceGap` output to match a supplied
   catalogued control reference before publication.
+- `review-engine`: render MAT-114 control-result and ComplianceGap output
+  through the MAT-112 output contract.
+- `review-engine`: add MAT-114 fixture acceptance coverage for rendering
+  GDPR/ePrivacy control results through the MAT-112 output contract.
+- `review-engine`: add MAT-112 ATDD coverage for uncatalogued compliance gaps
+  staying out of regulatory output while remaining available as internal
+  diagnostics.
+- `review-engine`: keep uncatalogued compliance gaps out of regulatory
+  PR/report output while rendering them as internal diagnostics and rejecting
+  uncatalogued regulatory publication claims.
+- `review-engine`: reject uncatalogued compliance gaps at the publishability
+  gate even before report text is available.
+- `review-engine`: add MAT-112 ATDD coverage for catalogued compliance gap
+  references rendering in project report and pull request output without CWE
+  requirements.
+- `review-engine`: add catalogued `ComplianceGap` rendering helpers for project
+  report and pull request output without CWE requirements.
 - `review-engine`: add an ATDD guard for MAT-80 project-level compliance
   vocabulary definitions across tracked ADR docs with explicit assertion
   diagnostics, ADR-022 content checks, duplicate-term detection, and
@@ -116,6 +133,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: render ControlResult-backed ComplianceGaps when the nested
+  gap omits a duplicate control id and relies on the enclosing control result.
 - `review-engine`: address MAT-80 docs review feedback by centralizing
   compliance-pivot literals, tightening issue-scope and supersession checks, and
   validating ADR index row structure, with the docs-test contract loaded from a

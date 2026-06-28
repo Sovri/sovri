@@ -111,6 +111,16 @@ export type {
 } from "./compliance-output-contract.js";
 
 export {
+  evaluateComplianceGapPublishability,
+  renderControlResultOutput,
+  renderControlResultPullRequestOutput,
+  renderInternalComplianceDiagnostics,
+  renderComplianceGapProjectReportOutput,
+  renderComplianceGapPullRequestOutput,
+} from "./compliance-gap-rendering.js";
+export type { ComplianceGapPublishabilityResult } from "./compliance-gap-rendering.js";
+
+export {
   classifyResolvedComments,
   computeFindingFingerprint,
   extractFindingFingerprint,
