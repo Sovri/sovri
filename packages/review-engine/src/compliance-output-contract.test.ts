@@ -279,6 +279,35 @@ describe("Non-CWE compliance gaps have a complete output contract", () => {
     expect(Reflect.get(validation, "publishable")).toBe(false);
     expect(Reflect.get(validation, "missing_field")).toEqual(expect.stringContaining("cwe"));
   });
+
+  it("throws a typed validation error when serializing an unpublishable gap", () => {
+    // Given a non-CWE gap whose source URL is not catalog-backed
+    const gap = {
+      id: "gap-tracker-consent-016",
+      framework_id: "GDPR/ePrivacy",
+      control_id: "gdpr-eprivacy-consent-tracking",
+      source_url: "https://example.com/fake",
+      evidence: "web/app/layout.tsx:12 imports @vercel/analytics/react",
+      status: "WARNING",
+      severity: "major",
+      remediation_guidance: remediationGuidance,
+    };
+
+    // When the unpublishable gap is serialized
+    let thrown: unknown;
+    try {
+      callExport("serializeComplianceGapOutput", gap, { catalog });
+    } catch (error) {
+      thrown = error;
+    }
+
+    // Then it throws the typed validation error carrying the non-publishable payload
+    const error = expectPlainObject(thrown);
+    expect(Reflect.get(error, "name")).toBe("ComplianceGapOutputValidationError");
+    const validation = expectPlainObject(Reflect.get(error, "validation"));
+    expect(Reflect.get(validation, "publishable")).toBe(false);
+    expect(Reflect.get(validation, "missing_field")).toBe("catalogued control reference");
+  });
 });
 
 function callExport(name: string, ...args: readonly unknown[]): unknown {

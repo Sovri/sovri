@@ -27,6 +27,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   serialization output contract.
 - `review-engine`: require non-CWE `ComplianceGap` output to match a supplied
   catalogued control reference before publication.
+- `review-engine`: cover the non-CWE `ComplianceGap` serialization error path so
+  `serializeComplianceGapOutput` throws a typed `ComplianceGapOutputValidationError`
+  carrying the non-publishable validation payload.
 - `review-engine`: render MAT-114 control-result and ComplianceGap output
   through the MAT-112 output contract.
 - `review-engine`: add MAT-114 fixture acceptance coverage for rendering
