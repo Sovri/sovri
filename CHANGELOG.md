@@ -21,6 +21,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add output-contract helpers that keep CWE-backed Findings on
+  the existing enrichment path while non-CWE ComplianceGaps use catalogued
+  control references.
+- `review-engine`: add MAT-112 ATDD coverage proving CWE-backed Findings keep
+  the existing enrichment path alongside non-CWE ComplianceGap output.
 - `review-engine`: add MAT-112 ATDD coverage for the non-CWE
   `ComplianceGap` output contract required fields and `Finding` separation.
 - `review-engine`: add the MAT-112 non-CWE `ComplianceGap` validation and
@@ -136,6 +141,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: tighten MAT-112 Finding output-contract helpers to reject
+  rendered ComplianceGap shapes, preserve the existing confidence gate, and
+  omit uncatalogued ComplianceGaps from combined review output.
+- `review-engine`: compare Finding output CWE presence and value explicitly in
+  the MAT-112 output-contract helper.
+- `review-engine`: harden MAT-112 Finding output-contract checks for malformed
+  rendered output, invalid CWE strings, and missing rendered compliance
+  references.
 - `review-engine`: render ControlResult-backed ComplianceGaps when the nested
   gap omits a duplicate control id and relies on the enclosing control result.
 - `review-engine`: address MAT-80 docs review feedback by centralizing

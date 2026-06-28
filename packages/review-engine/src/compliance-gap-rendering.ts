@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Sovri contributors
 
-interface CataloguedControlReference {
+export interface CataloguedControlReference {
   readonly control_id: string;
   readonly framework?: string;
   readonly framework_reference: string;
@@ -9,7 +9,7 @@ interface CataloguedControlReference {
   readonly remediation_guidance: string;
 }
 
-interface ComplianceGapRenderInput {
+export interface ComplianceGapRenderInput {
   readonly id: string;
   readonly control_id?: string;
   readonly evidence?: string;
