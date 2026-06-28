@@ -96,6 +96,14 @@ export type {
 
 export { generateAuditReference } from "./audit-ref.js";
 
+export { reviewComplianceOutputContract } from "./compliance-output-contract-review.js";
+export type {
+  ComplianceOutputContractArtifactSet,
+  ComplianceOutputContractReviewResult,
+  ComplianceOutputContractSchema,
+  ComplianceOutputTerm,
+} from "./compliance-output-contract-review.js";
+
 export {
   ComplianceControlReferenceSchema,
   ComplianceGapOutputSchema,

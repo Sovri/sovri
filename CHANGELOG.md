@@ -21,6 +21,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add MAT-112 ATDD coverage that keeps `Finding`,
+  `ComplianceGap`, and `ControlResult` distinct across review prompts, schemas,
+  and docs.
+- `review-engine`: expose a compliance output contract reviewer for prompt,
+  schema, and docs artifacts that keeps `Finding`, `ComplianceGap`, and
+  `ControlResult` meanings separate.
 - `review-engine`: add MAT-112 ATDD coverage for PR compliance-gap projection
   filtering by changed file, route, and dependency relation metadata while
   project reports render every catalogued gap.
@@ -147,6 +153,14 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: avoid false positives in compliance output contract checks
+  when docs or prompts explicitly prohibit Finding-category misuse or
+  LLM-authored compliance gap source URLs.
+- `review-engine`: tighten the compliance output contract reviewer for missing
+  term definitions, Markdown-wrapped `ComplianceGap` misuse, and equivalent
+  prompt requests for LLM-authored regulatory source URLs.
+- `review-engine`: reject compliance output schema artifacts that omit
+  distinguishing fields and gap-first source URL prompt requests.
 - `review-engine`: tighten PR compliance-gap projection feedback by matching
   published `Gap id:` lines exactly and removing redundant relation-option
   spreading in the projection renderer, while rejecting unknown published gaps
