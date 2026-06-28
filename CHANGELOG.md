@@ -21,6 +21,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Added
 
+- `review-engine`: add MAT-112 ATDD coverage that keeps ADR-021 and ADR-022
+  aligned on the project compliance source model and PR/report output contract.
 - `review-engine`: add MAT-112 ATDD coverage that keeps `Finding`,
   `ComplianceGap`, and `ControlResult` distinct across review prompts, schemas,
   and docs.
@@ -153,6 +155,11 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `review-engine`: harden MAT-112 ADR output-contract tests with symlink-safe
+  root discovery, fatal UTF-8 decoding, direct negated-scope matching, and
+  ambiguous or unrelated scope edge-case coverage.
+- `review-engine`: tighten MAT-112 ADR output-contract acceptance helpers with
+  project-root discovery and affirmative MAT-112 scope validation.
 - `review-engine`: avoid false positives in compliance output contract checks
   when docs or prompts explicitly prohibit Finding-category misuse or
   LLM-authored compliance gap source URLs.
