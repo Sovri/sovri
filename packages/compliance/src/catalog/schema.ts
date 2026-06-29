@@ -87,14 +87,12 @@ type FrameworkReferenceCatalog = z.infer<typeof FrameworkReferenceCatalogSchema>
 
 function frameworkReferenceComponents(
   reference: FrameworkReferenceCatalog,
-): readonly (string | null)[] {
+): readonly (string | undefined)[] {
   if (typeof reference === "string") {
-    const [framework, version, referenceId] = reference.split(":");
-
-    return [framework ?? null, version ?? null, referenceId ?? null];
+    return reference.split(":");
   }
 
-  return [reference.framework ?? null, reference.version ?? null, reference.reference ?? null];
+  return [reference.framework, reference.version, reference.reference];
 }
 
 function frameworkReferenceDeduplicationKey(reference: FrameworkReferenceCatalog): string {
@@ -106,11 +104,7 @@ function frameworkReferenceDescription(reference: FrameworkReferenceCatalog): st
     return reference;
   }
 
-  return (
-    [reference.framework, reference.version, reference.reference]
-      .filter((component) => component !== undefined && component !== "")
-      .join(":") || "object-form framework reference"
-  );
+  return frameworkReferenceComponents(reference).join(":");
 }
 
 const FrameworkReferenceListCatalogSchema = z
