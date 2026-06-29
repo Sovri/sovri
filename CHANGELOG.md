@@ -28,6 +28,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving declared values in MAT-83 ATDD coverage.
 
 ### Added
+- `compliance`: add MAT-83 fixture suite coverage for reporting consent seed
+  fixtures missing their tracker detection rule.
 - `compliance`: add fixture suite validation for missing required catalog seed
   controls.
 - `compliance`: add MAT-83 fixture suite coverage for reporting missing

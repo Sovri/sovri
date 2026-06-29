@@ -6,11 +6,13 @@ import { validateCatalogYaml } from "./schema.js";
 export interface CatalogFixtureSeed {
   readonly controlYaml: string;
   readonly name: string;
+  readonly ruleYaml?: string;
 }
 
 export interface CatalogFixtureSuiteValidationInput {
   readonly frameworkFamily: string;
   readonly requiredControls: readonly string[];
+  readonly requiredRules?: readonly string[];
   readonly seeds: readonly CatalogFixtureSeed[];
 }
 

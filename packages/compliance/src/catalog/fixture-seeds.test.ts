@@ -48,6 +48,10 @@ const missingRequiredFixtureSeedExamples = [
   readonly presentFixtureSeed: string;
 }[];
 
+const consentTrackerControl = "consent.tracker.prior-consent";
+const consentTrackerDetectionRule = "consent.detect-trackers-without-consent-evidence";
+const consentFixtureSeed = "mat-114-consent-control";
+
 function catalogFixtureYaml(fixtureSeed: string, file: string): string {
   return readFileSync(new URL(`./fixtures/${fixtureSeed}/${file}`, import.meta.url), "utf8");
 }
@@ -143,5 +147,35 @@ describe("compliance catalog fixture seeds", () => {
       // And the validation error names "<missing control>"
       expect(formatFixtureSuiteValidationResult(result)).toContain(example.missingControl);
     }
+  });
+
+  it("reports a consent-control seed missing its tracker detection rule", () => {
+    const frameworkFamily = "mat-83-fixtures";
+
+    // Given the fixtures include control "consent.tracker.prior-consent"
+    const controlYaml = catalogFixtureYaml(consentFixtureSeed, "control.yaml");
+    expect(controlYaml).toContain(`id: ${consentTrackerControl}`);
+
+    // And the fixtures do not include rule "consent.detect-trackers-without-consent-evidence"
+    expect(controlYaml).not.toContain(`id: ${consentTrackerDetectionRule}`);
+
+    // When the fixture validation suite runs
+    const result = validateCatalogFixtureSuite({
+      frameworkFamily,
+      requiredControls: [consentTrackerControl],
+      requiredRules: [consentTrackerDetectionRule],
+      seeds: [
+        {
+          controlYaml,
+          name: consentFixtureSeed,
+        },
+      ],
+    });
+
+    // Then validation fails
+    expect(result.success).toBe(false);
+
+    // And the validation error names "consent.detect-trackers-without-consent-evidence"
+    expect(formatFixtureSuiteValidationResult(result)).toContain(consentTrackerDetectionRule);
   });
 });
