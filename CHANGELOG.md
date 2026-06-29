@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `compliance`: require `framework.yaml` source metadata in MAT-83 catalog
+  schema validation.
 - `compliance`: accept `control.yaml` source metadata with official URLs in
   MAT-83 catalog schema validation.
 - `compliance`: tie required fixture seed rules to their owning control and
@@ -33,6 +35,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving declared values in MAT-83 ATDD coverage.
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting `framework.yaml`
+  without source metadata.
 - `compliance`: add MAT-83 ATDD coverage for validating `control.yaml` source
   metadata with an official URL.
 - `compliance`: add a MAT-83 framework catalog fixture for fixture suite
