@@ -220,6 +220,7 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `compliance`: reject duplicate object-form `mapping.yaml` framework references.
 - `compliance`: reject catalog schema data missing the required `version`,
   `remediation`, `expected_evidence`, or `control_id` fields.
 - `compliance`: reject unknown top-level fields in framework, control, rule, and

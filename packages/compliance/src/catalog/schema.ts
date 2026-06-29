@@ -83,6 +83,33 @@ const FrameworkReferenceCatalogSchema = z.union([
   }),
 ]);
 
+type FrameworkReferenceCatalog = z.infer<typeof FrameworkReferenceCatalogSchema>;
+
+function frameworkReferenceDeduplicationKey(reference: FrameworkReferenceCatalog): string {
+  if (typeof reference === "string") {
+    return JSON.stringify(["string", reference]);
+  }
+
+  return JSON.stringify([
+    "object",
+    reference.framework ?? null,
+    reference.version ?? null,
+    reference.reference ?? null,
+  ]);
+}
+
+function frameworkReferenceDescription(reference: FrameworkReferenceCatalog): string {
+  if (typeof reference === "string") {
+    return reference;
+  }
+
+  return (
+    [reference.framework, reference.version, reference.reference]
+      .filter((component) => component !== undefined && component !== "")
+      .join(":") || "object-form framework reference"
+  );
+}
+
 const FrameworkReferenceListCatalogSchema = z
   .array(FrameworkReferenceCatalogSchema)
   .min(1)
@@ -90,20 +117,18 @@ const FrameworkReferenceListCatalogSchema = z
     const seenReferences = new Set<string>();
 
     references.forEach((reference, index) => {
-      if (typeof reference !== "string") {
-        return;
-      }
+      const deduplicationKey = frameworkReferenceDeduplicationKey(reference);
 
-      if (seenReferences.has(reference)) {
+      if (seenReferences.has(deduplicationKey)) {
         context.addIssue({
           code: "custom",
-          message: `duplicate framework reference "${reference}"`,
+          message: `duplicate framework reference "${frameworkReferenceDescription(reference)}"`,
           path: [index],
         });
         return;
       }
 
-      seenReferences.add(reference);
+      seenReferences.add(deduplicationKey);
     });
   });
 
