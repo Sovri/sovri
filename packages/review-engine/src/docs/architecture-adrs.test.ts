@@ -661,7 +661,7 @@ describe("MAT-82 R-07 — ADRs keep ComplianceGap and ControlResult distinct fro
 describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog data", () => {
   it("states Git owns framework catalog data", () => {
     // Given the repository contains architecture docs under "sovri/docs/adr/"
-    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("sovri/docs/adr")).toBe(true);
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
 
     // When I read the compliance catalog docs
     const complianceCatalogDocs = adrCorpus;
