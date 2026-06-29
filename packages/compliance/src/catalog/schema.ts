@@ -8,6 +8,7 @@ import { z } from "@sovri/core";
 export interface CatalogYamlValidationInput {
   readonly file: string;
   readonly frameworkFamily: string;
+  readonly relatedControl?: ControlCatalog;
   readonly yaml: string;
 }
 
@@ -200,6 +201,23 @@ function isCatalogSchemaFile(file: string): file is keyof typeof CatalogSchemasB
   return Object.hasOwn(CatalogSchemasByFile, file);
 }
 
+function projectWideControlInputScopeIssue(
+  rule: RuleCatalog,
+  relatedControl: ControlCatalog | undefined,
+): CatalogYamlValidationIssue | undefined {
+  if (
+    relatedControl?.applicability !== "project-wide" ||
+    (rule.input_scope !== "file" && rule.input_scope !== "diff")
+  ) {
+    return undefined;
+  }
+
+  return {
+    message: "project-wide controls require project-level input scope",
+    path: ["input_scope"],
+  };
+}
+
 export function validateCatalogYaml(
   input: CatalogYamlValidationInput,
 ): CatalogYamlValidationResult {
@@ -276,6 +294,21 @@ export function validateCatalogYaml(
       },
       success: false,
     };
+  }
+
+  if (input.file === "rule.yaml") {
+    const projectWideInputScopeIssue = projectWideControlInputScopeIssue(
+      result.data as RuleCatalog,
+      input.relatedControl,
+    );
+    if (projectWideInputScopeIssue !== undefined) {
+      return {
+        error: {
+          issues: [projectWideInputScopeIssue],
+        },
+        success: false,
+      };
+    }
   }
 
   return {

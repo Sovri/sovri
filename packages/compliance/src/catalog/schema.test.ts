@@ -38,6 +38,7 @@ interface CatalogSchema {
 interface CatalogYamlValidationInput {
   readonly file: string;
   readonly frameworkFamily: string;
+  readonly relatedControl?: unknown;
   readonly yaml: string;
 }
 
@@ -298,6 +299,20 @@ const supportedControlScopeExamples = [
   readonly inputScope: string;
 }[];
 
+const projectWideControlScopeViolationExamples = [
+  {
+    control: "privacy.retention.project-policy",
+    inputScope: "diff",
+  },
+  {
+    control: "privacy.retention.project-policy",
+    inputScope: "file",
+  },
+] satisfies readonly {
+  readonly control: string;
+  readonly inputScope: string;
+}[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -396,6 +411,15 @@ function ruleYamlWithScopeAndEvidenceFor(
     `id: ${control}.rule`,
     "rule_type: automatic",
     `input_scope: ${inputScope}`,
+    `expected_evidence: ${expectedEvidence}`,
+    "execution_policy: run-in-agent",
+  ].join("\n");
+}
+
+function ruleYamlWithoutInputScopeFor(control: string, expectedEvidence: string): string {
+  return [
+    `id: ${control}.rule`,
+    "rule_type: automatic",
     `expected_evidence: ${expectedEvidence}`,
     "execution_policy: run-in-agent",
   ].join("\n");
@@ -935,6 +959,84 @@ describe("compliance catalog YAML schemas", () => {
       throw new TypeError("Expected rule.yaml validation to fail.");
     }
     expect(formatValidationFailure(ruleResult)).toContain("input_scope");
+  });
+
+  it("rejects project-wide controls forced into file or diff scope", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const frameworkFamily = "gdpr-eprivacy";
+
+    for (const example of projectWideControlScopeViolationExamples) {
+      const controlYaml = controlYamlFor(example.control, "project-wide");
+      const ruleYaml = ruleYamlWithScopeAndEvidenceFor(
+        example.control,
+        example.inputScope,
+        "retention-policy-document",
+      );
+
+      // Given the catalog contains control "<control>"
+      expect(controlYaml).toContain(`id: ${example.control}`);
+
+      // And "control.yaml" declares applicability "project-wide"
+      expect(controlYaml).toContain("applicability: project-wide");
+
+      // And "rule.yaml" declares input_scope "<input scope>"
+      expect(ruleYaml).toContain(`input_scope: ${example.inputScope}`);
+
+      // When the catalog schema validator runs
+      const controlResult = validateCatalogYaml({
+        file: "control.yaml",
+        frameworkFamily,
+        yaml: controlYaml,
+      });
+      if (!controlResult.success) {
+        throw new TypeError("Expected control.yaml validation to pass.");
+      }
+      const ruleResult = validateCatalogYaml({
+        file: "rule.yaml",
+        frameworkFamily,
+        relatedControl: controlResult.data,
+        yaml: ruleYaml,
+      });
+
+      // Then validation fails for "rule.yaml"
+      expect(ruleResult.success).toBe(false);
+      if (ruleResult.success) {
+        throw new TypeError("Expected rule.yaml validation to fail.");
+      }
+
+      // And the validation error reports that project-wide controls require project-level input scope
+      expect(formatValidationFailure(ruleResult)).toContain(
+        "project-wide controls require project-level input scope",
+      );
+    }
+  });
+
+  it("allows project-wide controls when rule input scope is not declared", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const frameworkFamily = "gdpr-eprivacy";
+    const control = "privacy.retention.project-policy";
+    const controlYaml = controlYamlFor(control, "project-wide");
+    const ruleYaml = ruleYamlWithoutInputScopeFor(control, "retention-policy-document");
+
+    const controlResult = validateCatalogYaml({
+      file: "control.yaml",
+      frameworkFamily,
+      yaml: controlYaml,
+    });
+    if (!controlResult.success) {
+      throw new TypeError("Expected control.yaml validation to pass.");
+    }
+
+    const ruleResult = validateCatalogYaml({
+      file: "rule.yaml",
+      frameworkFamily,
+      relatedControl: controlResult.data,
+      yaml: ruleYaml,
+    });
+
+    expect(ruleResult.success, formatValidationFailure(ruleResult)).toBe(true);
   });
 
   it("rejects missing rule execution policy", async () => {
