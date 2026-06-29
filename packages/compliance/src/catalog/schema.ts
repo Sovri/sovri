@@ -15,7 +15,7 @@ export const FrameworkCatalogSchema = z
     name: z.string().optional(),
     scope: z.string().optional(),
     source: SourceMetadataSchema.optional(),
-    version: z.string().optional(),
+    version: z.string(),
   })
   .strict();
 export type FrameworkCatalog = z.infer<typeof FrameworkCatalogSchema>;
@@ -25,7 +25,7 @@ export const ControlCatalogSchema = z
     applicability: z.string().optional(),
     description: z.string().optional(),
     id: z.string().optional(),
-    remediation: z.string().optional(),
+    remediation: z.string(),
     severity: z.string().optional(),
     title: z.string().optional(),
     weight: z.number().optional(),
@@ -35,7 +35,7 @@ export type ControlCatalog = z.infer<typeof ControlCatalogSchema>;
 
 export const RuleCatalogSchema = z
   .object({
-    expected_evidence: z.string().optional(),
+    expected_evidence: z.string(),
     execution_policy: z.string().optional(),
     id: z.string().optional(),
     input_scope: z.string().optional(),
@@ -53,7 +53,7 @@ const FrameworkReferenceCatalogSchema = z.object({
 
 export const MappingCatalogSchema = z
   .object({
-    control_id: z.string().optional(),
+    control_id: z.string(),
     framework_references: z.array(FrameworkReferenceCatalogSchema).optional(),
   })
   .strict();

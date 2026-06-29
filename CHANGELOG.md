@@ -188,6 +188,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `compliance`: reject catalog schema data missing the required `version`,
+  `remediation`, `expected_evidence`, or `control_id` fields.
 - `compliance`: reject unknown top-level fields in framework, control, rule, and
   mapping catalog schemas.
 - `review-engine`: reject rendered Finding output whose `cwe`, `control_id`, or
