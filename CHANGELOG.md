@@ -154,6 +154,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: reject empty `framework_references` lists in `mapping.yaml`
+  catalog data.
 - `compliance`: accept versioned `framework:version:reference` string entries
   in `mapping.yaml` catalog data.
 - `compliance`: parse catalog YAML content before schema validation and return a
