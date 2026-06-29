@@ -29,8 +29,15 @@ export type CatalogYamlValidationResult =
       readonly success: false;
     };
 
+const LlmGeneratedSourceDescriptionPattern = /\bgenerated\s+by\s+llm\s+from\s+the\s+prompt\b/iu;
+
 const SourceMetadataSchema = z.object({
-  description: z.string(),
+  description: z
+    .string()
+    .refine(
+      (description) => !LlmGeneratedSourceDescriptionPattern.test(description),
+      "source descriptions are catalog data, not LLM output",
+    ),
   url: z.string().optional(),
 });
 

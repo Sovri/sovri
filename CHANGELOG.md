@@ -20,6 +20,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `compliance`: normalize LLM-generated source description detection across
+  case and whitespace variations.
+- `compliance`: reject LLM-generated source descriptions in MAT-83 catalog
+  source metadata validation.
 - `compliance`: require `source.description` in MAT-83 catalog source
   metadata validation.
 - `compliance`: require `framework.yaml` source metadata in MAT-83 catalog
@@ -37,6 +41,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving declared values in MAT-83 ATDD coverage.
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting LLM-generated
+  `control.yaml` source descriptions.
 - `compliance`: add MAT-83 ATDD coverage for rejecting `control.yaml` source
   metadata without a description.
 - `compliance`: add MAT-83 ATDD coverage for rejecting `framework.yaml`
