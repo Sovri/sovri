@@ -19,6 +19,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Changed
+- `compliance`: require explicit `rule.yaml` execution policy data while
+  preserving declared values in MAT-83 ATDD coverage.
+
 ### Added
 - `compliance`: reject missing `rule.yaml` execution types with MAT-83 ATDD
   coverage.
