@@ -659,7 +659,13 @@ describe("MAT-82 R-07 — ADRs keep ComplianceGap and ControlResult distinct fro
 // ---------------------------------------------------------------------------
 
 function gitSourceOfTruthFailures(docs: string): string[] {
-  if (lineMentionsAll(docs, ["Git", "source of truth", "catalog"])) {
+  const statesGitAsSourceOfTruth = normalizedLines(docs).some((line) =>
+    /\bgit( repository)?\b\s+(is|as|remains|stays)\s+(the )?source of truth\b[^.!?;:]*\bcatalogs?\b/.test(
+      line,
+    ),
+  );
+
+  if (statesGitAsSourceOfTruth) {
     return [];
   }
 
@@ -737,6 +743,14 @@ describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog dat
     // Then it fails
     expect(failures).not.toEqual([]);
     // And it reports that the Git source-of-truth decision is missing
+    expect(failures).toContain("Git source-of-truth decision is missing");
+  });
+
+  it("rejects docs that name Git but assign catalog source of truth elsewhere", () => {
+    const docsWithGitMirrorOnly = "Cloud is the source of truth for catalog data; Git mirrors it.";
+
+    const failures = gitSourceOfTruthFailures(docsWithGitMirrorOnly);
+
     expect(failures).toContain("Git source-of-truth decision is missing");
   });
 
