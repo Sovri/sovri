@@ -70,8 +70,10 @@ export const RuleCatalogSchema = z
   .strict();
 export type RuleCatalog = z.infer<typeof RuleCatalogSchema>;
 
+const VersionedFrameworkReferenceStringSchema = z.string().regex(/^[^:\s]+:[^:\s]+:[^:\s]+$/u);
+
 const FrameworkReferenceCatalogSchema = z.union([
-  z.string(),
+  VersionedFrameworkReferenceStringSchema,
   z.object({
     framework: z.string().optional(),
     reference: z.string().optional(),
