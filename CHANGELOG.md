@@ -29,8 +29,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   ADRs state air-gap execution, catalog-backed references, repository boundaries,
   the compliance data flow, the LLM role, and the compliance/`Finding` type split;
   the violation detectors match anti-patterns precisely (each repository tied to
-  its responsibility on one line, affirmative citation-source claims, reject-only
-  exemptions), so an unrelated safe term cannot suppress a real violation.
+  its responsibility on one line, the data-flow order within a single sentence,
+  affirmative citation-source claims, reject-only exemptions), so stages or terms
+  from unrelated ADRs cannot satisfy or suppress a check by accident.
 
 - `review-engine`: add MAT-112 ATDD coverage that keeps ADR-021 and ADR-022
   aligned on the project compliance source model and PR/report output contract.

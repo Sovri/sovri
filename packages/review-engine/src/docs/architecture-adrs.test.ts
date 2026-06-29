@@ -84,8 +84,10 @@ function normalizedLines(docs: string): readonly string[] {
 }
 
 function describesInOrder(docs: string, stages: readonly string[]): boolean {
+  // Stages must appear in order within a single sentence: `[^.!?]` never crosses a sentence
+  // boundary, so stages scattered across unrelated ADRs cannot satisfy the order by accident.
   const pattern = new RegExp(
-    stages.map((stage) => escapeRegExp(normalize(stage))).join("[\\s\\S]*?"),
+    stages.map((stage) => escapeRegExp(normalize(stage))).join("[^.!?]*?"),
   );
   return pattern.test(normalize(docs));
 }
@@ -253,6 +255,18 @@ describe("MAT-82 R-02 — ADRs define the compliance data flow end to end", () =
     // Then the ADRs describe the data flow in order: catalog, then rule, then evidence,
     // then control result, then compliance gap, then report and PR projection
     expect(describesInOrder(adrCorpus, DATA_FLOW_STAGES)).toBe(true);
+  });
+
+  it("requires the ordered flow within one sentence, not scattered across ADRs", () => {
+    // Stages appearing in order but in separate sentences (as they do across the corpus) must
+    // not satisfy the ordered-flow assertion; only a single flow statement counts.
+    const scattered =
+      "Catalog hooks run first. A rule fires. Evidence is stored. A control result is computed. A compliance gap is noted. The report and PR projection is separate.";
+    expect(describesInOrder(scattered, DATA_FLOW_STAGES)).toBe(false);
+
+    const oneSentence =
+      "Flow: catalog → rule → evidence → control result → compliance gap → report and PR projection.";
+    expect(describesInOrder(oneSentence, DATA_FLOW_STAGES)).toBe(true);
   });
 
   it.each(DATA_FLOW_STAGES)("names %s as a stage of the compliance data flow", (stage) => {
