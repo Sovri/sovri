@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `review-engine`: normalize wrapped ADR statements before checking MAT-83
+  Git source-of-truth docs.
 - `review-engine`: require Git to be the subject of MAT-83 catalog
   source-of-truth docs.
 - `review-engine`: report missing Git source-of-truth language in MAT-83 ADR

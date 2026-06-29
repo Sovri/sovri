@@ -83,6 +83,13 @@ function normalizedLines(docs: string): readonly string[] {
     .filter((line) => line.length > 0);
 }
 
+function normalizedStatements(docs: string): readonly string[] {
+  return docs
+    .split(/\r?\n\s*\r?\n/)
+    .flatMap((block) => normalize(block).split(/(?<=[.!?])\s+/))
+    .filter((statement) => statement.length > 0);
+}
+
 function describesInOrder(docs: string, stages: readonly string[]): boolean {
   // Stages must appear in order within a single sentence: `[^.!?]` never crosses a sentence
   // boundary, so stages scattered across unrelated ADRs cannot satisfy the order by accident.
@@ -659,9 +666,9 @@ describe("MAT-82 R-07 — ADRs keep ComplianceGap and ControlResult distinct fro
 // ---------------------------------------------------------------------------
 
 function gitSourceOfTruthFailures(docs: string): string[] {
-  const statesGitAsSourceOfTruth = normalizedLines(docs).some((line) =>
+  const statesGitAsSourceOfTruth = normalizedStatements(docs).some((statement) =>
     /\bgit( repository)?\b\s+(is|as|remains|stays)\s+(the )?source of truth\b[^.!?;:]*\bcatalogs?\b/.test(
-      line,
+      statement,
     ),
   );
 
@@ -752,6 +759,15 @@ describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog dat
     const failures = gitSourceOfTruthFailures(docsWithGitMirrorOnly);
 
     expect(failures).toContain("Git source-of-truth decision is missing");
+  });
+
+  it("accepts wrapped Git source-of-truth decision sentences", () => {
+    const wrappedGitDecision = [
+      "The sovri-frameworks Git repository is the source of truth for framework, control, and rule",
+      "catalogs.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(wrappedGitDecision)).toEqual([]);
   });
 
   it("connects schema catalogs to deterministic rule execution", () => {
