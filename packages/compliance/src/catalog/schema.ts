@@ -102,7 +102,7 @@ const RuleExecutionTypeCatalogSchema = z
 export const RuleCatalogSchema = z
   .object({
     expected_evidence: z.string(),
-    execution_policy: z.string().optional(),
+    execution_policy: z.string(),
     id: z.string().optional(),
     input_scope: z.string().optional(),
     result_policy: z.string().optional(),

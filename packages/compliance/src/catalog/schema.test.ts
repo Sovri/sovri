@@ -345,6 +345,7 @@ function ruleYamlFor(ruleId: string, ruleType: string): string {
   return [
     `id: ${ruleId}`,
     `rule_type: ${ruleType}`,
+    "execution_policy: run-in-agent",
     "expected_evidence: compliance-rule-evidence",
   ].join("\n");
 }
@@ -366,12 +367,25 @@ function quotedRuleYamlFor(ruleId: string, ruleType: string): string {
   return [
     `id: ${ruleId}`,
     `rule_type: ${JSON.stringify(ruleType)}`,
+    "execution_policy: run-in-agent",
     "expected_evidence: compliance-rule-evidence",
   ].join("\n");
 }
 
 function ruleYamlWithoutRuleTypeFor(ruleId: string): string {
-  return [`id: ${ruleId}`, "expected_evidence: compliance-rule-evidence"].join("\n");
+  return [
+    `id: ${ruleId}`,
+    "execution_policy: run-in-agent",
+    "expected_evidence: compliance-rule-evidence",
+  ].join("\n");
+}
+
+function ruleYamlWithoutExecutionPolicyFor(ruleId: string, ruleType: string): string {
+  return [
+    `id: ${ruleId}`,
+    `rule_type: ${ruleType}`,
+    "expected_evidence: compliance-rule-evidence",
+  ].join("\n");
 }
 
 async function loadCatalogSchemaModule(): Promise<CatalogSchemaModule> {
@@ -775,6 +789,37 @@ describe("compliance catalog YAML schemas", () => {
     }
   });
 
+  it("rejects missing rule execution policy", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "rule.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const ruleId = "consent.detect-trackers";
+    const ruleType = "automatic";
+    const yaml = ruleYamlWithoutExecutionPolicyFor(ruleId, ruleType);
+
+    // Given the catalog contains rule "consent.detect-trackers"
+    expect(yaml).toContain(`id: ${ruleId}`);
+
+    // And "rule.yaml" declares rule_type "automatic"
+    expect(yaml).toContain(`rule_type: ${ruleType}`);
+
+    // And "rule.yaml" does not declare "execution_policy"
+    expect(yaml).not.toContain("execution_policy");
+
+    // When the catalog schema validator runs
+    const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+    // Then validation fails for "rule.yaml"
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError(`Expected ${file} validation to fail.`);
+    }
+
+    // And the validation error names "execution_policy"
+    expect(formatValidationFailure(result)).toContain("execution_policy");
+  });
+
   it("rejects unsupported rule execution types", async () => {
     const moduleValue = await loadCatalogSchemaModule();
     const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
@@ -997,6 +1042,7 @@ describe("compliance catalog YAML schemas", () => {
     expect(PublicCatalogSchemasByFile["framework.yaml"]).toBeDefined();
     expect(publicValidateCatalogYaml).toBeTypeOf("function");
     expectTypeOf<PublicCatalogYamlValidationResult>().not.toBeNever();
+    expectTypeOf<PublicRuleCatalog["execution_policy"]>().toEqualTypeOf<string>();
     expectTypeOf<
       NonNullable<PublicRuleCatalog["rule_type"]>
     >().toEqualTypeOf<SupportedRuleExecutionType>();
