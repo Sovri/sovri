@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Added
+- `compliance`: add initial parsed-data catalog schemas for framework, control,
+  rule, and mapping YAML files.
 - `compliance`: add MAT-83 ATDD coverage for valid framework, control, rule, and
   mapping catalog schema data.
 - `docs`: add architecture ADRs 023-027 (MAT-82) fixing the compliance rule
