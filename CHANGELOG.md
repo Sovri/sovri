@@ -142,6 +142,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: parse catalog YAML content before schema validation and return a
+  structured `invalid YAML syntax` validation failure for malformed YAML.
 - `config`: `review.mode` now exposes the single allowed value `compliance` and
   defaults to `compliance` (was `full`). The field is kept so the config surface
   stays stable and extensible, but there is exactly one review behaviour —
