@@ -172,6 +172,29 @@ const missingFieldExamples = [
   readonly missingField: string;
 }[];
 
+const versionedFrameworkReferenceExamples = [
+  {
+    control: "consent.tracker.prior-consent",
+    frameworkReferences: "gdpr:2016:article-6",
+    referenceCount: 1,
+  },
+  {
+    control: "access.logging.admin-actions",
+    frameworkReferences: "iso27001:2022:a-8-15, nis2:2022:article-21-2-d",
+    referenceCount: 2,
+  },
+  {
+    control: "consent.tracker.prior-consent",
+    frameworkReferences:
+      "gdpr:2016:article-6, eprivacy:2002:article-5-3, eprivacy:2009:article-5-3",
+    referenceCount: 3,
+  },
+] satisfies readonly {
+  readonly control: string;
+  readonly frameworkReferences: string;
+  readonly referenceCount: number;
+}[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -234,6 +257,14 @@ function requireCatalogYamlValidator(moduleValue: CatalogSchemaModule): CatalogY
   }
 
   return moduleValue.validateCatalogYaml;
+}
+
+function mappingYamlFor(control: string, frameworkReferences: readonly string[]): string {
+  return [
+    `control_id: ${control}`,
+    "framework_references:",
+    ...frameworkReferences.map((reference) => `  - ${reference}`),
+  ].join("\n");
 }
 
 async function loadCatalogSchemaModule(): Promise<CatalogSchemaModule> {
@@ -343,6 +374,41 @@ describe("compliance catalog YAML schemas", () => {
     }
   });
 
+  it("validates one control mapped to one or more versioned framework references", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "mapping.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+
+    for (const example of versionedFrameworkReferenceExamples) {
+      const frameworkReferences = example.frameworkReferences.split(", ");
+      const yaml = mappingYamlFor(example.control, frameworkReferences);
+
+      // Given the catalog contains control "<control>"
+      expect(example.control).toMatch(/^[a-z0-9.-]+$/u);
+      expect(yaml).toContain(`control_id: ${example.control}`);
+
+      // And "mapping.yaml" maps that control to framework references "<framework references>"
+      expect(example.frameworkReferences).toBe(frameworkReferences.join(", "));
+      for (const reference of frameworkReferences) {
+        expect(yaml).toContain(`  - ${reference}`);
+      }
+
+      // When the catalog schema validator runs
+      const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+      // Then validation passes for "mapping.yaml"
+      expect(result.success, formatValidationFailure(result)).toBe(true);
+      if (!result.success || !isRecord(result.data)) {
+        throw new TypeError(`Expected ${file} validation to pass.`);
+      }
+
+      // And the control has <reference count> framework references
+      expect(result.data.control_id).toBe(example.control);
+      expect(result.data.framework_references).toHaveLength(example.referenceCount);
+    }
+  });
+
   it("rejects empty YAML documents before catalog validation can pass", async () => {
     const moduleValue = await loadCatalogSchemaModule();
     const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
@@ -437,7 +503,7 @@ describe("compliance catalog YAML schemas", () => {
     const yaml = [
       "control_id: consent.tracker.prior-consent",
       "framework_references:",
-      "  - gdpr:2016:article-6",
+      "  - 42",
     ].join("\n");
 
     const result = validateCatalogYaml({ file, frameworkFamily, yaml });
