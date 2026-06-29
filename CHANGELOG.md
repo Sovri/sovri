@@ -156,6 +156,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: report a version-specific validation error for unversioned
+  `mapping.yaml` framework references.
 - `compliance`: require non-empty `framework_references` lists in
   `mapping.yaml` catalog data.
 - `compliance`: accept versioned `framework:version:reference` string entries
