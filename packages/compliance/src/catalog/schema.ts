@@ -67,10 +67,37 @@ const SupportedRuleExecutionTypes = [
 const SupportedRuleExecutionTypeList = SupportedRuleExecutionTypes.map((ruleType) =>
   JSON.stringify(ruleType),
 ).join(", ");
+const SupportedRuleExecutionTypeSet = new Set<string>(SupportedRuleExecutionTypes);
 
-const RuleExecutionTypeCatalogSchema = z.enum(SupportedRuleExecutionTypes, {
-  error: `rule_type must be one of ${SupportedRuleExecutionTypeList}`,
-});
+function ruleExecutionTypeError(ruleType: string): string {
+  if (SupportedRuleExecutionTypeSet.has(ruleType.toLowerCase())) {
+    return `rule_type values are case-sensitive; rule_type must be one of ${SupportedRuleExecutionTypeList}`;
+  }
+
+  if (ruleType.trimStart() !== ruleType) {
+    return `leading whitespace is not trimmed; rule_type must be one of ${SupportedRuleExecutionTypeList}`;
+  }
+
+  if (ruleType.trimEnd() !== ruleType) {
+    return `trailing whitespace is not trimmed; rule_type must be one of ${SupportedRuleExecutionTypeList}`;
+  }
+
+  return `rule_type must be one of ${SupportedRuleExecutionTypeList}`;
+}
+
+const RuleExecutionTypeCatalogSchema = z
+  .string()
+  .superRefine((ruleType, context) => {
+    if (SupportedRuleExecutionTypeSet.has(ruleType)) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: ruleExecutionTypeError(ruleType),
+    });
+  })
+  .pipe(z.enum(SupportedRuleExecutionTypes));
 
 export const RuleCatalogSchema = z
   .object({

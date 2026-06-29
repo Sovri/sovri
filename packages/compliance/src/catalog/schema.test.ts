@@ -10,6 +10,7 @@ import {
   CatalogSchemasByFile as PublicCatalogSchemasByFile,
   validateCatalogYaml as publicValidateCatalogYaml,
   type CatalogYamlValidationResult as PublicCatalogYamlValidationResult,
+  type RuleCatalog as PublicRuleCatalog,
 } from "../index.js";
 
 interface ValidationIssue {
@@ -42,6 +43,8 @@ interface CatalogYamlValidationInput {
 type CatalogYamlValidator = (
   input: CatalogYamlValidationInput,
 ) => ValidationFailure | ValidationSuccess;
+
+type SupportedRuleExecutionType = "automatic" | "static-analysis" | "manual" | "evidence-only";
 
 interface CatalogSchemaModule {
   readonly CatalogSchemasByFile: Readonly<Record<string, CatalogSchema>>;
@@ -221,6 +224,24 @@ const supportedRuleExecutionTypes = supportedRuleExecutionTypeExamples.map(
   (example) => example.ruleType,
 );
 
+const exactRuleExecutionTypeExamples = [
+  {
+    declaredValue: "Automatic",
+    rejectedReason: "rule_type values are case-sensitive",
+  },
+  {
+    declaredValue: " automatic",
+    rejectedReason: "leading whitespace is not trimmed",
+  },
+  {
+    declaredValue: "automatic ",
+    rejectedReason: "trailing whitespace is not trimmed",
+  },
+] satisfies readonly {
+  readonly declaredValue: string;
+  readonly rejectedReason: string;
+}[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -297,6 +318,14 @@ function ruleYamlFor(ruleId: string, ruleType: string): string {
   return [
     `id: ${ruleId}`,
     `rule_type: ${ruleType}`,
+    "expected_evidence: compliance-rule-evidence",
+  ].join("\n");
+}
+
+function quotedRuleYamlFor(ruleId: string, ruleType: string): string {
+  return [
+    `id: ${ruleId}`,
+    `rule_type: ${JSON.stringify(ruleType)}`,
     "expected_evidence: compliance-rule-evidence",
   ].join("\n");
 }
@@ -700,6 +729,40 @@ describe("compliance catalog YAML schemas", () => {
     }
   });
 
+  it("rejects rule execution type values that do not match exactly", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "rule.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const ruleId = "consent.detect-trackers";
+
+    for (const example of exactRuleExecutionTypeExamples) {
+      const yaml = quotedRuleYamlFor(ruleId, example.declaredValue);
+
+      // Given the catalog contains rule "consent.detect-trackers"
+      expect(yaml).toContain(`id: ${ruleId}`);
+
+      // And "rule.yaml" declares rule_type as <declared value>
+      expect(yaml).toContain(`rule_type: ${JSON.stringify(example.declaredValue)}`);
+
+      // When the catalog schema validator runs
+      const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+      // Then validation fails for "rule.yaml"
+      expect(result.success).toBe(false);
+      if (result.success) {
+        throw new TypeError(`Expected ${file} validation to fail.`);
+      }
+
+      // And the validation error names "rule_type"
+      const formattedError = formatValidationFailure(result);
+      expect(formattedError).toContain("rule_type");
+
+      // And the validation error reports "<rejected reason>"
+      expect(formattedError).toContain(example.rejectedReason);
+    }
+  });
+
   it("rejects empty YAML documents before catalog validation can pass", async () => {
     const moduleValue = await loadCatalogSchemaModule();
     const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
@@ -827,6 +890,9 @@ describe("compliance catalog YAML schemas", () => {
     expect(PublicCatalogSchemasByFile["framework.yaml"]).toBeDefined();
     expect(publicValidateCatalogYaml).toBeTypeOf("function");
     expectTypeOf<PublicCatalogYamlValidationResult>().not.toBeNever();
+    expectTypeOf<
+      NonNullable<PublicRuleCatalog["rule_type"]>
+    >().toEqualTypeOf<SupportedRuleExecutionType>();
 
     const result = publicValidateCatalogYaml({
       file: "framework.yaml",
