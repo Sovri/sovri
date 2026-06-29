@@ -54,6 +54,27 @@ function controlIdFromFixtureSeed(
   return result.data.id;
 }
 
+function ruleIdFromFixtureSeed(
+  seed: CatalogFixtureSeed,
+  frameworkFamily: string,
+): string | undefined {
+  if (seed.ruleYaml === undefined) {
+    return undefined;
+  }
+
+  const result = validateCatalogYaml({
+    file: "rule.yaml",
+    frameworkFamily,
+    yaml: seed.ruleYaml,
+  });
+
+  if (!result.success || !isRecord(result.data) || typeof result.data.id !== "string") {
+    return undefined;
+  }
+
+  return result.data.id;
+}
+
 export function validateCatalogFixtureSuite(
   input: CatalogFixtureSuiteValidationInput,
 ): CatalogFixtureSuiteValidationResult {
@@ -68,11 +89,23 @@ export function validateCatalogFixtureSuite(
       message: `missing required fixture control "${requiredControl}"`,
       path: ["fixtures", requiredControl],
     }));
+  const presentRuleIds = new Set(
+    input.seeds
+      .map((seed) => ruleIdFromFixtureSeed(seed, input.frameworkFamily))
+      .filter((ruleId): ruleId is string => ruleId !== undefined),
+  );
+  const missingRuleIssues = (input.requiredRules ?? [])
+    .filter((requiredRule) => !presentRuleIds.has(requiredRule))
+    .map((requiredRule) => ({
+      message: `missing required fixture rule "${requiredRule}"`,
+      path: ["fixtures", requiredRule],
+    }));
+  const issues = [...missingControlIssues, ...missingRuleIssues];
 
-  if (missingControlIssues.length > 0) {
+  if (issues.length > 0) {
     return {
       error: {
-        issues: missingControlIssues,
+        issues,
       },
       success: false,
     };
@@ -81,6 +114,7 @@ export function validateCatalogFixtureSuite(
   return {
     data: {
       controls: [...presentControlIds],
+      rules: [...presentRuleIds],
     },
     success: true,
   };
