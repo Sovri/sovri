@@ -364,6 +364,16 @@ function exampleDataWithoutField(file: string, missingField: string): Record<str
   return data;
 }
 
+function frameworkYamlWithoutSourceFor(frameworkFamily: string): string {
+  return [
+    `id: ${frameworkFamily}`,
+    "name: GDPR and ePrivacy consent controls",
+    "version: 2016-2002",
+    "jurisdiction: EU",
+    "scope: Project websites that process personal data and use trackers",
+  ].join("\n");
+}
+
 function requireCatalogYamlValidator(moduleValue: CatalogSchemaModule): CatalogYamlValidator {
   expect(
     typeof moduleValue.validateCatalogYaml,
@@ -613,6 +623,34 @@ describe("compliance catalog YAML schemas", () => {
       }
       expect(formatValidationFailure(result)).toContain(example.missingField);
     }
+  });
+
+  it("rejects missing framework source metadata", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "framework.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const yaml = frameworkYamlWithoutSourceFor(frameworkFamily);
+
+    // Given the catalog contains "framework.yaml" for framework family "gdpr-eprivacy"
+    expect(file).toBe("framework.yaml");
+    expect(frameworkFamily).toBe("gdpr-eprivacy");
+    expect(yaml).toContain(`id: ${frameworkFamily}`);
+
+    // And "framework.yaml" does not declare "source"
+    expect(yaml).not.toContain("source:");
+
+    // When the catalog schema validator runs
+    const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+    // Then validation fails for "framework.yaml"
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError(`Expected ${file} validation to fail.`);
+    }
+
+    // And the validation error names "source"
+    expect(formatValidationFailure(result)).toContain("source");
   });
 
   it("validates one control mapped to one or more versioned framework references", async () => {
