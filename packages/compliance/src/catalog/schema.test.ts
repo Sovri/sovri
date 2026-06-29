@@ -269,6 +269,32 @@ const ruleExecutionPolicyExamples = [
   readonly ruleType: string;
 }[];
 
+const supportedControlScopeExamples = [
+  {
+    applicability: "project-wide",
+    control: "privacy.retention.project-policy",
+    expectedEvidence: "retention-policy-document",
+    inputScope: "project",
+  },
+  {
+    applicability: "file",
+    control: "source.cookie-banner-present",
+    expectedEvidence: "cookie-banner-source",
+    inputScope: "file",
+  },
+  {
+    applicability: "diff",
+    control: "source.changed-tracker-call",
+    expectedEvidence: "changed-source-line",
+    inputScope: "diff",
+  },
+] satisfies readonly {
+  readonly applicability: string;
+  readonly control: string;
+  readonly expectedEvidence: string;
+  readonly inputScope: string;
+}[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -341,12 +367,34 @@ function mappingYamlFor(control: string, frameworkReferences: readonly string[])
   ].join("\n");
 }
 
+function controlYamlFor(control: string, applicability: string): string {
+  return [
+    `id: ${control}`,
+    `applicability: ${applicability}`,
+    "remediation: document the required compliance action",
+  ].join("\n");
+}
+
 function ruleYamlFor(ruleId: string, ruleType: string): string {
   return [
     `id: ${ruleId}`,
     `rule_type: ${ruleType}`,
     "execution_policy: run-in-agent",
     "expected_evidence: compliance-rule-evidence",
+  ].join("\n");
+}
+
+function ruleYamlWithScopeAndEvidenceFor(
+  control: string,
+  inputScope: string,
+  expectedEvidence: string,
+): string {
+  return [
+    `id: ${control}.rule`,
+    "rule_type: automatic",
+    `input_scope: ${inputScope}`,
+    `expected_evidence: ${expectedEvidence}`,
+    "execution_policy: run-in-agent",
   ].join("\n");
 }
 
@@ -786,6 +834,53 @@ describe("compliance catalog YAML schemas", () => {
 
       // And the rule records execution_policy "<execution policy>"
       expect(result.data.execution_policy).toBe(example.executionPolicy);
+    }
+  });
+
+  it("validates supported control scopes", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const frameworkFamily = "gdpr-eprivacy";
+
+    for (const example of supportedControlScopeExamples) {
+      const controlFile = "control.yaml";
+      const controlYaml = controlYamlFor(example.control, example.applicability);
+      const ruleFile = "rule.yaml";
+      const ruleYaml = ruleYamlWithScopeAndEvidenceFor(
+        example.control,
+        example.inputScope,
+        example.expectedEvidence,
+      );
+
+      // Given the catalog contains control "<control>"
+      expect(controlYaml).toContain(`id: ${example.control}`);
+
+      // And "control.yaml" declares applicability "<applicability>"
+      expect(controlYaml).toContain(`applicability: ${example.applicability}`);
+
+      // And "rule.yaml" declares input_scope "<input scope>"
+      expect(ruleYaml).toContain(`input_scope: ${example.inputScope}`);
+
+      // And "rule.yaml" declares expected_evidence "<expected evidence>"
+      expect(ruleYaml).toContain(`expected_evidence: ${example.expectedEvidence}`);
+
+      // When the catalog schema validator runs
+      const controlResult = validateCatalogYaml({
+        file: controlFile,
+        frameworkFamily,
+        yaml: controlYaml,
+      });
+      const ruleResult = validateCatalogYaml({
+        file: ruleFile,
+        frameworkFamily,
+        yaml: ruleYaml,
+      });
+
+      // Then validation passes for "control.yaml"
+      expect(controlResult.success, formatValidationFailure(controlResult)).toBe(true);
+
+      // And validation passes for "rule.yaml"
+      expect(ruleResult.success, formatValidationFailure(ruleResult)).toBe(true);
     }
   });
 

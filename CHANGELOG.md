@@ -24,6 +24,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   preserving declared values in MAT-83 ATDD coverage.
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for validating supported
+  `control.yaml` applicability and `rule.yaml` input scopes.
 - `compliance`: reject missing `rule.yaml` execution types with MAT-83 ATDD
   coverage.
 - `compliance`: report type-safe exact `rule.yaml` execution type matching
