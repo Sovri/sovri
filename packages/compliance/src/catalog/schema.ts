@@ -83,10 +83,34 @@ const FrameworkReferenceCatalogSchema = z.union([
   }),
 ]);
 
+const FrameworkReferenceListCatalogSchema = z
+  .array(FrameworkReferenceCatalogSchema)
+  .min(1)
+  .superRefine((references, context) => {
+    const seenReferences = new Set<string>();
+
+    references.forEach((reference, index) => {
+      if (typeof reference !== "string") {
+        return;
+      }
+
+      if (seenReferences.has(reference)) {
+        context.addIssue({
+          code: "custom",
+          message: `duplicate framework reference "${reference}"`,
+          path: [index],
+        });
+        return;
+      }
+
+      seenReferences.add(reference);
+    });
+  });
+
 export const MappingCatalogSchema = z
   .object({
     control_id: z.string(),
-    framework_references: z.array(FrameworkReferenceCatalogSchema).min(1),
+    framework_references: FrameworkReferenceListCatalogSchema,
   })
   .strict();
 export type MappingCatalog = z.infer<typeof MappingCatalogSchema>;

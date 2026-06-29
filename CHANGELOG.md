@@ -158,6 +158,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: reject duplicate string entries in `mapping.yaml`
+  `framework_references`.
 - `compliance`: report a version-specific validation error for unversioned
   `mapping.yaml` framework references.
 - `compliance`: require non-empty `framework_references` lists in
