@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting unversioned
+  `mapping.yaml` framework references.
 - `compliance`: add MAT-83 ATDD coverage for rejecting `mapping.yaml` data with
   an empty framework reference list.
 - `compliance`: add MAT-83 ATDD coverage for validating one control mapped to
@@ -154,6 +156,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: report a version-specific validation error for unversioned
+  `mapping.yaml` framework references.
 - `compliance`: require non-empty `framework_references` lists in
   `mapping.yaml` catalog data.
 - `compliance`: accept versioned `framework:version:reference` string entries
