@@ -47,6 +47,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   directory name.
 
 ### Added
+- `review-engine`: add MAT-83 ADR coverage for missing Git source-of-truth
+  docs.
 - `review-engine`: add MAT-83 ADR coverage for rejecting prompt-generated
   official compliance text.
 - `review-engine`: add MAT-83 ADR coverage for catalog-to-rule execution

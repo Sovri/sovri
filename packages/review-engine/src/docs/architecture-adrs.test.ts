@@ -658,6 +658,10 @@ describe("MAT-82 R-07 — ADRs keep ComplianceGap and ControlResult distinct fro
 // MAT-83 R-07 — Git owns framework catalog data
 // ---------------------------------------------------------------------------
 
+function gitSourceOfTruthFailures(_docs: string): string[] {
+  return [];
+}
+
 function officialComplianceTextFailures(docs: string): string[] {
   const failures: string[] = [];
   let inRejectedAlternatives = false;
@@ -710,6 +714,22 @@ describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog dat
         "catalog files",
       ]),
     ).toBe(true);
+  });
+
+  it("rejects docs without Git source-of-truth language", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+    // And no compliance catalog doc states that Git is the source of truth
+    const docsWithoutGitSourceOfTruth =
+      "Framework catalogs are reviewed before rule execution consumes them.";
+
+    // When the docs acceptance check runs
+    const failures = gitSourceOfTruthFailures(docsWithoutGitSourceOfTruth);
+
+    // Then it fails
+    expect(failures).not.toEqual([]);
+    // And it reports that the Git source-of-truth decision is missing
+    expect(failures).toContain("Git source-of-truth decision is missing");
   });
 
   it("connects schema catalogs to deterministic rule execution", () => {
