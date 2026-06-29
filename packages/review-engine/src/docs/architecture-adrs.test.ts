@@ -216,7 +216,6 @@ function dataFlowFailures(docs: string): string[] {
     const derivesGapFromRule =
       line.includes("compliance gap") &&
       /\bfrom (a )?rule\b/.test(line) &&
-      !line.includes("control result") &&
       !line.includes("reject");
     if (derivesGapFromRule) {
       failures.push("a compliance gap requires a preceding control result");
@@ -248,6 +247,16 @@ describe("MAT-82 R-02 — ADRs define the compliance data flow end to end", () =
     const failures = dataFlowFailures(fixture);
 
     // Then it reports that a "compliance gap" requires a preceding "control result"
+    expect(failures).toContain("a compliance gap requires a preceding control result");
+  });
+
+  it("flags a gap derived from a rule even when the line names a control result", () => {
+    // Naming "control result" must not exempt a line that still derives the gap from a rule.
+    const fixture =
+      "An ADR derives a compliance gap from a rule and skips the control result entirely.";
+
+    const failures = dataFlowFailures(fixture);
+
     expect(failures).toContain("a compliance gap requires a preceding control result");
   });
 
@@ -337,9 +346,7 @@ function airGapFailures(docs: string): string[] {
     const requiresExternalApi =
       line.includes("external api") &&
       /(required during execution|requires an external api|call during execution)/.test(line);
-    const isForbidden = /(no external api|never|not required|without|may be required|reject)/.test(
-      line,
-    );
+    const isForbidden = /(no external api|never|not required|without|reject)/.test(line);
 
     if (requiresExternalApi && !isForbidden) {
       failures.push("no external API may be required during execution");
@@ -374,6 +381,15 @@ describe("MAT-82 R-04 — ADRs state air-gap execution with no external API depe
     const failures = airGapFailures(fixture);
 
     // Then it reports that no external API may be required during execution
+    expect(failures).toContain("no external API may be required during execution");
+  });
+
+  it("flags an external API that may be required during execution", () => {
+    // "may be required" asserts the dependency; it must not read as a negation.
+    const fixture = "An ADR allows that an external API may be required during execution.";
+
+    const failures = airGapFailures(fixture);
+
     expect(failures).toContain("no external API may be required during execution");
   });
 });
@@ -448,7 +464,7 @@ function llmRoleFailures(docs: string): string[] {
     if (!/\bllm\b/.test(line)) {
       continue;
     }
-    const isNegated = /(\bnot\b|\bnever\b|must not|\bonly\b|catalog-backed|reject)/.test(line);
+    const isNegated = /(\bnot\b|\bnever\b|must not|reject)/.test(line);
 
     const officialCitationSource =
       /(official citation source|official source of regulatory citations|source of regulatory citations)/.test(
@@ -499,6 +515,16 @@ describe("MAT-82 R-06 — ADRs limit the LLM to interpretation and ranking", () 
 
     // Then it reports that regulatory claims must be catalog-backed, not LLM-authored
     expect(failures).toContain("regulatory claims must be catalog-backed, not LLM-authored");
+  });
+
+  it("flags the LLM as a citation source despite 'only' or 'catalog-backed' wording", () => {
+    // "only" and "catalog-backed" describe the regime, not a negation of the violation.
+    expect(llmRoleFailures("An ADR says the LLM is the only official citation source.")).toContain(
+      "the LLM must not be an official citation source",
+    );
+    expect(
+      llmRoleFailures("An ADR lets the LLM author catalog-backed regulatory claims itself."),
+    ).toContain("regulatory claims must be catalog-backed, not LLM-authored");
   });
 });
 

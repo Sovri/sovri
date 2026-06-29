@@ -27,7 +27,9 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   `ComplianceGap`/`ControlResult` as types distinct from the PR `Finding`.
 - `review-engine`: add MAT-82 docs-acceptance coverage asserting the architecture
   ADRs state air-gap execution, catalog-backed references, repository boundaries,
-  the compliance data flow, the LLM role, and the compliance/`Finding` type split.
+  the compliance data flow, the LLM role, and the compliance/`Finding` type split;
+  the violation detectors reject anti-pattern wording without exempting
+  `may be required`, `only`, `catalog-backed`, or a bare `control result` mention.
 
 - `review-engine`: add MAT-112 ATDD coverage that keeps ADR-021 and ADR-022
   aligned on the project compliance source model and PR/report output contract.
