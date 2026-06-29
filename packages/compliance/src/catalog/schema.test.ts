@@ -242,6 +242,33 @@ const exactRuleExecutionTypeExamples = [
   readonly rejectedReason: string;
 }[];
 
+const ruleExecutionPolicyExamples = [
+  {
+    executionPolicy: "run-in-agent",
+    ruleId: "consent.detect-trackers",
+    ruleType: "automatic",
+  },
+  {
+    executionPolicy: "scan-project-files",
+    ruleId: "source.scan-cookie-banner",
+    ruleType: "static-analysis",
+  },
+  {
+    executionPolicy: "reviewer-attestation",
+    ruleId: "privacy.review-consent-copy",
+    ruleType: "manual",
+  },
+  {
+    executionPolicy: "evidence-record-only",
+    ruleId: "evidence.record-cmp-configuration",
+    ruleType: "evidence-only",
+  },
+] satisfies readonly {
+  readonly executionPolicy: string;
+  readonly ruleId: string;
+  readonly ruleType: string;
+}[];
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -318,6 +345,19 @@ function ruleYamlFor(ruleId: string, ruleType: string): string {
   return [
     `id: ${ruleId}`,
     `rule_type: ${ruleType}`,
+    "expected_evidence: compliance-rule-evidence",
+  ].join("\n");
+}
+
+function ruleYamlWithExecutionPolicyFor(
+  ruleId: string,
+  ruleType: string,
+  executionPolicy: string,
+): string {
+  return [
+    `id: ${ruleId}`,
+    `rule_type: ${ruleType}`,
+    `execution_policy: ${executionPolicy}`,
     "expected_evidence: compliance-rule-evidence",
   ].join("\n");
 }
@@ -696,6 +736,42 @@ describe("compliance catalog YAML schemas", () => {
 
       // And the rule execution type is "<rule type>"
       expect(result.data.rule_type).toBe(example.ruleType);
+    }
+  });
+
+  it("keeps required execution policy data explicit", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "rule.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+
+    for (const example of ruleExecutionPolicyExamples) {
+      const yaml = ruleYamlWithExecutionPolicyFor(
+        example.ruleId,
+        example.ruleType,
+        example.executionPolicy,
+      );
+
+      // Given the catalog contains rule "<rule id>"
+      expect(yaml).toContain(`id: ${example.ruleId}`);
+
+      // And "rule.yaml" declares rule_type "<rule type>"
+      expect(yaml).toContain(`rule_type: ${example.ruleType}`);
+
+      // And "rule.yaml" declares execution_policy "<execution policy>"
+      expect(yaml).toContain(`execution_policy: ${example.executionPolicy}`);
+
+      // When the catalog schema validator runs
+      const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+      // Then validation passes for "rule.yaml"
+      expect(result.success, formatValidationFailure(result)).toBe(true);
+      if (!result.success || !isRecord(result.data)) {
+        throw new TypeError(`Expected ${file} validation to pass.`);
+      }
+
+      // And the rule records execution_policy "<execution policy>"
+      expect(result.data.execution_policy).toBe(example.executionPolicy);
     }
   });
 
