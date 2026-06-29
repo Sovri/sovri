@@ -36,7 +36,12 @@ function hasForbiddenSourceUrlRawCharacter(sourceUrl: string): boolean {
   for (const character of sourceUrl) {
     const codePoint = character.codePointAt(0) ?? 0;
 
-    if (character === "\\" || character.trim() === "" || codePoint <= 0x1f || codePoint === 0x7f) {
+    if (
+      character === "\\" ||
+      character.trim() === "" ||
+      codePoint <= 0x1f ||
+      (codePoint >= 0x7f && codePoint <= 0x9f)
+    ) {
       return true;
     }
   }

@@ -609,6 +609,7 @@ describe("compliance catalog YAML schemas", () => {
       "https://eur-lex.europa.eu/eli/reg/2016/679/oj\textra",
       "https://eur-lex.europa.eu\\eli/reg/2016/679/oj",
       "https://eur-lex.europa.eu/eli/reg/2016/679/oj\0",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\u0080",
     ];
 
     for (const sourceUrl of invalidSourceUrls) {
