@@ -85,16 +85,19 @@ function ruleExecutionTypeError(ruleType: string): string {
   return `rule_type must be one of ${SupportedRuleExecutionTypeList}`;
 }
 
-const RuleExecutionTypeCatalogSchema = z.string().superRefine((ruleType, context) => {
-  if (SupportedRuleExecutionTypeSet.has(ruleType)) {
-    return;
-  }
+const RuleExecutionTypeCatalogSchema = z
+  .string()
+  .superRefine((ruleType, context) => {
+    if (SupportedRuleExecutionTypeSet.has(ruleType)) {
+      return;
+    }
 
-  context.addIssue({
-    code: "custom",
-    message: ruleExecutionTypeError(ruleType),
-  });
-});
+    context.addIssue({
+      code: "custom",
+      message: ruleExecutionTypeError(ruleType),
+    });
+  })
+  .pipe(z.enum(SupportedRuleExecutionTypes));
 
 export const RuleCatalogSchema = z
   .object({

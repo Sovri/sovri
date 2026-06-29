@@ -10,6 +10,7 @@ import {
   CatalogSchemasByFile as PublicCatalogSchemasByFile,
   validateCatalogYaml as publicValidateCatalogYaml,
   type CatalogYamlValidationResult as PublicCatalogYamlValidationResult,
+  type RuleCatalog as PublicRuleCatalog,
 } from "../index.js";
 
 interface ValidationIssue {
@@ -42,6 +43,8 @@ interface CatalogYamlValidationInput {
 type CatalogYamlValidator = (
   input: CatalogYamlValidationInput,
 ) => ValidationFailure | ValidationSuccess;
+
+type SupportedRuleExecutionType = "automatic" | "static-analysis" | "manual" | "evidence-only";
 
 interface CatalogSchemaModule {
   readonly CatalogSchemasByFile: Readonly<Record<string, CatalogSchema>>;
@@ -887,6 +890,9 @@ describe("compliance catalog YAML schemas", () => {
     expect(PublicCatalogSchemasByFile["framework.yaml"]).toBeDefined();
     expect(publicValidateCatalogYaml).toBeTypeOf("function");
     expectTypeOf<PublicCatalogYamlValidationResult>().not.toBeNever();
+    expectTypeOf<
+      NonNullable<PublicRuleCatalog["rule_type"]>
+    >().toEqualTypeOf<SupportedRuleExecutionType>();
 
     const result = publicValidateCatalogYaml({
       file: "framework.yaml",
