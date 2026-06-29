@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `compliance`: normalize LLM-generated source description detection across
+  case and whitespace variations.
 - `compliance`: reject LLM-generated source descriptions in MAT-83 catalog
   source metadata validation.
 - `compliance`: require `source.description` in MAT-83 catalog source
