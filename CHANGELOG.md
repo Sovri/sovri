@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting unknown top-level catalog
+  schema fields.
 - `compliance`: add initial parsed-data catalog schemas for framework, control,
   rule, and mapping YAML files.
 - `compliance`: add MAT-83 ATDD coverage for valid framework, control, rule, and
@@ -184,6 +186,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `compliance`: reject unknown top-level fields in framework, control, rule, and
+  mapping catalog schemas.
 - `review-engine`: reject rendered Finding output whose `cwe`, `control_id`, or
   `reference_labels` have the wrong type so a stringified `reference_labels` no
   longer slips through the runtime guard.
