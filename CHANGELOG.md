@@ -23,6 +23,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 - `compliance`: require declared MAT-83 catalog source URLs to be HTTPS URLs.
 - `compliance`: reject malformed MAT-83 catalog source URLs that normalize to
   HTTPS only after parsing.
+- `compliance`: reject MAT-83 catalog source URLs containing raw whitespace
+  before parser normalization.
 - `compliance`: normalize LLM-generated source description detection across
   case and whitespace variations.
 - `compliance`: reject LLM-generated source descriptions in MAT-83 catalog

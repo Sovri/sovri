@@ -605,6 +605,8 @@ describe("compliance catalog YAML schemas", () => {
       "ftp://example.eu",
       "",
       "https:eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\nextra",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\textra",
     ];
 
     for (const sourceUrl of invalidSourceUrls) {
