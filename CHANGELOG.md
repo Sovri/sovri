@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting missing required catalog
+  schema fields.
 - `compliance`: add MAT-83 ATDD coverage for rejecting unknown top-level catalog
   schema fields.
 - `compliance`: add initial parsed-data catalog schemas for framework, control,
@@ -186,6 +188,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `compliance`: reject catalog schema data missing the required `version`,
+  `remediation`, `expected_evidence`, or `control_id` fields.
 - `compliance`: reject unknown top-level fields in framework, control, rule, and
   mapping catalog schemas.
 - `review-engine`: reject rendered Finding output whose `cwe`, `control_id`, or
