@@ -386,8 +386,8 @@ function frameworkYamlWithSourceFor(
     "jurisdiction: EU",
     "scope: Project websites that process personal data and use trackers",
     "source:",
-    `  url: ${sourceUrl}`,
-    `  description: ${sourceDescription}`,
+    `  url: ${JSON.stringify(sourceUrl)}`,
+    `  description: ${JSON.stringify(sourceDescription)}`,
   ].join("\n");
 }
 
@@ -582,16 +582,42 @@ describe("compliance catalog YAML schemas", () => {
     expect(yaml).toContain(`id: ${frameworkFamily}`);
 
     // And "framework.yaml" declares source url "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
-    expect(yaml).toContain(`url: ${sourceUrl}`);
+    expect(yaml).toContain(`url: ${JSON.stringify(sourceUrl)}`);
 
     // And "framework.yaml" declares source description "General Data Protection Regulation official text"
-    expect(yaml).toContain(`description: ${sourceDescription}`);
+    expect(yaml).toContain(`description: ${JSON.stringify(sourceDescription)}`);
 
     // When the catalog schema validator runs
     const result = validateCatalogYaml({ file, frameworkFamily, yaml });
 
     // Then validation passes for "framework.yaml"
     expect(result.success, formatValidationFailure(result)).toBe(true);
+  });
+
+  it("validates pathless framework source URLs", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "framework.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const sourceDescription = "European Data Protection Board official source";
+    const sourceUrls = ["https://edpb.europa.eu", "https://example.eu?doc=1"];
+
+    for (const sourceUrl of sourceUrls) {
+      const yaml = frameworkYamlWithSourceFor(frameworkFamily, sourceUrl, sourceDescription);
+
+      // Given the catalog contains "framework.yaml" for framework family "gdpr-eprivacy"
+      expect(file).toBe("framework.yaml");
+      expect(yaml).toContain(`id: ${frameworkFamily}`);
+
+      // And "framework.yaml" declares pathless source url "<source url>"
+      expect(yaml).toContain(`url: ${JSON.stringify(sourceUrl)}`);
+
+      // When the catalog schema validator runs
+      const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+      // Then validation passes for "framework.yaml"
+      expect(result.success, formatValidationFailure(result)).toBe(true);
+    }
   });
 
   it("validates control source metadata with official URL", async () => {
@@ -618,6 +644,54 @@ describe("compliance catalog YAML schemas", () => {
 
     // Then validation passes for "control.yaml"
     expect(result.success, formatValidationFailure(result)).toBe(true);
+  });
+
+  it("rejects invalid framework source URLs", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "framework.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const sourceDescription = "General Data Protection Regulation official text";
+    const invalidSourceUrls = [
+      "gdpr-article-6",
+      "ftp://example.eu",
+      "",
+      "https:eur-lex.europa.eu/eli/reg/2016/679/oj",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\nextra",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\textra",
+      "https://eur-lex.europa.eu\\eli/reg/2016/679/oj",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\0",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj\u0080",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj{draft}",
+      "https://eur-lex.europa.eu/eli/reg/2016/679/oj%",
+      "https://example.eu?doc=%",
+    ];
+
+    for (const sourceUrl of invalidSourceUrls) {
+      const yaml = frameworkYamlWithSourceFor(frameworkFamily, sourceUrl, sourceDescription);
+
+      // Given the catalog contains "framework.yaml" for framework family "gdpr-eprivacy"
+      expect(file).toBe("framework.yaml");
+      expect(yaml).toContain(`id: ${frameworkFamily}`);
+
+      // And "framework.yaml" declares source url "<source url>"
+      expect(yaml).toContain(`url: ${JSON.stringify(sourceUrl)}`);
+
+      // And "framework.yaml" declares source description "General Data Protection Regulation official text"
+      expect(yaml).toContain(`description: ${JSON.stringify(sourceDescription)}`);
+
+      // When the catalog schema validator runs
+      const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+      // Then validation fails for "framework.yaml"
+      expect(result.success).toBe(false);
+      if (result.success) {
+        throw new TypeError(`Expected ${file} validation to fail for source url ${sourceUrl}.`);
+      }
+
+      // And the validation error names "source.url"
+      expect(formatValidationFailure(result)).toContain("source.url");
+    }
   });
 
   it("rejects source metadata without a description", async () => {

@@ -20,6 +20,20 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `compliance`: require declared MAT-83 catalog source URLs to be HTTPS URLs.
+- `compliance`: reject malformed MAT-83 catalog source URLs that normalize to
+  HTTPS or otherwise serialize differently after parsing.
+- `compliance`: allow pathless HTTPS MAT-83 catalog source URLs while rejecting
+  unsafe parser rewrites.
+- `compliance`: reject malformed MAT-83 catalog source URL percent escapes.
+- `compliance`: reject MAT-83 catalog source URLs containing raw whitespace
+  before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw backslashes
+  before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw control
+  characters before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw C1 control
+  characters before parser normalization.
 - `review-engine`: reject prompt-generated official compliance text in MAT-83
   ADR docs acceptance.
 - `compliance`: normalize LLM-generated source description detection across
@@ -47,6 +61,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   directory name.
 
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting invalid and
+  parser-rewritten `framework.yaml` source URLs.
+- `compliance`: add MAT-83 ATDD coverage for valid pathless `framework.yaml`
+  source URLs.
+- `compliance`: add MAT-83 ATDD coverage for malformed `framework.yaml`
+  source URL percent escapes.
 - `compliance`: add MAT-83 ATDD coverage for `framework.yaml` source metadata
   with an official URL.
 - `review-engine`: add MAT-83 ADR coverage for naming catalog schema YAML

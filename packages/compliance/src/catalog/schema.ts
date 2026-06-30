@@ -30,6 +30,74 @@ export type CatalogYamlValidationResult =
     };
 
 const LlmGeneratedSourceDescriptionPattern = /\bgenerated\s+by\s+llm\s+from\s+the\s+prompt\b/iu;
+const OfficialSourceUrlPattern = /^https:\/\/[^/?#]+(?:[/?#].*)?$/iu;
+const PathlessOfficialSourceUrlPattern = /^(https:\/\/[^/?#]+)([?#].*)?$/iu;
+
+function hasForbiddenSourceUrlRawCharacter(sourceUrl: string): boolean {
+  for (const character of sourceUrl) {
+    const codePoint = character.codePointAt(0) ?? 0;
+
+    if (
+      character === "\\" ||
+      character.trim() === "" ||
+      codePoint <= 0x1f ||
+      (codePoint >= 0x7f && codePoint <= 0x9f)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasMalformedSourceUrlPercentEscape(sourceUrl: string): boolean {
+  let percentIndex = sourceUrl.indexOf("%");
+
+  while (percentIndex !== -1) {
+    if (!/^[0-9a-f]{2}$/iu.test(sourceUrl.slice(percentIndex + 1, percentIndex + 3))) {
+      return true;
+    }
+
+    percentIndex = sourceUrl.indexOf("%", percentIndex + 1);
+  }
+
+  return false;
+}
+
+function isOfficialSourceUrl(sourceUrl: string): boolean {
+  if (
+    hasForbiddenSourceUrlRawCharacter(sourceUrl) ||
+    hasMalformedSourceUrlPercentEscape(sourceUrl) ||
+    !OfficialSourceUrlPattern.test(sourceUrl)
+  ) {
+    return false;
+  }
+
+  try {
+    const parsedSourceUrl = new URL(sourceUrl);
+
+    return (
+      parsedSourceUrl.protocol === "https:" &&
+      isSameSourceUrlAfterParsing(sourceUrl, parsedSourceUrl)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isSameSourceUrlAfterParsing(sourceUrl: string, parsedSourceUrl: URL): boolean {
+  if (parsedSourceUrl.href === sourceUrl) {
+    return true;
+  }
+
+  const pathlessSourceUrlMatch = PathlessOfficialSourceUrlPattern.exec(sourceUrl);
+  if (pathlessSourceUrlMatch === null) {
+    return false;
+  }
+
+  const [, origin, suffix = ""] = pathlessSourceUrlMatch;
+  return parsedSourceUrl.href === `${origin}/${suffix}`;
+}
 
 const SourceMetadataSchema = z.object({
   description: z
@@ -38,7 +106,12 @@ const SourceMetadataSchema = z.object({
       (description) => !LlmGeneratedSourceDescriptionPattern.test(description),
       "source descriptions are catalog data, not LLM output",
     ),
-  url: z.string().optional(),
+  url: z
+    .string()
+    .optional()
+    .refine((sourceUrl) => sourceUrl === undefined || isOfficialSourceUrl(sourceUrl), {
+      message: "source.url must be an HTTPS URL",
+    }),
 });
 
 const SupportedControlApplicabilities = ["project-wide", "file", "diff"] as const;
