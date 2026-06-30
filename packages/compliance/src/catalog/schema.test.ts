@@ -620,6 +620,41 @@ describe("compliance catalog YAML schemas", () => {
     }
   });
 
+  it("rejects framework source metadata with a mismatched framework family id", async () => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "framework.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const mismatchedFrameworkFamily = "iso27001";
+    const sourceUrl = "https://eur-lex.europa.eu/eli/reg/2016/679/oj";
+    const sourceDescription = "General Data Protection Regulation official text";
+    const yaml = frameworkYamlWithSourceFor(
+      mismatchedFrameworkFamily,
+      sourceUrl,
+      sourceDescription,
+    );
+
+    // Given the caller validates a known framework family
+    expect(frameworkFamily).toBe("gdpr-eprivacy");
+
+    // And the catalog YAML declares a different framework id
+    expect(yaml).toContain(`id: ${mismatchedFrameworkFamily}`);
+    expect(yaml).not.toContain(`id: ${frameworkFamily}`);
+
+    // When the catalog schema validator runs
+    const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+    // Then validation fails for "framework.yaml"
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError(`Expected ${file} validation to fail.`);
+    }
+
+    // And the validation error ties the id to the requested framework family
+    expect(formatValidationFailure(result)).toContain("id");
+    expect(formatValidationFailure(result)).toContain(frameworkFamily);
+  });
+
   it("validates control source metadata with official URL", async () => {
     const moduleValue = await loadCatalogSchemaModule();
     const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);

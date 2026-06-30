@@ -303,6 +303,20 @@ function projectWideControlInputScopeIssue(
   };
 }
 
+function frameworkFamilyIdIssue(
+  framework: FrameworkCatalog,
+  frameworkFamily: string,
+): CatalogYamlValidationIssue | undefined {
+  if (framework.id === undefined || framework.id === frameworkFamily) {
+    return undefined;
+  }
+
+  return {
+    message: `framework.id must match framework family "${frameworkFamily}"`,
+    path: ["id"],
+  };
+}
+
 export function validateCatalogYaml(
   input: CatalogYamlValidationInput,
 ): CatalogYamlValidationResult {
@@ -379,6 +393,21 @@ export function validateCatalogYaml(
       },
       success: false,
     };
+  }
+
+  if (input.file === "framework.yaml") {
+    const frameworkIdIssue = frameworkFamilyIdIssue(
+      result.data as FrameworkCatalog,
+      input.frameworkFamily,
+    );
+    if (frameworkIdIssue !== undefined) {
+      return {
+        error: {
+          issues: [frameworkIdIssue],
+        },
+        success: false,
+      };
+    }
   }
 
   if (input.file === "rule.yaml") {
