@@ -50,8 +50,26 @@ function hasForbiddenSourceUrlRawCharacter(sourceUrl: string): boolean {
   return false;
 }
 
+function hasMalformedSourceUrlPercentEscape(sourceUrl: string): boolean {
+  let percentIndex = sourceUrl.indexOf("%");
+
+  while (percentIndex !== -1) {
+    if (!/^[0-9a-f]{2}$/iu.test(sourceUrl.slice(percentIndex + 1, percentIndex + 3))) {
+      return true;
+    }
+
+    percentIndex = sourceUrl.indexOf("%", percentIndex + 1);
+  }
+
+  return false;
+}
+
 function isOfficialSourceUrl(sourceUrl: string): boolean {
-  if (hasForbiddenSourceUrlRawCharacter(sourceUrl) || !OfficialSourceUrlPattern.test(sourceUrl)) {
+  if (
+    hasForbiddenSourceUrlRawCharacter(sourceUrl) ||
+    hasMalformedSourceUrlPercentEscape(sourceUrl) ||
+    !OfficialSourceUrlPattern.test(sourceUrl)
+  ) {
     return false;
   }
 
