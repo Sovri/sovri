@@ -789,36 +789,27 @@ function gitSourceOfTruthFailures(docs: string): string[] {
 }
 
 function officialComplianceTextFailures(docs: string): string[] {
-  const failures: string[] = [];
-  let inRejectedAlternatives = false;
+  const activeClauses = sourceOfTruthClauses(docs)
+    .filter((clause) => !clause.isRejectedAlternative)
+    .map((clause) => clause.text);
 
-  for (const rawLine of docs.split(/\r?\n/)) {
-    const line = normalize(rawLine);
-
-    if (/^#+ rejected alternatives\b/.test(line)) {
-      inRejectedAlternatives = true;
-      continue;
-    }
-    if (/^#+ /.test(line)) {
-      inRejectedAlternatives = false;
-    }
-
+  return activeClauses.some((clause) => {
     const mentionsOfficialComplianceText =
-      /\bofficial\b/.test(line) &&
-      /(compliance|regulatory|source)/.test(line) &&
-      /(descriptions?|text|claims?)/.test(line);
+      /\bofficial\b/.test(clause) &&
+      /(compliance|regulatory|source)/.test(clause) &&
+      /(descriptions?|text|claims?)/.test(clause);
     const generatedFromPrompts =
-      /\b(generated?|generates?|generating)\b.*\bfrom prompts?\b/.test(line) ||
-      /\bprompt-generated\b/.test(line);
-    const generationIsRejected =
-      inRejectedAlternatives || /(must not|never|not |reject)/.test(line);
+      /\b(generated?|generates?|generating)\b[^.!?;:]*\bfrom prompts?\b/.test(clause) ||
+      /\bprompt-generated\b/.test(clause);
+    const rejectsPromptGeneration =
+      /\b(do not|must not|never|reject(?:ed)?)\b[^.!?;:]*\b(generated?|generates?|generating|prompt-generated)\b/.test(
+        clause,
+      );
 
-    if (mentionsOfficialComplianceText && generatedFromPrompts && !generationIsRejected) {
-      failures.push("official compliance text must come from catalog data");
-    }
-  }
-
-  return failures;
+    return mentionsOfficialComplianceText && generatedFromPrompts && !rejectsPromptGeneration;
+  })
+    ? ["official compliance text must come from catalog data"]
+    : [];
 }
 
 describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog data", () => {
@@ -1056,5 +1047,25 @@ describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog dat
     expect(failures).not.toEqual([]);
     // And it reports that official compliance text must come from catalog data
     expect(failures).toContain("official compliance text must come from catalog data");
+  });
+
+  it("rejects prompt generation even when another clause contains unrelated negation", () => {
+    const promptGeneratedDescriptions =
+      "The official compliance descriptions are generated from prompts, not reviewed by humans.";
+
+    const failures = officialComplianceTextFailures(promptGeneratedDescriptions);
+
+    expect(failures).toContain("official compliance text must come from catalog data");
+  });
+
+  it("ignores prompt-generated official compliance descriptions in rejected alternatives", () => {
+    const rejectedPromptGeneratedDescriptions = [
+      "Official compliance descriptions live in catalog files.",
+      "## Rejected alternatives",
+      "### Prompt-generated descriptions",
+      "The official compliance descriptions are generated from prompts.",
+    ].join("\n");
+
+    expect(officialComplianceTextFailures(rejectedPromptGeneratedDescriptions)).toEqual([]);
   });
 });

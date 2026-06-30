@@ -47,6 +47,7 @@ An ADR is not user documentation. It is a log of technical choices intended for 
 | [027](./027-compliancegap-controlresult-vs-finding.md)     | ComplianceGap and ControlResult are distinct from the PR Finding | Accepted | 2026-06-29 |
 | [028](./028-framework-catalog-source-metadata.md)          | Framework catalog source metadata                                | Accepted | 2026-06-29 |
 | [029](./029-versioned-catalog-data-for-rule-execution.md)  | Versioned catalog data for rule execution                        | Accepted | 2026-06-29 |
+| [030](./030-framework-catalog-file-layout.md)              | Framework catalog file layout                                    | Accepted | 2026-06-30 |
 
 ## Possible statuses
 

@@ -20,6 +20,10 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `compliance`: surface fixture seed validation errors and strict-parse MAT-83
+  source metadata and object-form framework references.
+- `review-engine`: parse prompt-generation ADR checks through source-of-truth
+  clauses so unrelated negations do not hide active violations.
 - `review-engine`: reject active negated Git catalog source-of-truth ADR
   statements while preserving nested rejected alternatives.
 - `review-engine`: ignore rejected-alternative catalog source-of-truth

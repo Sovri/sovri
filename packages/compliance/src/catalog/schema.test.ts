@@ -759,6 +759,51 @@ describe("compliance catalog YAML schemas", () => {
     );
   });
 
+  it.each([
+    {
+      file: "framework.yaml",
+      frameworkFamily: "gdpr-eprivacy",
+      yaml: [
+        frameworkYamlWithSourceFor(
+          "gdpr-eprivacy",
+          "https://eur-lex.europa.eu/eli/reg/2016/679/oj",
+          "General Data Protection Regulation official text",
+        ),
+        "  llm_prompt: summarize GDPR Article 6",
+      ].join("\n"),
+    },
+    {
+      file: "control.yaml",
+      frameworkFamily: "gdpr-eprivacy",
+      yaml: [
+        controlYamlWithSourceFor(
+          "consent.tracker.prior-consent",
+          "https://eur-lex.europa.eu/eli/dir/2002/58/oj",
+          "ePrivacy Directive Article 5(3) official text",
+        ),
+        "  llm_prompt: summarize ePrivacy Article 5(3)",
+      ].join("\n"),
+    },
+  ])("rejects unknown source metadata fields in $file", async ({ file, frameworkFamily, yaml }) => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+
+    // Given the catalog YAML includes unexpected source metadata
+    expect(yaml).toContain("llm_prompt");
+
+    // When the catalog schema validator runs
+    const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+    // Then validation fails for "<file>"
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError(`Expected ${file} validation to fail.`);
+    }
+
+    // And the validation error names the unknown source metadata field
+    expect(formatValidationFailure(result)).toContain("llm_prompt");
+  });
+
   it("rejects unknown schema fields", async () => {
     const { CatalogSchemasByFile } = await loadCatalogSchemaModule();
 
@@ -937,6 +982,52 @@ describe("compliance catalog YAML schemas", () => {
 
     // And the validation error reports that framework references must include a version
     expect(formatValidationFailure(result)).toContain("version");
+  });
+
+  it.each([
+    {
+      description: "empty object",
+      referenceLines: ["  - {}"],
+    },
+    {
+      description: "partial object without version",
+      referenceLines: ["  - framework: gdpr", "    reference: article-6"],
+    },
+    {
+      description: "object with unknown fields",
+      referenceLines: [
+        "  - framework: gdpr",
+        '    version: "2016"',
+        "    reference: article-6",
+        "    llm_prompt: summarize Article 6",
+      ],
+    },
+  ])("rejects $description object-form framework references", async (example) => {
+    const moduleValue = await loadCatalogSchemaModule();
+    const validateCatalogYaml = requireCatalogYamlValidator(moduleValue);
+    const file = "mapping.yaml";
+    const frameworkFamily = "gdpr-eprivacy";
+    const control = "consent.tracker.prior-consent";
+    const yaml = [
+      `control_id: ${control}`,
+      "framework_references:",
+      ...example.referenceLines,
+    ].join("\n");
+
+    // Given "mapping.yaml" maps a control to an incomplete or unknown-field object reference
+    expect(yaml).toContain(`control_id: ${control}`);
+
+    // When the catalog schema validator runs
+    const result = validateCatalogYaml({ file, frameworkFamily, yaml });
+
+    // Then validation fails for "mapping.yaml"
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new TypeError(`Expected ${file} validation to fail.`);
+    }
+
+    // And the validation error points at the invalid object-form reference
+    expect(formatValidationFailure(result)).toContain("framework_references.0");
   });
 
   it("rejects duplicate framework references for the same control", async () => {

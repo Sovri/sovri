@@ -99,20 +99,22 @@ function isSameSourceUrlAfterParsing(sourceUrl: string, parsedSourceUrl: URL): b
   return parsedSourceUrl.href === `${origin}/${suffix}`;
 }
 
-const SourceMetadataSchema = z.object({
-  description: z
-    .string()
-    .refine(
-      (description) => !LlmGeneratedSourceDescriptionPattern.test(description),
-      "source descriptions are catalog data, not LLM output",
-    ),
-  url: z
-    .string()
-    .optional()
-    .refine((sourceUrl) => sourceUrl === undefined || isOfficialSourceUrl(sourceUrl), {
-      message: "source.url must be an HTTPS URL",
-    }),
-});
+const SourceMetadataSchema = z
+  .object({
+    description: z
+      .string()
+      .refine(
+        (description) => !LlmGeneratedSourceDescriptionPattern.test(description),
+        "source descriptions are catalog data, not LLM output",
+      ),
+    url: z
+      .string()
+      .optional()
+      .refine((sourceUrl) => sourceUrl === undefined || isOfficialSourceUrl(sourceUrl), {
+        message: "source.url must be an HTTPS URL",
+      }),
+  })
+  .strict();
 
 const SupportedControlApplicabilities = ["project-wide", "file", "diff"] as const;
 
@@ -206,11 +208,13 @@ const VersionedFrameworkReferenceStringSchema = z
 
 const FrameworkReferenceCatalogSchema = z.union([
   VersionedFrameworkReferenceStringSchema,
-  z.object({
-    framework: z.string().optional(),
-    reference: z.string().optional(),
-    version: z.string().optional(),
-  }),
+  z
+    .object({
+      framework: z.string().min(1),
+      reference: z.string().min(1),
+      version: z.string().min(1),
+    })
+    .strict(),
 ]);
 
 type FrameworkReferenceCatalog = z.infer<typeof FrameworkReferenceCatalogSchema>;

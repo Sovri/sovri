@@ -262,6 +262,46 @@ describe("compliance catalog fixture seeds", () => {
     }
   });
 
+  it("reports validation errors in non-required fixture seeds", () => {
+    const frameworkFamily = "mat-83-fixtures";
+    const requiredControlYaml = catalogFixtureYaml(consentFixtureSeed, "control.yaml");
+    const invalidNonRequiredControlYaml = catalogFixtureYaml(
+      "cross-framework-control",
+      "control.yaml",
+    ).replace("remediation: Enable administrative access logging and retain audit evidence.\n", "");
+
+    // Given the required fixture seed is valid
+    expect(requiredControlYaml).toContain(`id: ${consentTrackerControl}`);
+
+    // And a non-required fixture seed is missing required schema data
+    expect(invalidNonRequiredControlYaml).toContain("id: access.logging.admin-actions");
+    expect(invalidNonRequiredControlYaml).not.toContain("remediation:");
+
+    // When the fixture validation suite runs
+    const result = validateCatalogFixtureSuite({
+      frameworkFamily,
+      requiredControls: [consentTrackerControl],
+      seeds: [
+        {
+          controlYaml: requiredControlYaml,
+          name: consentFixtureSeed,
+        },
+        {
+          controlYaml: invalidNonRequiredControlYaml,
+          name: "cross-framework-control",
+        },
+      ],
+    });
+
+    // Then validation fails
+    expect(result.success).toBe(false);
+
+    // And the validation error is keyed by the non-required fixture seed name
+    expect(formatFixtureSuiteValidationResult(result)).toContain(
+      "fixtures.cross-framework-control.control.yaml.remediation",
+    );
+  });
+
   it("reports a consent-control seed missing its tracker detection rule", () => {
     const frameworkFamily = "mat-83-fixtures";
 
