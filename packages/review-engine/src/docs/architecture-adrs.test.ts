@@ -20,6 +20,11 @@ type AdrFile = {
   readonly text: string;
 };
 
+type SourceOfTruthClause = {
+  readonly text: string;
+  readonly isRejectedAlternative: boolean;
+};
+
 function findAdrDocsRoot(startDir: string): string {
   let currentDir = startDir;
 
@@ -81,6 +86,76 @@ function normalizedLines(docs: string): readonly string[] {
     .split(/\r?\n/)
     .map((line) => normalize(line))
     .filter((line) => line.length > 0);
+}
+
+function markdownHeadingDepth(line: string): number | undefined {
+  const match = /^(#+) /.exec(line);
+  return match === null ? undefined : (match[1]?.length ?? 0);
+}
+
+function sourceOfTruthClauses(docs: string): readonly SourceOfTruthClause[] {
+  const clauses: SourceOfTruthClause[] = [];
+  let inRejectedAlternatives = false;
+  let rejectedAlternativesDepth: number | undefined;
+  let currentBlockLines: string[] = [];
+  let currentBlockIsRejectedAlternative = false;
+
+  function flushCurrentBlock(): void {
+    if (currentBlockLines.length === 0) {
+      return;
+    }
+
+    const normalizedBlock = normalize(currentBlockLines.join("\n")).trim();
+    const isRejectedAlternative = currentBlockIsRejectedAlternative;
+    currentBlockLines = [];
+
+    if (normalizedBlock.length === 0) {
+      return;
+    }
+
+    for (const statement of normalizedBlock.split(/(?<=[.!?])\s+/)) {
+      for (const clause of statement.split(";")) {
+        const text = clause.trim();
+        if (text.length > 0) {
+          clauses.push({ text, isRejectedAlternative });
+        }
+      }
+    }
+  }
+
+  for (const rawLine of docs.split(/\r?\n/)) {
+    const line = normalize(rawLine).trim();
+    const headingDepth = markdownHeadingDepth(line);
+
+    if (line.length === 0) {
+      flushCurrentBlock();
+      continue;
+    }
+
+    if (headingDepth !== undefined) {
+      flushCurrentBlock();
+
+      if (/^#+ rejected alternatives\b/.test(line)) {
+        inRejectedAlternatives = true;
+        rejectedAlternativesDepth = headingDepth;
+        continue;
+      }
+
+      if (rejectedAlternativesDepth !== undefined && headingDepth <= rejectedAlternativesDepth) {
+        inRejectedAlternatives = false;
+        rejectedAlternativesDepth = undefined;
+      }
+      continue;
+    }
+
+    if (currentBlockLines.length === 0) {
+      currentBlockIsRejectedAlternative = inRejectedAlternatives;
+    }
+    currentBlockLines.push(rawLine);
+  }
+
+  flushCurrentBlock();
+  return clauses;
 }
 
 function describesInOrder(docs: string, stages: readonly string[]): boolean {
@@ -651,5 +726,346 @@ describe("MAT-82 R-07 — ADRs keep ComplianceGap and ControlResult distinct fro
 
     // Then it reports that "ControlResult" must be distinct from the PR "Finding"
     expect(failures).toContain("ControlResult must be distinct from the PR Finding");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MAT-83 R-07 — Git owns framework catalog data
+// ---------------------------------------------------------------------------
+
+function isNegatedOrRejected(statement: string): boolean {
+  return (
+    /\b(do not|must not|never|reject|rejected)\b/.test(statement) ||
+    /\bgit\b\s+(is|as|remains|stays)\s+not\b/.test(statement)
+  );
+}
+
+function mentionsCatalogSourceOfTruth(statement: string): boolean {
+  return (
+    /\bsource of truth\b[^.!?;:]*\bcatalog(s| data)?\b/.test(statement) ||
+    /\bcatalog(s| data)? source of truth\b/.test(statement)
+  );
+}
+
+function negatesGitSourceOfTruthDecision(statement: string): boolean {
+  return (
+    mentionsCatalogSourceOfTruth(statement) &&
+    (/\b(do not|must not|never)\b[^.!?;:]*\bgit\b/.test(statement) ||
+      /\bgit\b\s+(is|as|remains|stays)\s+not\b/.test(statement))
+  );
+}
+
+function gitSourceOfTruthFailures(docs: string): string[] {
+  const activeStatements = sourceOfTruthClauses(docs)
+    .filter((clause) => !clause.isRejectedAlternative)
+    .map((clause) => clause.text);
+  const gitSourceOfTruthPattern =
+    /(\bgit( repository)?\b\s+(is|as|remains|stays)\s+((the )?source of truth\b[^.!?;:]*\bcatalog(s| data)?\b|(the )?catalog(s| data)? source of truth\b)|\bcatalog(s| data)? source of truth\b[^.!?;:]*\b(is|as|remains|stays)\b[^.!?;:]*\bgit\b)/;
+  const catalogSourceOfTruthPattern =
+    /(\b(is|as|remains|stays)\s+((the )?source of truth\b[^.!?;:]*\bcatalog(s| data)?\b|(the )?catalog(s| data)? source of truth\b)|\bcatalog(s| data)? source of truth\b[^.!?;:]*\b(is|as|remains|stays)\b)/;
+  const isAffirmativeGitSourceOfTruth = (statement: string): boolean =>
+    gitSourceOfTruthPattern.test(statement) &&
+    !/\bnot\s+git\b/.test(statement) &&
+    !isNegatedOrRejected(statement);
+
+  const conflictingSourceOfTruth = activeStatements.some(
+    (statement) =>
+      catalogSourceOfTruthPattern.test(statement) &&
+      !isAffirmativeGitSourceOfTruth(statement) &&
+      !isNegatedOrRejected(statement),
+  );
+  const statesGitAsSourceOfTruth = activeStatements.some(isAffirmativeGitSourceOfTruth);
+  const hasActiveGitSourceOfTruthNegation = activeStatements.some(negatesGitSourceOfTruthDecision);
+
+  if (conflictingSourceOfTruth || (statesGitAsSourceOfTruth && hasActiveGitSourceOfTruthNegation)) {
+    return ["catalog source of truth must be Git"];
+  }
+
+  if (statesGitAsSourceOfTruth) {
+    return [];
+  }
+
+  return ["Git source-of-truth decision is missing"];
+}
+
+function officialComplianceTextFailures(docs: string): string[] {
+  const activeClauses = sourceOfTruthClauses(docs)
+    .filter((clause) => !clause.isRejectedAlternative)
+    .map((clause) => clause.text);
+
+  return activeClauses.some((clause) => {
+    const mentionsOfficialComplianceText =
+      /\bofficial\b/.test(clause) &&
+      /(compliance|regulatory|source)/.test(clause) &&
+      /(descriptions?|text|claims?)/.test(clause);
+    const generatedFromPrompts =
+      /\b(generated?|generates?|generating)\b[^.!?;:]*\bfrom prompts?\b/.test(clause) ||
+      /\bprompt-generated\b/.test(clause);
+    const rejectsPromptGeneration =
+      /\b(do not|must not|never|reject(?:ed)?)\b[^.!?;:]*\b(generated?|generates?|generating|prompt-generated)\b/.test(
+        clause,
+      );
+
+    return mentionsOfficialComplianceText && generatedFromPrompts && !rejectsPromptGeneration;
+  })
+    ? ["official compliance text must come from catalog data"]
+    : [];
+}
+
+describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog data", () => {
+  it("states Git owns framework catalog data", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+
+    // When I read the compliance catalog docs
+    const complianceCatalogDocs = adrCorpus;
+
+    // Then the docs state that Git is the source of truth for framework catalogs
+    expect(someLineMentionsAll("Git", "source of truth", "framework", "catalogs")).toBe(true);
+
+    // And the docs state that official source URLs and descriptions live in catalog files
+    expect(
+      lineMentionsAll(complianceCatalogDocs, [
+        "official source URLs",
+        "descriptions",
+        "catalog files",
+      ]),
+    ).toBe(true);
+  });
+
+  it("keeps the real ADR corpus explicit about Git as source of truth", () => {
+    expect(gitSourceOfTruthFailures(adrCorpus)).toEqual([]);
+  });
+
+  it("rejects docs without Git source-of-truth language", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+    // And no compliance catalog doc states that Git is the source of truth
+    const docsWithoutGitSourceOfTruth =
+      "Framework catalogs are reviewed before rule execution consumes them.";
+
+    // When the docs acceptance check runs
+    const failures = gitSourceOfTruthFailures(docsWithoutGitSourceOfTruth);
+
+    // Then it fails
+    expect(failures).not.toEqual([]);
+    // And it reports that the Git source-of-truth decision is missing
+    expect(failures).toContain("Git source-of-truth decision is missing");
+  });
+
+  it("rejects docs that name Git but assign catalog source of truth elsewhere", () => {
+    const docsWithGitMirrorOnly = "Cloud is the source of truth for catalog data; Git mirrors it.";
+
+    const failures = gitSourceOfTruthFailures(docsWithGitMirrorOnly);
+
+    expect(failures).toContain("catalog source of truth must be Git");
+  });
+
+  it("rejects conflicting catalog source-of-truth claims even when Git is also named", () => {
+    const conflictingDocs = [
+      "Git is the source of truth for framework catalogs.",
+      "Cloud is the source of truth for catalog data.",
+    ].join("\n\n");
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("rejects natural catalog-source wording owned by Cloud", () => {
+    const conflictingDocs = [
+      "Git is the source of truth for framework catalogs.",
+      "Cloud is the catalog source of truth.",
+    ].join("\n\n");
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("rejects catalog-source noun phrases owned by Cloud", () => {
+    const conflictingDocs = [
+      "Git is the source of truth for framework catalogs.",
+      "The catalog source of truth is Cloud.",
+    ].join("\n\n");
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it.each([
+    "Cloud is the source of truth for catalog data, not Git.",
+    "Cloud is the source of truth for catalog data, not the agent.",
+  ])("rejects contrasting non-Git ownership despite unrelated negation: %s", (cloudClaim) => {
+    const conflictingDocs = ["Git is the source of truth for framework catalogs.", cloudClaim].join(
+      "\n\n",
+    );
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("rejects same-statement non-Git source claims", () => {
+    const conflictingDocs =
+      "Git is the source of truth for framework catalogs; Cloud is the source of truth for catalog data.";
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it.each([
+    "The catalog source of truth is Cloud, not Git.",
+    "The catalog source of truth is not Git.",
+  ])("rejects noun-phrase catalog source claims that negate Git: %s", (nonGitClaim) => {
+    const conflictingDocs = [
+      "Git is the source of truth for framework catalogs.",
+      nonGitClaim,
+    ].join("\n\n");
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("ignores non-Git source claims in rejected alternatives", () => {
+    const docsWithRejectedAlternative = [
+      "Git is the source of truth for framework catalogs.",
+      "## Rejected alternatives",
+      "- Cloud is the source of truth for catalog data.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(docsWithRejectedAlternative)).toEqual([]);
+  });
+
+  it("keeps nested headings inside rejected alternatives", () => {
+    const docsWithNestedRejectedAlternative = [
+      "Git is the source of truth for framework catalogs.",
+      "## Rejected alternatives",
+      "### Cloud-owned catalog",
+      "- Cloud is the source of truth for catalog data.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(docsWithNestedRejectedAlternative)).toEqual([]);
+  });
+
+  it("treats sibling headings after rejected alternatives as active", () => {
+    const docsWithActiveClaimAfterRejectedAlternatives = [
+      "Git is the source of truth for framework catalogs.",
+      "## Rejected alternatives",
+      "### Cloud-owned catalog",
+      "- Cloud is the source of truth for catalog data.",
+      "## Decision",
+      "Cloud is the source of truth for catalog data.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(docsWithActiveClaimAfterRejectedAlternatives)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it.each([
+    "Git is not the source of truth for framework catalogs.",
+    "Do not use Git as the source of truth for framework catalogs.",
+  ])("rejects active Git source-of-truth negations even when Git is affirmed: %s", (negation) => {
+    const conflictingDocs = ["Git is the source of truth for framework catalogs.", negation].join(
+      "\n\n",
+    );
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("rejects negated Git source-of-truth statements", () => {
+    const negatedGitDecision = "Do not use Git as the source of truth for framework catalogs.";
+
+    expect(gitSourceOfTruthFailures(negatedGitDecision)).toContain(
+      "Git source-of-truth decision is missing",
+    );
+  });
+
+  it("accepts wrapped Git source-of-truth decision sentences", () => {
+    const wrappedGitDecision = [
+      "The sovri-frameworks Git repository is the source of truth for framework, control, and rule",
+      "catalogs.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(wrappedGitDecision)).toEqual([]);
+  });
+
+  it("connects schema catalogs to deterministic rule execution", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+
+    // When I read the compliance catalog docs
+    const complianceCatalogDocs = adrCorpus;
+
+    // Then the docs describe the catalog data flow from framework catalogs to rules
+    expect(lineMentionsAll(complianceCatalogDocs, ["framework catalogs", "rules"])).toBe(true);
+
+    // And the docs state that rule execution uses versioned catalog data
+    expect(
+      lineMentionsAll(complianceCatalogDocs, ["rule execution", "versioned catalog data"]),
+    ).toBe(true);
+  });
+
+  it("names the catalog schema files", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+
+    // When I read the compliance catalog docs
+    const complianceCatalogDocs = adrCorpus;
+
+    // Then the docs mention "framework.yaml"
+    expect(complianceCatalogDocs).toContain("framework.yaml");
+    // And the docs mention "control.yaml"
+    expect(complianceCatalogDocs).toContain("control.yaml");
+    // And the docs mention "rule.yaml"
+    expect(complianceCatalogDocs).toContain("rule.yaml");
+    // And the docs mention "mapping.yaml"
+    expect(complianceCatalogDocs).toContain("mapping.yaml");
+  });
+
+  it("keeps the real ADR corpus free of prompt-generated official compliance text", () => {
+    expect(officialComplianceTextFailures(adrCorpus)).toEqual([]);
+  });
+
+  it("rejects prompt-generated official compliance descriptions", () => {
+    // Given the repository contains architecture docs under "sovri/docs/adr/"
+    expect(adrDocsRoot.replaceAll("\\", "/").endsWith("docs/adr")).toBe(true);
+    // And the compliance catalog docs say official compliance descriptions are generated from prompts
+    const promptGeneratedDescriptions =
+      "The official compliance descriptions are generated from prompts.";
+
+    // When the docs acceptance check runs
+    const failures = officialComplianceTextFailures(promptGeneratedDescriptions);
+
+    // Then it fails
+    expect(failures).not.toEqual([]);
+    // And it reports that official compliance text must come from catalog data
+    expect(failures).toContain("official compliance text must come from catalog data");
+  });
+
+  it("rejects prompt generation even when another clause contains unrelated negation", () => {
+    const promptGeneratedDescriptions =
+      "The official compliance descriptions are generated from prompts, not reviewed by humans.";
+
+    const failures = officialComplianceTextFailures(promptGeneratedDescriptions);
+
+    expect(failures).toContain("official compliance text must come from catalog data");
+  });
+
+  it("ignores prompt-generated official compliance descriptions in rejected alternatives", () => {
+    const rejectedPromptGeneratedDescriptions = [
+      "Official compliance descriptions live in catalog files.",
+      "## Rejected alternatives",
+      "### Prompt-generated descriptions",
+      "The official compliance descriptions are generated from prompts.",
+    ].join("\n");
+
+    expect(officialComplianceTextFailures(rejectedPromptGeneratedDescriptions)).toEqual([]);
   });
 });

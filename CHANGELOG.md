@@ -19,7 +19,157 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ## [Unreleased]
 
+### Changed
+- `compliance`: reject `framework.yaml` ids that do not match the requested
+  MAT-83 framework family.
+- `compliance`: require `framework.yaml` ids and reject conflicting embedded
+  object-reference versions in MAT-83 mappings.
+- `compliance`: surface fixture seed validation errors and strict-parse MAT-83
+  source metadata and object-form framework references.
+- `review-engine`: parse prompt-generation ADR checks through source-of-truth
+  clauses so unrelated negations do not hide active violations.
+- `review-engine`: reject active negated Git catalog source-of-truth ADR
+  statements while preserving nested rejected alternatives.
+- `review-engine`: ignore rejected-alternative catalog source-of-truth
+  anti-patterns while rejecting noun-phrase non-Git MAT-83 ownership claims.
+- `review-engine`: reject same-statement and contrasting non-Git catalog
+  source-of-truth claims in MAT-83 ADR docs.
+- `compliance`: require declared MAT-83 catalog source URLs to be HTTPS URLs.
+- `compliance`: reject malformed MAT-83 catalog source URLs that normalize to
+  HTTPS or otherwise serialize differently after parsing.
+- `compliance`: allow pathless HTTPS MAT-83 catalog source URLs while rejecting
+  unsafe parser rewrites.
+- `compliance`: reject malformed MAT-83 catalog source URL percent escapes.
+- `compliance`: reject MAT-83 catalog source URLs containing raw whitespace
+  before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw backslashes
+  before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw control
+  characters before parser normalization.
+- `compliance`: reject MAT-83 catalog source URLs containing raw C1 control
+  characters before parser normalization.
+- `review-engine`: reject negated and noun-phrase Cloud catalog
+  source-of-truth wording in MAT-83 ADR docs.
+- `review-engine`: detect `catalog source of truth` wording in MAT-83 ADR
+  ownership checks.
+- `review-engine`: reject conflicting non-Git catalog source-of-truth claims
+  in MAT-83 ADR docs.
+- `review-engine`: normalize wrapped ADR statements before checking MAT-83
+  Git source-of-truth docs.
+- `review-engine`: require Git to be the subject of MAT-83 catalog
+  source-of-truth docs.
+- `review-engine`: report missing Git source-of-truth language in MAT-83 ADR
+  docs acceptance.
+- `review-engine`: reject prompt-generated official compliance text in MAT-83
+  ADR docs acceptance.
+- `compliance`: normalize LLM-generated source description detection across
+  case and whitespace variations.
+- `compliance`: reject LLM-generated source descriptions in MAT-83 catalog
+  source metadata validation.
+- `compliance`: require `source.description` in MAT-83 catalog source
+  metadata validation.
+- `compliance`: require `framework.yaml` source metadata in MAT-83 catalog
+  schema validation.
+- `compliance`: accept `control.yaml` source metadata with official URLs in
+  MAT-83 catalog schema validation.
+- `compliance`: tie required fixture seed rules to their owning control and
+  validate attached rules with that control context during MAT-83 fixture suite
+  validation.
+- `compliance`: reject explicit file- or diff-scoped `rule.yaml` input when the
+  related `control.yaml` is project-wide.
+- `compliance`: restrict `control.yaml` applicability and `rule.yaml`
+  input-scope values to MAT-83 supported control scopes.
+- `compliance`: require explicit `rule.yaml` execution policy data while
+  preserving declared values in MAT-83 ATDD coverage.
+
+### Fixed
+- `review-engine`: make MAT-83 ADR docs coverage independent of the checkout
+  directory name.
+
 ### Added
+- `compliance`: add MAT-83 ATDD coverage for rejecting invalid and
+  parser-rewritten `framework.yaml` source URLs.
+- `compliance`: add MAT-83 ATDD coverage for valid pathless `framework.yaml`
+  source URLs.
+- `compliance`: add MAT-83 ATDD coverage for malformed `framework.yaml`
+  source URL percent escapes.
+- `compliance`: add MAT-83 ATDD coverage for `framework.yaml` source metadata
+  with an official URL.
+- `review-engine`: add MAT-83 ADR coverage for missing Git source-of-truth
+  docs.
+- `review-engine`: add MAT-83 ADR coverage for naming catalog schema YAML
+  files.
+- `compliance`: add MAT-83 ATDD coverage for project-wide controls that rely
+  on repository-level evidence.
+- `review-engine`: add MAT-83 ADR coverage for rejecting prompt-generated
+  official compliance text.
+- `review-engine`: add MAT-83 ADR coverage for catalog-to-rule execution
+  documentation.
+- `review-engine`: add MAT-83 ADR coverage for Git-owned framework catalog
+  data.
+- `compliance`: add MAT-83 ATDD coverage for rejecting LLM-generated
+  `control.yaml` source descriptions.
+- `compliance`: add MAT-83 ATDD coverage for rejecting `control.yaml` source
+  metadata without a description.
+- `compliance`: add MAT-83 ATDD coverage for rejecting `framework.yaml`
+  without source metadata.
+- `compliance`: add MAT-83 ATDD coverage for validating `control.yaml` source
+  metadata with an official URL.
+- `compliance`: add a MAT-83 framework catalog fixture for fixture suite
+  validation.
+- `compliance`: add MAT-83 fixture suite coverage for validating all catalog
+  YAML kinds.
+- `compliance`: cover successful fixture suite validation when required catalog
+  seed rules are present.
+- `compliance`: add fixture suite validation for required catalog seed rules.
+- `compliance`: add MAT-83 fixture suite coverage for reporting consent seed
+  fixtures missing their tracker detection rule.
+- `compliance`: add fixture suite validation for missing required catalog seed
+  controls.
+- `compliance`: add MAT-83 fixture suite coverage for reporting missing
+  required fixture seed controls.
+- `compliance`: add MAT-83 fixture seed validation coverage for required
+  cross-framework and consent catalog seeds.
+- `compliance`: add MAT-83 ATDD coverage for validating supported
+  `control.yaml` applicability and `rule.yaml` input scopes.
+- `compliance`: reject missing `rule.yaml` execution types with MAT-83 ATDD
+  coverage.
+- `compliance`: report type-safe exact `rule.yaml` execution type matching
+  diagnostics with MAT-83 ATDD coverage.
+- `compliance`: reject unsupported `rule.yaml` execution types with MAT-83 ATDD
+  coverage.
+- `compliance`: add MAT-83 ATDD coverage for validating supported
+  `rule.yaml` execution types.
+- `compliance`: add MAT-83 ATDD coverage for rejecting duplicate
+  `mapping.yaml` framework references.
+- `compliance`: add MAT-83 ATDD coverage for rejecting unversioned
+  `mapping.yaml` framework references.
+- `compliance`: add MAT-83 ATDD coverage for rejecting `mapping.yaml` data with
+  an empty framework reference list.
+- `compliance`: add MAT-83 ATDD coverage for validating one control mapped to
+  one or more versioned framework references.
+- `compliance`: export catalog YAML schemas and validation from the package
+  entry point.
+- `compliance`: reject parsed-empty catalog YAML documents before schema
+  validation.
+- `compliance`: add structured validation failures for unsupported catalog YAML
+  file names.
+- `compliance`: add MAT-83 ATDD coverage for reporting invalid catalog YAML
+  syntax before schema validation.
+- `compliance`: add MAT-83 validator coverage for parsed YAML success and
+  schema-error paths.
+- `compliance`: add a catalog YAML validator entry point that rejects empty YAML
+  documents before schema validation can pass.
+- `compliance`: add MAT-83 ATDD coverage for rejecting empty catalog YAML
+  documents before schema validation can pass.
+- `compliance`: add MAT-83 ATDD coverage for rejecting missing required catalog
+  schema fields.
+- `compliance`: add MAT-83 ATDD coverage for rejecting unknown top-level catalog
+  schema fields.
+- `compliance`: add initial parsed-data catalog schemas for framework, control,
+  rule, and mapping YAML files.
+- `compliance`: add MAT-83 ATDD coverage for valid framework, control, rule, and
+  mapping catalog schema data.
 - `docs`: add architecture ADRs 023-027 (MAT-82) fixing the compliance rule
   engine's boundaries — air-gap execution with offline verification, Git as the
   source of truth for framework catalogs, the Rust repository boundaries and the
@@ -128,6 +278,16 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Changed
 
+- `compliance`: reject duplicate string entries in `mapping.yaml`
+  `framework_references`.
+- `compliance`: report a version-specific validation error for unversioned
+  `mapping.yaml` framework references.
+- `compliance`: require non-empty `framework_references` lists in
+  `mapping.yaml` catalog data.
+- `compliance`: accept versioned `framework:version:reference` string entries
+  in `mapping.yaml` catalog data.
+- `compliance`: parse catalog YAML content before schema validation and return a
+  structured `invalid YAML syntax` validation failure for malformed YAML.
 - `config`: `review.mode` now exposes the single allowed value `compliance` and
   defaults to `compliance` (was `full`). The field is kept so the config surface
   stays stable and extensible, but there is exactly one review behaviour —
@@ -180,6 +340,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 
 ### Fixed
 
+- `compliance`: reject duplicate object-form, scalar/object mixed-form, and embedded
+  scalar-label `mapping.yaml` framework references.
+- `compliance`: reject catalog schema data missing the required `version`,
+  `remediation`, `expected_evidence`, or `control_id` fields.
+- `compliance`: reject unknown top-level fields in framework, control, rule, and
+  mapping catalog schemas.
 - `review-engine`: reject rendered Finding output whose `cwe`, `control_id`, or
   `reference_labels` have the wrong type so a stringified `reference_labels` no
   longer slips through the runtime guard.
