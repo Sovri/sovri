@@ -20,6 +20,12 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `review-engine`: reject active negated Git catalog source-of-truth ADR
+  statements while preserving nested rejected alternatives.
+- `review-engine`: ignore rejected-alternative catalog source-of-truth
+  anti-patterns while rejecting noun-phrase non-Git MAT-83 ownership claims.
+- `review-engine`: reject same-statement and contrasting non-Git catalog
+  source-of-truth claims in MAT-83 ADR docs.
 - `compliance`: require declared MAT-83 catalog source URLs to be HTTPS URLs.
 - `compliance`: reject malformed MAT-83 catalog source URLs that normalize to
   HTTPS or otherwise serialize differently after parsing.
@@ -34,6 +40,18 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   characters before parser normalization.
 - `compliance`: reject MAT-83 catalog source URLs containing raw C1 control
   characters before parser normalization.
+- `review-engine`: reject negated and noun-phrase Cloud catalog
+  source-of-truth wording in MAT-83 ADR docs.
+- `review-engine`: detect `catalog source of truth` wording in MAT-83 ADR
+  ownership checks.
+- `review-engine`: reject conflicting non-Git catalog source-of-truth claims
+  in MAT-83 ADR docs.
+- `review-engine`: normalize wrapped ADR statements before checking MAT-83
+  Git source-of-truth docs.
+- `review-engine`: require Git to be the subject of MAT-83 catalog
+  source-of-truth docs.
+- `review-engine`: report missing Git source-of-truth language in MAT-83 ADR
+  docs acceptance.
 - `review-engine`: reject prompt-generated official compliance text in MAT-83
   ADR docs acceptance.
 - `compliance`: normalize LLM-generated source description detection across
@@ -69,6 +87,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
   source URL percent escapes.
 - `compliance`: add MAT-83 ATDD coverage for `framework.yaml` source metadata
   with an official URL.
+- `review-engine`: add MAT-83 ADR coverage for missing Git source-of-truth
+  docs.
 - `review-engine`: add MAT-83 ADR coverage for naming catalog schema YAML
   files.
 - `compliance`: add MAT-83 ATDD coverage for project-wide controls that rely
