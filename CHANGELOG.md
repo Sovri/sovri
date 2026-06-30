@@ -20,6 +20,8 @@ The proprietary Cloud edition (`apps/cloud-api/`) has its own internal changelog
 ## [Unreleased]
 
 ### Changed
+- `review-engine`: ignore rejected-alternative catalog source-of-truth
+  anti-patterns while rejecting noun-phrase non-Git MAT-83 ownership claims.
 - `review-engine`: reject same-statement and contrasting non-Git catalog
   source-of-truth claims in MAT-83 ADR docs.
 - `compliance`: require declared MAT-83 catalog source URLs to be HTTPS URLs.

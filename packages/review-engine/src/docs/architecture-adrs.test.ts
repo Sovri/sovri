@@ -20,6 +20,11 @@ type AdrFile = {
   readonly text: string;
 };
 
+type SourceOfTruthClause = {
+  readonly text: string;
+  readonly isRejectedAlternative: boolean;
+};
+
 function findAdrDocsRoot(startDir: string): string {
   let currentDir = startDir;
 
@@ -83,18 +88,63 @@ function normalizedLines(docs: string): readonly string[] {
     .filter((line) => line.length > 0);
 }
 
-function normalizedStatements(docs: string): readonly string[] {
-  return docs
-    .split(/\r?\n\s*\r?\n/)
-    .flatMap((block) => normalize(block).split(/(?<=[.!?])\s+/))
-    .filter((statement) => statement.length > 0);
-}
+function sourceOfTruthClauses(docs: string): readonly SourceOfTruthClause[] {
+  const clauses: SourceOfTruthClause[] = [];
+  let inRejectedAlternatives = false;
+  let currentBlockLines: string[] = [];
+  let currentBlockIsRejectedAlternative = false;
 
-function sourceOfTruthClauses(docs: string): readonly string[] {
-  return normalizedStatements(docs)
-    .flatMap((statement) => statement.split(";"))
-    .map((clause) => clause.trim())
-    .filter((clause) => clause.length > 0);
+  function flushCurrentBlock(): void {
+    if (currentBlockLines.length === 0) {
+      return;
+    }
+
+    const normalizedBlock = normalize(currentBlockLines.join("\n")).trim();
+    const isRejectedAlternative = currentBlockIsRejectedAlternative;
+    currentBlockLines = [];
+
+    if (normalizedBlock.length === 0) {
+      return;
+    }
+
+    for (const statement of normalizedBlock.split(/(?<=[.!?])\s+/)) {
+      for (const clause of statement.split(";")) {
+        const text = clause.trim();
+        if (text.length > 0) {
+          clauses.push({ text, isRejectedAlternative });
+        }
+      }
+    }
+  }
+
+  for (const rawLine of docs.split(/\r?\n/)) {
+    const line = normalize(rawLine).trim();
+
+    if (line.length === 0) {
+      flushCurrentBlock();
+      continue;
+    }
+
+    if (/^#+ rejected alternatives\b/.test(line)) {
+      flushCurrentBlock();
+      inRejectedAlternatives = true;
+      continue;
+    }
+
+    if (/^#+ /.test(line)) {
+      flushCurrentBlock();
+      inRejectedAlternatives = false;
+      continue;
+    }
+
+    if (currentBlockLines.length === 0) {
+      currentBlockIsRejectedAlternative = inRejectedAlternatives;
+    }
+    currentBlockLines.push(rawLine);
+  }
+
+  flushCurrentBlock();
+  return clauses;
 }
 
 function describesInOrder(docs: string, stages: readonly string[]): boolean {
@@ -680,25 +730,29 @@ function isNegatedOrRejected(statement: string): boolean {
 }
 
 function gitSourceOfTruthFailures(docs: string): string[] {
-  const statements = sourceOfTruthClauses(docs);
+  const activeStatements = sourceOfTruthClauses(docs)
+    .filter((clause) => !clause.isRejectedAlternative)
+    .map((clause) => clause.text);
   const gitSourceOfTruthPattern =
     /(\bgit( repository)?\b\s+(is|as|remains|stays)\s+((the )?source of truth\b[^.!?;:]*\bcatalog(s| data)?\b|(the )?catalog(s| data)? source of truth\b)|\bcatalog(s| data)? source of truth\b[^.!?;:]*\b(is|as|remains|stays)\b[^.!?;:]*\bgit\b)/;
   const catalogSourceOfTruthPattern =
     /(\b(is|as|remains|stays)\s+((the )?source of truth\b[^.!?;:]*\bcatalog(s| data)?\b|(the )?catalog(s| data)? source of truth\b)|\bcatalog(s| data)? source of truth\b[^.!?;:]*\b(is|as|remains|stays)\b)/;
+  const isAffirmativeGitSourceOfTruth = (statement: string): boolean =>
+    gitSourceOfTruthPattern.test(statement) &&
+    !/\bnot\s+git\b/.test(statement) &&
+    !isNegatedOrRejected(statement);
 
-  const conflictingSourceOfTruth = statements.some(
+  const conflictingSourceOfTruth = activeStatements.some(
     (statement) =>
       catalogSourceOfTruthPattern.test(statement) &&
-      !gitSourceOfTruthPattern.test(statement) &&
+      !isAffirmativeGitSourceOfTruth(statement) &&
       !isNegatedOrRejected(statement),
   );
   if (conflictingSourceOfTruth) {
     return ["catalog source of truth must be Git"];
   }
 
-  const statesGitAsSourceOfTruth = statements.some(
-    (statement) => gitSourceOfTruthPattern.test(statement) && !isNegatedOrRejected(statement),
-  );
+  const statesGitAsSourceOfTruth = activeStatements.some(isAffirmativeGitSourceOfTruth);
 
   if (statesGitAsSourceOfTruth) {
     return [];
@@ -842,6 +896,30 @@ describe("MAT-83 R-07 — compliance catalog docs identify Git-owned catalog dat
     expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
       "catalog source of truth must be Git",
     );
+  });
+
+  it.each([
+    "The catalog source of truth is Cloud, not Git.",
+    "The catalog source of truth is not Git.",
+  ])("rejects noun-phrase catalog source claims that negate Git: %s", (nonGitClaim) => {
+    const conflictingDocs = [
+      "Git is the source of truth for framework catalogs.",
+      nonGitClaim,
+    ].join("\n\n");
+
+    expect(gitSourceOfTruthFailures(conflictingDocs)).toContain(
+      "catalog source of truth must be Git",
+    );
+  });
+
+  it("ignores non-Git source claims in rejected alternatives", () => {
+    const docsWithRejectedAlternative = [
+      "Git is the source of truth for framework catalogs.",
+      "## Rejected alternatives",
+      "- Cloud is the source of truth for catalog data.",
+    ].join("\n");
+
+    expect(gitSourceOfTruthFailures(docsWithRejectedAlternative)).toEqual([]);
   });
 
   it("rejects negated Git source-of-truth statements", () => {
