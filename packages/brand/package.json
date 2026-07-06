@@ -41,7 +41,7 @@
     "@sovri/core": "workspace:*",
     "@types/node": "24.13.2",
     "tsup": "8.5.1",
-    "vitest": "4.1.8"
+    "vitest": "4.1.9"
   },
   "engines": {
     "node": ">=24.17.0 <25.0.0",
