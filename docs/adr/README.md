@@ -48,6 +48,7 @@ An ADR is not user documentation. It is a log of technical choices intended for 
 | [028](./028-framework-catalog-source-metadata.md)          | Framework catalog source metadata                                | Accepted | 2026-06-29 |
 | [029](./029-versioned-catalog-data-for-rule-execution.md)  | Versioned catalog data for rule execution                        | Accepted | 2026-06-29 |
 | [030](./030-framework-catalog-file-layout.md)              | Framework catalog file layout                                    | Accepted | 2026-06-30 |
+| [031](./031-ed25519-dalek-agent-signing.md)                | ed25519-dalek for agent-side compliance-export signing           | Accepted | 2026-07-08 |
 
 ## Possible statuses
 
